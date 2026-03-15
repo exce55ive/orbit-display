@@ -166,6 +166,12 @@
       window.orbit.loadConfig().then(saved => {
         if (saved) {
           config = deepMerge(DEFAULTS, saved);
+          // Re-sync pagesState from the loaded config so reconfigure shows existing pages
+          if (saved.pages && saved.pages.length > 0) {
+            pagesState = JSON.parse(JSON.stringify(config.pages));
+            pageCounter = pagesState.length;
+            selectedPageIndex = 0;
+          }
           render(); // re-render with loaded data
         }
       }).catch(() => {});
