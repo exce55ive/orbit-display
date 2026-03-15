@@ -913,18 +913,30 @@
       const jCfg = config?.integrations?.jellyfin;
       const configured = jCfg?.url && jCfg?.apiKey;
       const [sessions, setSessions] = useState([]);
+      const jfTimerRef = useRef(null);
       useEffect(() => {
         if (!configured) return;
+        let active = true;
         async function poll() {
           try {
             const r = await window.orbit.apiGet(
               jCfg.url+'/Sessions?ActiveWithinSeconds=300',
               {'X-MediaBrowser-Token': jCfg.apiKey, 'Authorization': 'MediaBrowser Token="'+jCfg.apiKey+'"'}
             );
-            if (Array.isArray(r)) setSessions(r.filter(s => s.NowPlayingItem));
-          } catch {}
+            if (!active) return;
+            const active_sessions = Array.isArray(r) ? r.filter(s => s.NowPlayingItem) : [];
+            setSessions(active_sessions);
+            // Faster when someone is streaming
+            const next = active_sessions.length > 0 ? 5000 : 20000;
+            if (jfTimerRef.current) clearTimeout(jfTimerRef.current);
+            jfTimerRef.current = setTimeout(poll, next);
+          } catch {
+            if (jfTimerRef.current) clearTimeout(jfTimerRef.current);
+            jfTimerRef.current = setTimeout(poll, 15000);
+          }
         }
-        poll(); const t = setInterval(poll, 10000); return () => clearInterval(t);
+        poll();
+        return () => { active = false; if (jfTimerRef.current) clearTimeout(jfTimerRef.current); };
       }, [configured, jCfg?.url, jCfg?.apiKey]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
@@ -1534,8 +1546,11 @@
       const configured = nCfg?.url && nCfg?.username;
       const [status, setStatus] = useState(null);
       const [groups, setGroups] = useState([]);
+      const intervalRef = useRef(null);
+
       useEffect(() => {
         if (!configured) return;
+        let active = true;
         async function poll() {
           try {
             const auth = btoa(nCfg.username+':'+(nCfg.password||''));
@@ -1543,11 +1558,22 @@
               window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'status',id:1}]), {Authorization:'Basic '+auth}),
               window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'listgroups',id:2}]), {Authorization:'Basic '+auth})
             ]);
-            if (Array.isArray(s) && s[0]?.result) setStatus(s[0].result);
-            if (Array.isArray(g) && Array.isArray(g[0]?.result)) setGroups(g[0].result.slice(0,4));
-          } catch {}
+            if (!active) return;
+            const st = Array.isArray(s) && s[0]?.result ? s[0].result : null;
+            const gr = Array.isArray(g) && Array.isArray(g[0]?.result) ? g[0].result.slice(0,6) : [];
+            if (st) setStatus(st);
+            setGroups(gr);
+            // Adaptive polling: 1.5s when actively downloading, 8s when idle
+            const nextInterval = (st && st.DownloadRate > 0 && !st.DownloadPaused) ? 1500 : 8000;
+            if (intervalRef.current) clearTimeout(intervalRef.current);
+            intervalRef.current = setTimeout(poll, nextInterval);
+          } catch {
+            if (intervalRef.current) clearTimeout(intervalRef.current);
+            intervalRef.current = setTimeout(poll, 10000);
+          }
         }
-        poll(); const t = setInterval(poll, 10000); return () => clearInterval(t);
+        poll();
+        return () => { active = false; if (intervalRef.current) clearTimeout(intervalRef.current); };
       }, [nCfg?.url, nCfg?.username]);
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'NZBGET ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
