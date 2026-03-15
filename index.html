@@ -25,7 +25,7 @@
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
-    .panel { height: 100vh; padding: 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .panel { height: 100vh; padding: 20px 16px 60px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
     .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
     .source-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 10px; background: rgba(0,217,255,0.1); color: var(--accent); border: 1px solid rgba(0,217,255,0.2); text-transform: uppercase; }
@@ -87,7 +87,7 @@
     .np-empty-text { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
     .np-offline { color: var(--amber); font-size: 13px; letter-spacing: 1px; }
     .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 110px); padding: 0 2px; }
-    .panel-top { justify-content: flex-start !important; padding-top: 48px !important; align-items: stretch !important; }
+    .panel-top { justify-content: flex-start !important; padding-top: 48px !important; padding-bottom: 60px !important; align-items: stretch !important; }
     .np-session-list::-webkit-scrollbar { width: 3px; }
     .np-session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .np-session { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; text-align: left; }
@@ -158,7 +158,7 @@
     .jf-title { font-size: 13px; font-weight: 700; color: var(--text-bright); }
     .jf-user { font-size: 10px; color: var(--dim); }
     /* nav arrows removed — swipe + keyboard only */
-    .page-dots { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 50; pointer-events: auto; }
+    .page-dots { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 50; pointer-events: auto; background: rgba(0,0,0,0.35); padding: 8px 14px; border-radius: 20px; backdrop-filter: blur(4px); }
     .page-dots-row { display: flex; gap: 12px; align-items: center; }
     .page-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.2s; cursor: pointer; border: none; padding: 0; display: block; }
     .page-dot:hover { background: rgba(255,255,255,0.45); }
@@ -1439,9 +1439,9 @@
 
       return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
-        h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
-          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'26px',fontWeight:'700',color:'var(--accent)'}}, seriesCount??'…')),
-          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'26px',fontWeight:'700'}}, queue.length))
+        h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'700',color:'var(--accent)'}}, seriesCount??'…')),
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'700'}}, queue.length))
         ),
         // Active downloads
         queue.length > 0 && h('div',{style:{marginBottom:'12px'}},
@@ -1567,9 +1567,9 @@
       return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
         // Stats
-        h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
-          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'26px',fontWeight:'700',color:'var(--accent)'}}, movieCount??'…')),
-          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'26px',fontWeight:'700'}}, queue.length))
+        h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'700',color:'var(--accent)'}}, movieCount??'…')),
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'700'}}, queue.length))
         ),
         // Active downloads
         queue.length > 0 && h('div',{style:{marginBottom:'12px'}},
@@ -1662,7 +1662,7 @@
       const statusColor = {1:'#ffb86c',2:'var(--accent)',3:'#ff5555',4:'#8be9fd',5:'#50fa7b'};
       return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'OVERSEERR ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
-        counts && h('div',{style:{display:'flex',gap:'16px',marginBottom:'16px',flexWrap:'wrap'}},
+        counts && h('div',{style:{display:'flex',gap:'20px',marginBottom:'18px',flexWrap:'wrap',justifyContent:'center',width:'100%'}},
           [['TOTAL',counts.total,'var(--text)'],['PENDING',counts.pending,'#ffb86c'],['PROCESSING',counts.processing,'var(--accent)'],['AVAILABLE',counts.available,'#50fa7b']]
             .map(([l,v,c])=>h('div',{key:l},
               h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'3px',letterSpacing:'1px'}},l),
