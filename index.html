@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Orbit — The ambient display that revolves around you.</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <meta name="description" content="Orbit turns your USB‑C second screen into a living, touch‑ready dashboard: Plex, lights, system stats, clock, weather. Windows‑first, ~$15 one‑time." />
+  <style>
+    :root {
+      --bg: #060a10;
+      --cyan: #00d9ff;
+      --green: #00ff9d;
+      --amber: #ffc857;
+      --border: #1a2a3a;
+      --muted: #0f1720;
+      --glass: rgba(255,255,255,0.03);
+      --glass-strong: rgba(255,255,255,0.06);
+      color-scheme: dark;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: #d7f7ff; }
+
+    /* scanline overlay */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      mix-blend-mode: overlay;
+      background-image: repeating-linear-gradient(
+        180deg,
+        rgba(0,0,0,0) 0 1px,
+        rgba(255,255,255,0.012) 1px 2px
+      );
+      opacity: 0.1;
+      z-index: 2;
+    }
+
+    /* boot overlay */
+    #boot {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(180deg, #000a0f 0%, #03050a 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.4s ease;
+    }
+    #boot .panel {
+      border: 1px solid var(--border);
+      padding: 32px 40px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.65);
+      min-width: 280px;
+    }
+    #boot pre {
+      margin: 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      line-height: 2;
+      color: var(--cyan);
+    }
+    #boot .ready { color: var(--green); }
+
+    /* layout */
+    .wrap {
+      max-width: 1100px;
+      margin: 40px auto;
+      padding: 36px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.005));
+      box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+      position: relative;
+      z-index: 3;
+      border-radius: 10px;
+    }
+
+    /* nav / wordmark */
+    .wordmark {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-bottom: 40px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .wordmark::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* hero */
+    .hero {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 32px;
+      align-items: flex-start;
+      margin-bottom: 48px;
+    }
+    .hero-copy { flex: 1; min-width: 260px; }
+    .hero-copy h1 {
+      font-size: 38px;
+      font-weight: 700;
+      margin: 0 0 4px;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+    }
+    .hero-copy .tagline {
+      color: var(--green);
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 18px;
+    }
+    .hero-copy .lead {
+      color: #9feeff;
+      font-size: 14px;
+      line-height: 1.7;
+      margin: 0 0 24px;
+    }
+    .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-block;
+      padding: 11px 20px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn.primary {
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      color: #001a14;
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 4px 18px rgba(0,217,255,0.12);
+    }
+    .btn.ghost {
+      background: transparent;
+      color: #9feeff;
+      border: 1px solid var(--border);
+    }
+
+    .hero-meta {
+      width: 300px;
+      min-width: 220px;
+      background: var(--glass-strong);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px;
+      font-size: 13px;
+    }
+    .hero-meta .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(0,217,255,0.08);
+      border: 1px solid rgba(0,217,255,0.15);
+      color: var(--cyan);
+      font-size: 11px;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+    }
+    .hero-meta dl { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+    .hero-meta dt { color: var(--cyan); font-weight: 700; display: inline; }
+    .hero-meta dd { margin: 0; color: #bfeeff; display: inline; }
+
+    /* section labels */
+    .section-label {
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin: 0 0 14px;
+      opacity: 0.7;
+    }
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin: 0 0 16px;
+      color: #d7f7ff;
+    }
+    section { margin-bottom: 48px; }
+
+    /* feature cards */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--amber);
+    }
+    .card p {
+      margin: 0;
+      font-size: 13px;
+      color: #bfeeff;
+      line-height: 1.6;
+    }
+
+    /* integrations */
+    .int-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .int-tile {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .int-tile.coming { opacity: 0.55; }
+    .int-tile .icon { font-size: 18px; flex-shrink: 0; }
+    .int-tile .name { color: #bfeeff; flex: 1; }
+    .int-tile .tag-coming {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--amber);
+      border: 1px solid rgba(255,200,87,0.3);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    /* screenshots */
+    .shots {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+    .shot {
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      height: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,217,255,0.01));
+      position: relative;
+      padding: 24px;
+      text-align: center;
+    }
+    .shot .shot-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--amber);
+    }
+    .shot .shot-cta {
+      font-size: 15px;
+      color: var(--cyan);
+    }
+    .shot .shot-hint {
+      font-size: 11px;
+      color: #7fb3c9;
+      opacity: 0.6;
+      margin-top: 6px;
+    }
+    .shot .corner-badge {
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      font-size: 11px;
+      color: var(--cyan);
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(0,217,255,0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    /* pricing */
+    .pricing-block {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 28px;
+      background: linear-gradient(135deg, rgba(0,255,157,0.025), rgba(0,217,255,0.015));
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pricing-left .price {
+      font-size: 42px;
+      font-weight: 700;
+      color: var(--green);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+    .pricing-left .price-note {
+      font-size: 13px;
+      color: #9feeff;
+    }
+    .pricing-what {
+      flex: 1;
+      min-width: 200px;
+    }
+    .pricing-what ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: #bfeeff;
+    }
+    .pricing-what ul li::before {
+      content: "✓ ";
+      color: var(--green);
+    }
+    .pricing-ctas {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    /* footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: #7fb3c9;
+    }
+    footer a { color: var(--cyan); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* responsive */
+    @media (max-width: 680px) {
+      .wrap { margin: 16px; padding: 20px; }
+      .hero-copy h1 { font-size: 26px; }
+      .hero-meta { width: 100%; }
+      .shot { height: 220px; }
+      .pricing-ctas { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Boot animation -->
+  <div id="boot" aria-hidden="false">
+    <div class="panel" role="status">
+      <pre id="boot-out"></pre>
+    </div>
+  </div>
+
+  <main class="wrap" role="main">
+
+    <!-- Wordmark -->
+    <div class="wordmark">ORBIT</div>
+
+    <!-- Hero -->
+    <section class="hero" aria-label="Hero">
+      <div class="hero-copy">
+        <h1>Orbit</h1>
+        <p class="tagline">The ambient display that revolves around you.</p>
+        <p class="lead">
+          Stop letting your second screen sit idle. Orbit turns any USB‑C monitor into a living, touch‑ready dashboard —
+          what's playing on Plex, your room lighting, system vitals, weather at a glance.
+          No cloud accounts. No subscriptions. Just your stack, always on.
+        </p>
+        <div class="ctas">
+          <a class="btn primary" href="#download">Download for Windows</a>
+          <a class="btn ghost" href="#github">View on GitHub</a>
+        </div>
+      </div>
+
+      <aside class="hero-meta">
+        <div class="badge">WINDOWS‑FIRST</div>
+        <dl>
+          <div><dt>Price: </dt><dd>~$15 one‑time (GitHub Releases + Gumroad)</dd></div>
+          <div style="margin-top:8px"><dt>Display: </dt><dd>Corsair Xeneon 14″ and other USB‑C secondary monitors</dd></div>
+          <div style="margin-top:8px"><dt>Privacy: </dt><dd>Local APIs only — nothing leaves your network</dd></div>
+          <div style="margin-top:8px"><dt>Built for: </dt><dd>Homelabbers, desk enthusiasts, PC builders</dd></div>
+        </dl>
+      </aside>
+    </section>
+
+    <!-- Features -->
+    <section aria-label="Feature highlights">
+      <div class="section-label">Features</div>
+      <div class="features">
+        <div class="card">
+          <h3>Always alive</h3>
+          <p>Not a static wallpaper. Orbit breathes with your activity — now playing, live stats, ambient motion when idle. Your screen earns its place.</p>
+        </div>
+        <div class="card">
+          <h3>Your stack, your rules</h3>
+          <p>Point Orbit at Tautulli, Home Assistant, or SignalRGB. Local APIs only — no accounts, no cloud, no phone-home. You control the data.</p>
+        </div>
+        <div class="card">
+          <h3>Any display</h3>
+          <p>Built for the Corsair Xeneon 14″. Runs on any USB‑C secondary monitor. Auto‑detects non‑primary screens so setup is one click.</p>
+        </div>
+        <div class="card">
+          <h3>Touch‑ready</h3>
+          <p>Designed for touch panels. Tap to switch effects, scrub brightness, or see what's queued next — fast, low‑latency, and satisfying.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Integrations -->
+    <section aria-label="Integrations">
+      <div class="section-label">Integrations</div>
+      <h2>Works with your setup</h2>
+      <div class="int-grid" role="list">
+        <div class="int-tile" role="listitem">
+          <span class="icon">🎬</span>
+          <span class="name">Plex via Tautulli</span>
+        </div>
+        <div class="int-tile" role="listitem">
+          <span class="icon">🎛️</span>
+          <span class="name">SignalRGB (local API)</span>
+        </div>
+        <div class="int-tile" role="listitem">
+          <span class="icon">🏠</span>
+          <span class="name">Home Assistant lights</span>
+        </div>
+        <div class="int-tile" role="listitem">
+          <span class="icon">💻</span>
+          <span class="name">System stats (CPU / GPU / RAM / Net)</span>
+        </div>
+        <div class="int-tile" role="listitem">
+          <span class="icon">☁️</span>
+          <span class="name">Weather (no API key)</span>
+        </div>
+        <div class="int-tile" role="listitem">
+          <span class="icon">🕒</span>
+          <span class="name">Clock</span>
+        </div>
+        <div class="int-tile coming" role="listitem">
+          <span class="icon">🎧</span>
+          <span class="name">Spotify</span>
+          <span class="tag-coming">SOON</span>
+        </div>
+        <div class="int-tile coming" role="listitem">
+          <span class="icon">▶️</span>
+          <span class="name">YouTube Music</span>
+          <span class="tag-coming">SOON</span>
+        </div>
+        <div class="int-tile coming" role="listitem">
+          <span class="icon">📋</span>
+          <span class="name">Overseerr</span>
+          <span class="tag-coming">SOON</span>
+        </div>
+        <div class="int-tile coming" role="listitem">
+          <span class="icon">🔁</span>
+          <span class="name">Sonarr / Radarr</span>
+          <span class="tag-coming">SOON</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Screenshots -->
+    <section aria-label="Screenshots">
+      <div class="section-label">In action</div>
+      <h2>See it in action →</h2>
+      <div class="shots">
+        <div class="shot">
+          <div class="shot-label">Now Playing</div>
+          <div class="shot-cta">Screenshot coming soon</div>
+          <div class="shot-hint">Replace with /assets/screenshots/now-playing.png</div>
+          <div class="corner-badge">Plex · Tautulli</div>
+        </div>
+        <div class="shot">
+          <div class="shot-label">System Dashboard</div>
+          <div class="shot-cta">Screenshot coming soon</div>
+          <div class="shot-hint">Replace with /assets/screenshots/system-stats.png</div>
+          <div class="corner-badge">CPU · GPU · RAM</div>
+        </div>
+        <div class="shot">
+          <div class="shot-label">Lighting Control</div>
+          <div class="shot-cta">Screenshot coming soon</div>
+          <div class="shot-hint">Replace with /assets/screenshots/lighting.png</div>
+          <div class="corner-badge">Home Assistant · SignalRGB</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section aria-label="Pricing" id="pricing">
+      <div class="section-label">Pricing</div>
+      <div class="pricing-block">
+        <div class="pricing-left">
+          <div class="price">$15</div>
+          <div class="price-note">One‑time. Yours forever.</div>
+        </div>
+        <div class="pricing-what">
+          <ul>
+            <li>Windows installer via GitHub Releases or Gumroad</li>
+            <li>All current integrations included</li>
+            <li>Free updates for the foreseeable future</li>
+            <li>Local-first — no subscription, no account</li>
+            <li>Source available on GitHub</li>
+          </ul>
+        </div>
+        <div class="pricing-ctas">
+          <a class="btn primary" href="#download">Buy &amp; Download — $15</a>
+          <a class="btn ghost" href="#github">Browse source on GitHub</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div>
+        <a href="#github">GitHub</a> &nbsp;·&nbsp;
+        <a href="mailto:hello@scumcentral.xyz">hello@scumcentral.xyz</a>
+      </div>
+      <div>© ScumCentral 2026</div>
+    </footer>
+
+  </main>
+
+  <script>
+    // Boot animation
+    (function () {
+      const boot = document.getElementById('boot');
+      const out  = document.getElementById('boot-out');
+      const lines = ['> ORBIT', '> LOADING...', '> READY'];
+      const delays = [0, 600, 1300];
+      const colors = ['var(--cyan)', 'var(--cyan)', 'var(--green)'];
+      let rendered = '';
+
+      delays.forEach((delay, i) => {
+        setTimeout(() => {
+          rendered += (rendered ? '\n' : '') + lines[i];
+          out.innerHTML = rendered.split('\n').map((l, idx) =>
+            `<span style="color:${colors[idx]}">${l}</span>`
+          ).join('\n');
+
+          if (i === lines.length - 1) {
+            setTimeout(() => {
+              boot.style.opacity = '0';
+              boot.style.pointerEvents = 'none';
+              boot.setAttribute('aria-hidden', 'true');
+              setTimeout(() => boot.remove(), 450);
+            }, 700);
+          }
+        }, 200 + delay);
+      });
+    })();
+  </script>
+
+</body>
+</html>
