@@ -48,9 +48,15 @@
     .field-input:focus { border-color: var(--accent); }
     .field-hint { font-size: 10px; color: var(--dim); margin-top: 4px; }
 
-    .integration-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-    .integration-title { font-size: 13px; font-weight: 700; color: var(--text-bright); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .integration-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; transition: border-color .2s; }
+    .integration-card.enabled { border-color: rgba(0,217,255,0.3); }
+    .integration-title { font-size: 13px; font-weight: 700; color: var(--text-bright); margin-bottom: 0; display: flex; align-items: center; gap: 8px; }
     .integration-title .emoji { font-size: 18px; }
+    .integration-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .integration-toggle input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .integration-fields { margin-top: 14px; display: none; }
+    .integration-fields.visible { display: block; }
+    .integration-hint { font-size: 10px; color: var(--amber); margin-top: 4px; font-style: italic; }
 
     .complete-content { text-align: center; max-width: 520px; margin: 0 auto; padding: 40px 0; }
     .complete-icon { font-size: 64px; margin-bottom: 16px; }
@@ -129,11 +135,12 @@
         {type:'nowplaying',col:4,width:1},{type:'system',col:5,width:1},{type:'links',col:6,width:1}
       ]}],
       integrations: {
-        weather:{city:'Perth'}, tautulli:{url:'',apiKey:''}, plex:{url:'',token:''},
-        homeassistant:{url:'',token:'',lights:[],signalrgbEntity:''},
-        sonarr:{url:'',apiKey:''}, radarr:{url:'',apiKey:''}, overseerr:{url:'',apiKey:''},
-        nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',apiKey:''},
-        spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''}
+        weather:{enabled:false, city:'Perth'}, tautulli:{enabled:false, url:'',apiKey:''}, plex:{enabled:false, url:'',token:''},
+        homeassistant:{enabled:false, url:'',token:'',lights:[],signalrgbEntity:''},
+        signalrgb:{enabled:false, url:'http://localhost:16034'},
+        sonarr:{enabled:false, url:'',apiKey:''}, radarr:{enabled:false, url:'',apiKey:''}, overseerr:{enabled:false, url:'',apiKey:''},
+        nzbget:{enabled:false, url:'',username:'',password:''}, uptimekuma:{enabled:false, url:'',apiKey:''},
+        spotify:{enabled:false, clientId:'',clientSecret:''}, jellyfin:{enabled:false, url:'',apiKey:''}
       },
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
@@ -159,6 +166,23 @@
     let pagesState = JSON.parse(JSON.stringify(config.pages));
     let selectedPageIndex = 0;
     let pageCounter = pagesState.length; // for generating new page IDs
+
+    function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function integrationCard(id, title, emoji, fieldsHtml) {
+      const enabled = config.integrations[id]?.enabled;
+      return `
+        <div class="integration-card${enabled ? ' enabled' : ''}" id="card-${id}">
+          <label class="integration-toggle">
+            <input type="checkbox" data-integration="${id}"${enabled ? ' checked' : ''}>
+            <div class="integration-title"><span class="emoji">${emoji}</span> ${title}</div>
+          </label>
+          <div class="integration-fields${enabled ? ' visible' : ''}" id="${id}-fields">
+            ${fieldsHtml}
+          </div>
+        </div>
+      `;
+    }
 
     function renderProgress() {
       const el = document.getElementById('progress');
@@ -191,48 +215,56 @@
       } else if (currentStep === 1) {
         container.innerHTML = `
           <div class="step visible">
+            <div style="font-size:13px;color:var(--dim);margin-bottom:16px;text-align:center;letter-spacing:1px;">Enable the integrations you use. You can always change these later in Settings.</div>
             <div class="two-col">
-              <div class="integration-card">
-                <div class="integration-title"><span class="emoji">🏠</span> Home Assistant</div>
-                <div class="field-group">
-                  <div class="field-label">URL</div>
-                  <input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${config.integrations.homeassistant.url}">
-                </div>
-                <div class="field-group">
-                  <div class="field-label">Long-Lived Access Token</div>
-                  <input class="field-input" id="ha-token" placeholder="Your HA token" value="${config.integrations.homeassistant.token}">
-                </div>
-              </div>
-              <div class="integration-card">
-                <div class="integration-title"><span class="emoji">🎬</span> Tautulli</div>
-                <div class="field-group">
-                  <div class="field-label">URL</div>
-                  <input class="field-input" id="tau-url" placeholder="http://192.168.1.x:8181" value="${config.integrations.tautulli.url}">
-                </div>
-                <div class="field-group">
-                  <div class="field-label">API Key</div>
-                  <input class="field-input" id="tau-key" value="${config.integrations.tautulli.apiKey}">
-                </div>
-              </div>
-              <div class="integration-card">
-                <div class="integration-title"><span class="emoji">▶️</span> Plex</div>
-                <div class="field-group">
-                  <div class="field-label">Server URL</div>
-                  <input class="field-input" id="plex-url" placeholder="http://192.168.1.x:32400" value="${config.integrations.plex.url}">
-                </div>
-                <div class="field-group">
-                  <div class="field-label">Plex Token</div>
-                  <input class="field-input" id="plex-token" value="${config.integrations.plex.token}">
-                </div>
-              </div>
-              <div class="integration-card">
-                <div class="integration-title"><span class="emoji">🌤️</span> Weather</div>
-                <div class="field-group">
-                  <div class="field-label">City</div>
-                  <input class="field-input" id="weather-city" placeholder="Perth" value="${config.integrations.weather.city}">
-                  <div class="field-hint">Used for weather display on the clock panel</div>
-                </div>
-              </div>
+              ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}"></div>
+                <div class="field-group"><div class="field-label">Long-Lived Access Token</div><input class="field-input" id="ha-token" placeholder="Your HA token" value="${esc(config.integrations.homeassistant.token)}"></div>
+              `)}
+              ${integrationCard('tautulli', 'Tautulli', '🎬', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="tau-url" placeholder="http://192.168.1.x:8181" value="${esc(config.integrations.tautulli.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="tau-key" value="${esc(config.integrations.tautulli.apiKey)}"></div>
+              `)}
+              ${integrationCard('plex', 'Plex', '▶️', `
+                <div class="field-group"><div class="field-label">Server URL</div><input class="field-input" id="plex-url" placeholder="http://192.168.1.x:32400" value="${esc(config.integrations.plex.url)}"></div>
+                <div class="field-group"><div class="field-label">Plex Token</div><input class="field-input" id="plex-token" value="${esc(config.integrations.plex.token)}"></div>
+              `)}
+              ${integrationCard('weather', 'Weather', '🌤️', `
+                <div class="field-group"><div class="field-label">City</div><input class="field-input" id="weather-city" placeholder="Perth" value="${esc(config.integrations.weather.city)}"><div class="field-hint">Used for weather display on the clock panel</div></div>
+              `)}
+              ${integrationCard('signalrgb', 'SignalRGB', '🎮', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="signalrgb-url" placeholder="http://localhost:16034" value="${esc(config.integrations.signalrgb.url)}"></div>
+              `)}
+              ${integrationCard('sonarr', 'Sonarr', '📺', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="sonarr-url" placeholder="http://192.168.1.x:8989" value="${esc(config.integrations.sonarr.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="sonarr-key" value="${esc(config.integrations.sonarr.apiKey)}"></div>
+              `)}
+              ${integrationCard('radarr', 'Radarr', '🎬', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="radarr-url" placeholder="http://192.168.1.x:7878" value="${esc(config.integrations.radarr.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="radarr-key" value="${esc(config.integrations.radarr.apiKey)}"></div>
+              `)}
+              ${integrationCard('overseerr', 'Overseerr', '🎭', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="overseerr-url" placeholder="http://192.168.1.x:5055" value="${esc(config.integrations.overseerr.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="overseerr-key" value="${esc(config.integrations.overseerr.apiKey)}"></div>
+              `)}
+              ${integrationCard('nzbget', 'NZBGet', '⬇', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="nzbget-url" placeholder="http://192.168.1.x:6789" value="${esc(config.integrations.nzbget.url)}"></div>
+                <div class="field-group"><div class="field-label">Username</div><input class="field-input" id="nzbget-user" value="${esc(config.integrations.nzbget.username)}"></div>
+                <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="nzbget-pass" type="password" value="${esc(config.integrations.nzbget.password)}"></div>
+              `)}
+              ${integrationCard('jellyfin', 'Jellyfin', '🎵', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="jellyfin-url" placeholder="http://192.168.1.x:8096" value="${esc(config.integrations.jellyfin.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="jellyfin-key" value="${esc(config.integrations.jellyfin.apiKey)}"></div>
+              `)}
+              ${integrationCard('uptimekuma', 'Uptime Kuma', '🔔', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="uptime-url" placeholder="http://192.168.1.x:3001" value="${esc(config.integrations.uptimekuma.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key (optional)</div><input class="field-input" id="uptime-key" value="${esc(config.integrations.uptimekuma.apiKey)}"></div>
+              `)}
+              ${integrationCard('spotify', 'Spotify', '🎵', `
+                <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="spotify-id" value="${esc(config.integrations.spotify.clientId)}"></div>
+                <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="spotify-secret" value="${esc(config.integrations.spotify.clientSecret)}"></div>
+                <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
+              `)}
             </div>
             <div class="btn-row">
               <button class="btn btn-secondary" onclick="prevStep()">BACK</button>
@@ -240,6 +272,27 @@
             </div>
           </div>
         `;
+        // Wire up toggle checkboxes
+        document.querySelectorAll('.integration-toggle input[type="checkbox"]').forEach(cb => {
+          const key = cb.dataset.integration;
+          const card = cb.closest('.integration-card');
+          const fields = card.querySelector('.integration-fields');
+          // Set initial state
+          if (config.integrations[key]?.enabled) {
+            cb.checked = true;
+            card.classList.add('enabled');
+            fields.classList.add('visible');
+          }
+          cb.addEventListener('change', () => {
+            if (cb.checked) {
+              card.classList.add('enabled');
+              fields.classList.add('visible');
+            } else {
+              card.classList.remove('enabled');
+              fields.classList.remove('visible');
+            }
+          });
+        });
       } else if (currentStep === 2) {
         renderPagesStep(container);
       } else if (currentStep === 3) {
@@ -429,14 +482,58 @@
     function nextStep() { currentStep++; renderProgress(); renderStep(); }
     function prevStep() { currentStep--; renderProgress(); renderStep(); }
 
+    function getVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+    function isEnabled(key) { const cb = document.querySelector(`input[data-integration="${key}"]`); return cb ? cb.checked : false; }
+
     function saveAndNext() {
-      config.integrations.homeassistant.url = document.getElementById('ha-url').value.trim();
-      config.integrations.homeassistant.token = document.getElementById('ha-token').value.trim();
-      config.integrations.tautulli.url = document.getElementById('tau-url').value.trim();
-      config.integrations.tautulli.apiKey = document.getElementById('tau-key').value.trim();
-      config.integrations.plex.url = document.getElementById('plex-url').value.trim();
-      config.integrations.plex.token = document.getElementById('plex-token').value.trim();
-      config.integrations.weather.city = document.getElementById('weather-city').value.trim() || 'Perth';
+      // Save enabled state and field values for all integrations
+      config.integrations.homeassistant.enabled = isEnabled('homeassistant');
+      config.integrations.homeassistant.url = getVal('ha-url');
+      config.integrations.homeassistant.token = getVal('ha-token');
+
+      config.integrations.tautulli.enabled = isEnabled('tautulli');
+      config.integrations.tautulli.url = getVal('tau-url');
+      config.integrations.tautulli.apiKey = getVal('tau-key');
+
+      config.integrations.plex.enabled = isEnabled('plex');
+      config.integrations.plex.url = getVal('plex-url');
+      config.integrations.plex.token = getVal('plex-token');
+
+      config.integrations.weather.enabled = isEnabled('weather');
+      config.integrations.weather.city = getVal('weather-city') || 'Perth';
+
+      config.integrations.signalrgb.enabled = isEnabled('signalrgb');
+      config.integrations.signalrgb.url = getVal('signalrgb-url') || 'http://localhost:16034';
+
+      config.integrations.sonarr.enabled = isEnabled('sonarr');
+      config.integrations.sonarr.url = getVal('sonarr-url');
+      config.integrations.sonarr.apiKey = getVal('sonarr-key');
+
+      config.integrations.radarr.enabled = isEnabled('radarr');
+      config.integrations.radarr.url = getVal('radarr-url');
+      config.integrations.radarr.apiKey = getVal('radarr-key');
+
+      config.integrations.overseerr.enabled = isEnabled('overseerr');
+      config.integrations.overseerr.url = getVal('overseerr-url');
+      config.integrations.overseerr.apiKey = getVal('overseerr-key');
+
+      config.integrations.nzbget.enabled = isEnabled('nzbget');
+      config.integrations.nzbget.url = getVal('nzbget-url');
+      config.integrations.nzbget.username = getVal('nzbget-user');
+      config.integrations.nzbget.password = getVal('nzbget-pass');
+
+      config.integrations.jellyfin.enabled = isEnabled('jellyfin');
+      config.integrations.jellyfin.url = getVal('jellyfin-url');
+      config.integrations.jellyfin.apiKey = getVal('jellyfin-key');
+
+      config.integrations.uptimekuma.enabled = isEnabled('uptimekuma');
+      config.integrations.uptimekuma.url = getVal('uptime-url');
+      config.integrations.uptimekuma.apiKey = getVal('uptime-key');
+
+      config.integrations.spotify.enabled = isEnabled('spotify');
+      config.integrations.spotify.clientId = getVal('spotify-id');
+      config.integrations.spotify.clientSecret = getVal('spotify-secret');
+
       window.orbit.saveConfig(config);
       nextStep();
     }

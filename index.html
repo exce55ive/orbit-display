@@ -162,7 +162,8 @@
     .page-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.2s; cursor: pointer; }
     .page-dot.active { background: var(--accent); transform: scale(1.4); }
     .page-name-label { font-size: 9px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
-    .settings-gear { position: fixed; top: 12px; right: 12px; background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 16px; cursor: pointer; z-index: 60; transition: color .2s; font-family: var(--font); }
+    .settings-gear { position: fixed; top: 12px; right: 48px; background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 16px; cursor: pointer; z-index: 60; transition: color .2s, opacity .2s; font-family: var(--font); opacity: 0; }
+    body:hover .settings-gear { opacity: 1; }
     .settings-gear:hover { color: rgba(255,255,255,0.7); }
     .settings-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: flex-end; }
     .settings-panel { width: 420px; height: 100vh; overflow-y: auto; background: #0d1520; border-left: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
@@ -195,7 +196,7 @@
     .settings-update-btn { padding: 8px 16px; font-size: 11px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; transition: all .2s; }
     .settings-update-btn:hover { background: rgba(0,217,255,0.1); }
     .settings-changelog { font-size: 11px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
-    .update-pill { position: fixed; top: 12px; right: 52px; width: 28px; height: 28px; border-radius: 50%; background: rgba(80,250,123,0.15); border: 1px solid rgba(80,250,123,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--green); z-index: 60; transition: opacity .2s; }
+    .update-pill { position: fixed; top: 12px; right: 84px; width: 28px; height: 28px; border-radius: 50%; background: rgba(80,250,123,0.15); border: 1px solid rgba(80,250,123,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--green); z-index: 60; transition: opacity .2s; }
     .update-pill:hover { opacity: 1; background: rgba(80,250,123,0.25); }
     .update-confirm-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(6,10,16,0.9); }
     .update-confirm-modal { width: 340px; padding: 24px; background: #0d1520; border: 1px solid var(--border); border-radius: 12px; text-align: center; }
@@ -215,9 +216,11 @@
     #boot-lines { font-size: 11px; color: var(--dim); letter-spacing: 2px; text-align: left; display: inline-block; line-height: 2; }
     #boot-cursor { font-size: 14px; color: var(--accent); animation: blink 0.8s step-end infinite; }
     @keyframes blink { 50% { opacity: 0; } }
-    .quit-btn { position: fixed; top: 12px; right: 90px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
+    .quit-btn { position: fixed; top: 12px; right: 12px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
     body:hover .quit-btn { opacity: 1; }
     .quit-btn:hover { color: var(--red); border-color: var(--red); }
+    .panel-cog-btn { background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 11px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; transition: color .2s; vertical-align: middle; }
+    .panel-cog-btn:hover { color: var(--accent); }
     .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
     .panel-unconfigured-icon { font-size: 28px; opacity: 0.15; }
     .panel-unconfigured-text { font-size: 11px; color: var(--dim); letter-spacing: 1px; }
@@ -297,6 +300,17 @@
 
     const SignalRGBContext = createContext({ isOn: false });
 
+    // ═══ OPEN SETTINGS AT SECTION HELPER ═══
+    // Used by panel cog buttons to open settings and scroll to a specific integration section
+    let _openSettingsRef = null;
+    function openSettingsAt(sectionId) {
+      if (_openSettingsRef) _openSettingsRef();
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+
     // ═══ CLOCK PANEL ═══
     function ClockPanel({ config }) {
       const [time, setTime] = useState('');
@@ -318,7 +332,7 @@
       const cur = weather?.current_condition?.[0];
       const forecast = weather?.weather || [];
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'CLOCK'),
+        h('div', {className:'panel-label'}, 'CLOCK ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-weather')}, '⚙')),
         h('div', {className:'clock-time'}, time),
         h('div', {className:'clock-date'}, date),
         cur && h(React.Fragment, null,
@@ -388,7 +402,7 @@
       };
       const filtered = search.trim() ? effectList.filter(e => e.toLowerCase().includes(search.toLowerCase())) : effectList.slice(0, 50);
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'SIGNALRGB'),
+        h('div', {className:'panel-label'}, 'SIGNALRGB ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-signalrgb')}, '⚙')),
         h('div', {className:'effect-name', style:{color:isOn?'var(--accent)':'var(--dim)'}}, effectName),
         h('div', {className:'effect-label'}, isOn?'ACTIVE':'OFF'),
         h('button', {className:'ha-toggle '+(isOn?'on':'off'), onClick:togglePower}, isOn?'ON':'OFF'),
@@ -430,9 +444,9 @@
       }, [haConfigured, lightEntities.join(',')]);
       const toggleLight = async (eid, on) => { await window.orbit.haCallService('light', on?'turn_off':'turn_on', {entity_id:eid}); };
       const setBrightness = async (eid, pct) => { await window.orbit.haCallService('light', 'turn_on', {entity_id:eid, brightness:Math.round((pct/100)*255)}); };
-      if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'LIGHTS'), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
+      if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'LIGHTS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'LIGHTS'),
+        h('div', {className:'panel-label'}, 'LIGHTS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'HOME ASSISTANT'),
         lightEntities.map(eid => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
@@ -460,12 +474,12 @@
         async function poll() { try { const r = await window.orbit.fetchTautulli(); if (r?.error) { setError(true); setData(null); } else { setError(false); setData(r); } } catch { setError(true); } }
         poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
       }, [tCfg]);
-      if (!tCfg) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'NOW PLAYING'), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text'},'Configure Tautulli in Settings'));
+      if (!tCfg) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text'},'Configure Tautulli in Settings'));
       const sessions = data?.response?.data?.sessions || [];
-      if (error) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING'), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
-      if (!sessions.length) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING'), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
+      if (error) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
+      if (!sessions.length) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'NOW PLAYING'),
+        h('div', {className:'panel-label'}, 'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'PLEX · TAUTULLI'),
         h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
         h('div', {className:'np-session-list'},
@@ -602,7 +616,7 @@
         );
       }
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'MEDIA'),
+        h('div', {className:'panel-label'}, 'MEDIA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-sonarr')}, '⚙')),
         section('Overseerr', oCfg?.url && oCfg?.apiKey,
           h('div',{className:'media-stat'}, 'Pending: ', overseerr?.results?.filter(r=>r.status===1).length ?? '...')
         ),
@@ -634,9 +648,9 @@
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
       }, [configured, uCfg?.url]);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'UPTIME KUMA'), h('div',{className:'panel-unconfigured-icon'},'📡'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'UPTIME KUMA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-uptimekuma')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'📡'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'UPTIME KUMA'),
+        h('div', {className:'panel-label'}, 'UPTIME KUMA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-uptimekuma')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'UPTIME KUMA'),
         monitors.length === 0 ? h('div',{className:'offline-msg'},'No monitors found') :
         monitors.map((m,i) => {
@@ -656,10 +670,10 @@
       const configured = sCfg?.clientId && sCfg?.clientSecret;
       // TODO: Full OAuth implementation — this is a UI shell
       const [authorized] = useState(false);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SPOTIFY'), h('div',{className:'panel-unconfigured-icon'},'🎵'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎵'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
       if (!authorized) {
         return h('div', {className:'panel'},
-          h('div', {className:'panel-label'}, 'SPOTIFY'),
+          h('div', {className:'panel-label'}, 'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')),
           h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '🎵'),
           h('button', {className:'spotify-connect', onClick:() => {
             const url = 'https://accounts.spotify.com/authorize?client_id='+sCfg.clientId+'&response_type=code&scope=user-read-playback-state+user-modify-playback-state&redirect_uri=http://localhost:8888/callback';
@@ -668,7 +682,7 @@
         );
       }
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'SPOTIFY'),
+        h('div', {className:'panel-label'}, 'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')),
         h('div', {className:'spotify-track'}, 'Track Name'),
         h('div', {className:'spotify-artist'}, 'Artist'),
         h('div', {className:'spotify-controls'},
@@ -765,7 +779,7 @@
             h('button', {className:'settings-close', onClick:onClose}, '✕')
           ),
           h('div', {className:'settings-tabs'},
-            ['pages','integrations','theme','about'].map(t2 =>
+            ['pages','theme','about'].map(t2 =>
               h('button', {key:t2, className:'settings-tab'+(tab===t2?' active':''), onClick:()=>setTab(t2)}, t2)
             )
           ),
@@ -779,25 +793,25 @@
             ))
           ),
 
-          // ── INTEGRATIONS TAB ──
-          tab === 'integrations' && h('div', null,
-            h('div', {className:'settings-section'}, 'INTEGRATIONS'),
-            integrationSection('weather', 'Weather', '🌤️', [{field:'city',label:'CITY',placeholder:'Perth'}]),
-            integrationSection('tautulli', 'Tautulli', '🎬', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}]),
-            integrationSection('plex', 'Plex', '▶️', [{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}]),
-            integrationSection('homeassistant', 'Home Assistant', '🏠', [
+          // ── INTEGRATION CONFIG SECTIONS (hidden, scrolled to via panel cog buttons) ──
+          h('div', {id:'settings-integrations-anchor', style:{marginTop:'16px'}},
+            h('div', {id:'settings-weather'}, integrationSection('weather', 'Weather', '🌤️', [{field:'city',label:'CITY',placeholder:'Perth'}])),
+            h('div', {id:'settings-tautulli'}, integrationSection('tautulli', 'Tautulli', '🎬', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-plex'}, integrationSection('plex', 'Plex', '▶️', [{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}])),
+            h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
               {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
               {field:'lights',label:'LIGHT ENTITY IDS (one per line)',type:'textarea',placeholder:'light.living_room\nlight.bedroom'},
               {field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}
-            ]),
-            integrationSection('sonarr', 'Sonarr', '📺', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}]),
-            integrationSection('radarr', 'Radarr', '🎥', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}]),
-            integrationSection('overseerr', 'Overseerr', '📋', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}]),
-            integrationSection('nzbget', 'NZBGet', '📦', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}]),
-            integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}]),
-            integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}]),
-            integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}]),
+            ])),
+            h('div', {id:'settings-signalrgb'}, integrationSection('homeassistant', 'SignalRGB (via HA)', '⚡', [{field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}])),
+            h('div', {id:'settings-sonarr'}, integrationSection('sonarr', 'Sonarr', '📺', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-radarr'}, integrationSection('radarr', 'Radarr', '🎥', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-overseerr'}, integrationSection('overseerr', 'Overseerr', '📋', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-nzbget'}, integrationSection('nzbget', 'NZBGet', '📦', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
+            h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
             h('button', {className:'settings-save', onClick:save}, 'SAVE'),
             saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
           ),
@@ -952,6 +966,7 @@
       if (!config) return null;
 
       const openSettings = () => setShowSettings(true);
+      _openSettingsRef = openSettings;
 
       // Fill panels to 6 columns
       const renderedPanels = [];
