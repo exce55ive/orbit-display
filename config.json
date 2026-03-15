@@ -6,25 +6,17 @@
   "signalrgb": {
     "url": "http://localhost:16034"
   },
-  "axiom": {
-    "url": ""
-  },
   "ha": {
     "url": "https://YOUR_HA_INSTANCE",
     "token": "YOUR_HA_LONG_LIVED_TOKEN",
     "entities": {
-      "signalrgb": "light.YOUR_SIGNALRGB_ENTITY",
-      "nanoleaf_shapes_1": "light.YOUR_NANOLEAF_1",
-      "nanoleaf_shapes_2": "light.YOUR_NANOLEAF_2",
-      "nanoleaf_skylight": "light.YOUR_NANOLEAF_SKYLIGHT"
+      "signalrgb": "light.YOUR_SIGNALRGB_ENTITY"
     }
   },
   "polling": {
     "signalrgbSec": 10,
-    "nanoleafSec": 15,
     "plexSec": 15,
-    "axiomSec": 60,
-    "sysinfeSec": 3,
+    "sysinfoSec": 3,
     "updateCheckMin": 5,
     "signalrgbStartupRetries": 8,
     "signalrgbStartupBackoffSec": 2,

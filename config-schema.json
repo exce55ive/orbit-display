@@ -1,25 +1,19 @@
 {
-  "credentials": {
-    "tautulliUrl": "http://192.168.1.35:8182",
-    "tautulliApiKey": "",
-    "haUrl": "https://your-ha-instance",
-    "haToken": "",
-    "signalrgbEntityId": "",
-    "axiomUrl": "http://localhost:19900"
+  "defaults": {
+    "tautulliUrl": "http://YOUR_PLEX_SERVER:8181",
+    "signalrgbUrl": "http://localhost:16034",
+    "haUrl": "https://YOUR_HA_INSTANCE"
   },
-  "pages": [
-    {
-      "id": "page-1",
-      "name": "Main Display",
-      "panels": [
-        { "type": "plex" },
-        { "type": "lights" },
-        { "type": "clock-weather" },
-        { "type": "system" },
-        { "type": "axiom" },
-        { "type": "empty" }
-      ]
-    }
-  ],
-  "display": { "columns": 6, "rows": 1 }
+  "panelTypes": [
+    { "type": "clock" },
+    { "type": "signalrgb" },
+    { "type": "lights" },
+    { "type": "nowplaying" },
+    { "type": "system" },
+    { "type": "media" },
+    { "type": "uptimekuma" },
+    { "type": "spotify" },
+    { "type": "links" },
+    { "type": "jellyfin" }
+  ]
 }

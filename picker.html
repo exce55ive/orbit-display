@@ -10,13 +10,13 @@
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   :root{
     --bg:#060a10;--bg2:#0a1118;--bg3:#0d1520;--border:#1a2a3a;--border-active:#0d4f6e;
-    --cyan:#00d9ff;--green:#00ff9d;--amber:#ffc857;--red:#ff4757;
+    --accent:#00d9ff;--green:#50fa7b;--amber:#ffc857;--red:#ff5555;
     --text:#c8d8e8;--text2:#6a8aa0;--text3:#3a5060;
   }
   html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;user-select:none;overflow:hidden}
   body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999}
   .titlebar{height:36px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 14px;-webkit-app-region:drag}
-  .title{font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:2px}
+  .title{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:2px}
   .close-btn{-webkit-app-region:no-drag;background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:3px;line-height:1}
   .close-btn:hover{color:var(--red)}
   .body{padding:20px}
@@ -25,16 +25,16 @@
   .display-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto}
   .display-card{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:14px}
   .display-card:hover{border-color:var(--border-active);background:var(--bg3)}
-  .display-card.selected{border-color:var(--cyan);background:rgba(0,217,255,.06)}
+  .display-card.selected{border-color:var(--accent);background:rgba(0,217,255,.06)}
   .display-icon{font-size:24px;flex-shrink:0}
   .display-info{flex:1}
   .display-label{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
   .display-res{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px}
-  .display-badge{font-size:9px;text-transform:uppercase;letter-spacing:.5px;padding:2px 6px;border-radius:2px;background:rgba(0,217,255,.1);color:var(--cyan);border:1px solid rgba(0,217,255,.2);margin-left:6px}
-  .xeneon-badge{background:rgba(0,255,157,.1);color:var(--green);border:1px solid rgba(0,255,157,.2)}
-  .check{font-size:16px;color:var(--cyan);flex-shrink:0;opacity:0}
+  .display-badge{font-size:9px;text-transform:uppercase;letter-spacing:.5px;padding:2px 6px;border-radius:2px;background:rgba(0,217,255,.1);color:var(--accent);border:1px solid rgba(0,217,255,.2);margin-left:6px}
+  .recommended-badge{background:rgba(80,250,123,.1);color:var(--green);border:1px solid rgba(80,250,123,.2)}
+  .check{font-size:16px;color:var(--accent);flex-shrink:0;opacity:0}
   .display-card.selected .check{opacity:1}
-  .confirm-btn{width:100%;background:rgba(0,217,255,.15);border:1px solid rgba(0,217,255,.3);color:var(--cyan);padding:10px;border-radius:4px;cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:1px;transition:all .15s}
+  .confirm-btn{width:100%;background:rgba(0,217,255,.15);border:1px solid rgba(0,217,255,.3);color:var(--accent);padding:10px;border-radius:4px;cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:1px;transition:all .15s}
   .confirm-btn:hover{background:rgba(0,217,255,.25)}
   .confirm-btn:disabled{opacity:.4;cursor:not-allowed}
   .loading{color:var(--text2);font-size:11px;text-align:center;padding:20px}
@@ -42,19 +42,19 @@
 </head>
 <body>
 <div class="titlebar">
-  <span class="title">🖥️ Select Your Xeneon Edge</span>
-  <button class="close-btn" onclick="window.xeneon && window.xeneon.quit ? window.xeneon.quit() : window.close()">✕</button>
+  <span class="title">🖥️ Select Display</span>
+  <button class="close-btn" onclick="window.close()">✕</button>
 </div>
 <div class="body">
-  <p class="intro">Choose which display to use as your <strong>Xeneon Edge ambient strip</strong>. The app will launch fullscreen on that display. Press <strong>Ctrl+D</strong> at any time to change this.</p>
+  <p class="intro">Choose which display to use for <strong>Orbit</strong>. The app will launch fullscreen on that display. Press <strong>Ctrl+D</strong> at any time to change this.</p>
   <div id="list" class="display-list"><div class="loading">> scanning displays...</div></div>
-  <button id="confirm" class="confirm-btn" disabled onclick="confirm()">Launch on Selected Display ▶</button>
+  <button id="confirm" class="confirm-btn" disabled onclick="confirmSelect()">Launch on Selected Display ▶</button>
 </div>
 <script>
   var selected = null;
 
   async function load() {
-    var displays = await window.xeneon.getDisplays();
+    var displays = await window.orbit.getDisplays();
     var list = document.getElementById('list');
     if (!displays || !displays.length) {
       list.innerHTML = '<div class="loading">> no displays found</div>';
@@ -62,15 +62,15 @@
     }
     list.innerHTML = '';
     displays.forEach(function(d) {
-      var isXeneon = d.resolution === '2560×720' || d.resolution.startsWith('2560');
+      var isWide = d.resolution === '2560×720' || d.resolution.startsWith('2560');
       var card = document.createElement('div');
-      card.className = 'display-card' + (isXeneon ? ' selected' : '');
-      if (isXeneon && !selected) selected = d.id;
+      card.className = 'display-card' + (isWide ? ' selected' : '');
+      if (isWide && !selected) selected = d.id;
       card.innerHTML =
-        '<div class="display-icon">' + (isXeneon ? '📺' : (d.isPrimary ? '🖥️' : '🖥️')) + '</div>' +
+        '<div class="display-icon">' + (d.isPrimary ? '🖥️' : '🖥️') + '</div>' +
         '<div class="display-info">' +
           '<div class="display-label">' + d.label +
-            (isXeneon ? '<span class="display-badge xeneon-badge">Xeneon Edge</span>' : '') +
+            (isWide ? '<span class="display-badge recommended-badge">Recommended</span>' : '') +
             (d.isPrimary ? '<span class="display-badge">Primary</span>' : '') +
           '</div>' +
           '<div class="display-res">' + d.resolution + ' · ' + d.x + ',' + d.y + '</div>' +
@@ -87,12 +87,12 @@
     document.getElementById('confirm').disabled = (selected === null);
   }
 
-  async function confirm() {
+  async function confirmSelect() {
     if (selected === null) return;
     var btn = document.getElementById('confirm');
     btn.disabled = true;
     btn.textContent = '> launching...';
-    await window.xeneon.selectDisplay(selected);
+    await window.orbit.selectDisplay(selected);
   }
 
   load();

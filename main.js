@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -7,47 +7,69 @@ const log = require('electron-log');
 // ─── AUTO-UPDATER CONFIG ──────────────────────────────────────────────────────
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
-autoUpdater.autoDownload = true;
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
 const isDev = !app.isPackaged;
 
+let pendingUpdate = null;
+
 autoUpdater.on('update-available', (info) => {
   log.info('Update available:', info.version);
+  pendingUpdate = { version: info.version, releaseNotes: info.releaseNotes || '' };
   if (mainWindow) {
-    mainWindow.webContents.send('update-available', info.version);
+    mainWindow.webContents.send('update-available', pendingUpdate);
+  }
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('update-progress', Math.round(progress.percent));
   }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
   log.info('Update downloaded:', info.version);
   if (mainWindow) {
-    mainWindow.webContents.send('update-downloaded', info.version);
+    mainWindow.webContents.send('update-downloaded');
   }
 });
 
 autoUpdater.on('error', (err) => {
   log.error('Update error:', err.message);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-error', err.message);
+  }
 });
 
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-let config;
+// ─── ORBIT CONFIG ─────────────────────────────────────────────────────────────
+const ORBIT_CONFIG_NAME = 'orbit-config.json';
+
+function getOrbitConfigPath() {
+  return path.join(app.getPath('userData'), ORBIT_CONFIG_NAME);
+}
+
+function loadOrbitConfig() {
+  const p = getOrbitConfigPath();
+  if (!fs.existsSync(p)) return null;
+  try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return null; }
+}
+
+function saveOrbitConfig(cfg) {
+  fs.writeFileSync(getOrbitConfigPath(), JSON.stringify(cfg, null, 2));
+}
+
+// ─── LEGACY CONFIG (config.json — read-only fallback) ─────────────────────────
+let legacyConfig = {};
 try {
   const configPaths = [
     path.join(process.resourcesPath, 'config.json'),
     path.join(__dirname, 'config.json')
   ];
   for (const cp of configPaths) {
-    if (fs.existsSync(cp)) { config = JSON.parse(fs.readFileSync(cp, 'utf-8')); break; }
+    if (fs.existsSync(cp)) { legacyConfig = JSON.parse(fs.readFileSync(cp, 'utf-8')); break; }
   }
-  if (!config) throw new Error('config.json not found');
-} catch (e) {
-  config = {
-    tautulli: { url: 'http://YOUR_PLEX_SERVER:8181', apikey: 'YOUR_TAUTULLI_API_KEY' },
-    signalrgb: { url: 'http://localhost:16034' },
-    axiom: { url: '' }
-  };
-}
+} catch {}
 
 // ─── SETTINGS (persists display selection) ───────────────────────────────────
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
@@ -123,10 +145,8 @@ function launchMain(displayId) {
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.control && input.key.toLowerCase() === 'q') app.quit();
     if (input.control && input.key.toLowerCase() === 't') {
-      const cur = mainWindow.isAlwaysOnTop();
-      mainWindow.setAlwaysOnTop(!cur);
+      mainWindow.setAlwaysOnTop(!mainWindow.isAlwaysOnTop());
     }
-    // Ctrl+D → show display picker again
     if (input.control && input.key.toLowerCase() === 'd') showPicker();
   });
 
@@ -135,20 +155,15 @@ function launchMain(displayId) {
 
 function showPicker() {
   if (pickerWindow) { pickerWindow.focus(); return; }
-
   const primary = screen.getPrimaryDisplay();
   pickerWindow = new BrowserWindow({
-    width: 520,
-    height: 520,
+    width: 520, height: 520,
     x: primary.bounds.x + Math.round((primary.bounds.width - 520) / 2),
     y: primary.bounds.y + Math.round((primary.bounds.height - 400) / 2),
-    resizable: false,
-    frame: false,
-    alwaysOnTop: true,
+    resizable: false, frame: false, alwaysOnTop: true,
     backgroundColor: '#060a10',
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
+      nodeIntegration: false, contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -156,27 +171,22 @@ function showPicker() {
   pickerWindow.on('closed', () => { pickerWindow = null; });
 }
 
+// ─── APP READY ───────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
-  // ── FIRST-RUN DETECTION ──
-  const orbitConfigPath = path.join(app.getPath('userData'), 'orbit-config.json');
-  const hasOrbitConfig = fs.existsSync(orbitConfigPath) && (() => {
-    try { const c = JSON.parse(fs.readFileSync(orbitConfigPath, 'utf-8')); return c.pages && c.pages.length > 0; } catch { return false; }
-  })();
+  const orbitCfg = loadOrbitConfig();
+  const hasConfig = orbitCfg && orbitCfg.pages && orbitCfg.pages.length > 0;
 
-  if (!hasOrbitConfig) {
-    // No config — show setup wizard
+  if (!hasConfig) {
     const setupWin = new BrowserWindow({
       width: 860, height: 700, resizable: true, center: true,
       backgroundColor: '#0a0a0f',
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false
+        contextIsolation: true, nodeIntegration: false
       }
     });
     setupWin.loadFile('setup.html');
   } else {
-    // Has config — proceed to display picker or main window
     const settings = loadSettings();
     if (settings.displayId) {
       launchMain(settings.displayId);
@@ -185,7 +195,6 @@ app.whenReady().then(() => {
     }
   }
 
-  // Check for updates in production (not in dev)
   if (!isDev) {
     autoUpdater.checkForUpdatesAndNotify();
   }
@@ -193,12 +202,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => { app.quit(); });
 
-// ─── IPC ─────────────────────────────────────────────────────────────────────
-
-// Picker: get display list
+// ─── IPC: DISPLAY PICKER ────────────────────────────────────────────────────
 ipcMain.handle('get-displays', () => getDisplayList());
 
-// Picker: user selected a display
 ipcMain.handle('select-display', (_e, displayId) => {
   const settings = loadSettings();
   settings.displayId = displayId;
@@ -208,83 +214,38 @@ ipcMain.handle('select-display', (_e, displayId) => {
   return { ok: true };
 });
 
-// Main: show picker again (Ctrl+D or from UI)
-ipcMain.handle('show-picker', () => {
-  showPicker();
-  return { ok: true };
-});
+ipcMain.handle('show-picker', () => { showPicker(); return { ok: true }; });
 
-// SignalRGB
-ipcMain.handle('fetch-signalrgb', async () =>
-  safeFetch(`${config.signalrgb.url}/api/v1/lighting`));
-
-ipcMain.handle('activate-effect', async (_e, effectId) => {
-  const fetch = await getFetch();
-  try {
-    const res = await fetch(`${config.signalrgb.url}/api/v1/lighting/effects/${effectId}/activate`, { method: 'PUT' });
-    const text = await res.text();
-    try { return JSON.parse(text); } catch { return text; }
-  } catch (e) { return { error: e.message }; }
-});
-
-// Tautulli
-ipcMain.handle('fetch-tautulli', async () => {
-  if (!config.tautulli.apikey || config.tautulli.apikey === 'YOUR_TAUTULLI_API_KEY')
-    return { error: 'Tautulli API key not configured' };
-  return safeFetch(`${config.tautulli.url}/api/v2?apikey=${config.tautulli.apikey}&cmd=get_activity`);
-});
-
-// Home Assistant
-ipcMain.handle('ha-get-state', async (_e, entityId) => {
-  return safeFetch(`${config.ha.url}/api/states/${entityId}`, {
-    headers: { Authorization: `Bearer ${config.ha.token}` }
-  });
-});
-
-ipcMain.handle('ha-call-service', async (_e, { domain, service, data }) => {
-  return safeFetch(`${config.ha.url}/api/services/${domain}/${service}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${config.ha.token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-});
-
-// TODO: replace with Orbit status endpoint
-// (fetch-axiom and fetch-axiom-agents removed — Orbit does not connect to Axiom's private backend)
-
-// ─── UPDATE ──────────────────────────────────────────────────────────────────
-ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall(false, true);
-});
-
-// ── ORBIT CONFIG (setup wizard + multi-page) ──
-ipcMain.handle('save-config', async (_e, orbitCfg) => {
-  const orbitConfigPath = path.join(app.getPath('userData'), 'orbit-config.json');
-  fs.writeFileSync(orbitConfigPath, JSON.stringify(orbitCfg, null, 2));
+// ─── IPC: ORBIT CONFIG ──────────────────────────────────────────────────────
+ipcMain.handle('save-config', async (_e, config) => {
+  saveOrbitConfig(config);
   return { ok: true };
 });
 
 ipcMain.handle('load-config', async () => {
-  const orbitConfigPath = path.join(app.getPath('userData'), 'orbit-config.json');
-  if (!fs.existsSync(orbitConfigPath)) return null;
-  try { return JSON.parse(fs.readFileSync(orbitConfigPath, 'utf-8')); } catch { return null; }
+  return loadOrbitConfig();
 });
 
+// ─── IPC: OPEN EXTERNAL URL ─────────────────────────────────────────────────
+ipcMain.handle('open-external', (_e, url) => {
+  shell.openExternal(url);
+  return { ok: true };
+});
+
+// ─── IPC: SETUP ──────────────────────────────────────────────────────────────
 ipcMain.handle('open-setup', async () => {
   const setupWin = new BrowserWindow({
     width: 860, height: 700, resizable: true, center: true,
     backgroundColor: '#0a0a0f',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+      contextIsolation: true, nodeIntegration: false
     }
   });
   setupWin.loadFile('setup.html');
 });
 
 ipcMain.handle('setup-complete', async () => {
-  // Close setup window and open main display
   const settings = loadSettings();
   if (mainWindow) {
     mainWindow.loadFile('index.html');
@@ -293,19 +254,14 @@ ipcMain.handle('setup-complete', async () => {
   } else {
     showPicker();
   }
-  // Close all non-main windows
   BrowserWindow.getAllWindows().forEach(w => { if (w !== mainWindow) w.close(); });
 });
 
-// Config endpoint — expose config to renderer
-ipcMain.handle('get-config', () => config);
-
-// Settings: save and load (complementing the internal functions)
+// ─── IPC: SETTINGS PERSISTENCE ───────────────────────────────────────────────
 ipcMain.handle('save-settings', (_e, s) => {
   try {
     const current = loadSettings();
-    const merged = { ...current, ...s };
-    saveSettings(merged);
+    saveSettings({ ...current, ...s });
     return { ok: true };
   } catch (e) { return { ok: false, error: e.message }; }
 });
@@ -314,83 +270,121 @@ ipcMain.handle('load-settings', () => {
   try { return loadSettings(); } catch { return {}; }
 });
 
-// System info
+ipcMain.handle('get-config', () => legacyConfig);
+
+// ─── IPC: HOME ASSISTANT ────────────────────────────────────────────────────
+ipcMain.handle('ha-get-state', async (_e, entityId) => {
+  const cfg = loadOrbitConfig();
+  if (!cfg || !cfg.integrations || !cfg.integrations.homeassistant || !cfg.integrations.homeassistant.url) {
+    return { error: 'Home Assistant not configured' };
+  }
+  const ha = cfg.integrations.homeassistant;
+  return safeFetch(`${ha.url}/api/states/${entityId}`, {
+    headers: { Authorization: `Bearer ${ha.token}`, 'Content-Type': 'application/json' }
+  });
+});
+
+ipcMain.handle('ha-call-service', async (_e, { domain, service, data }) => {
+  const cfg = loadOrbitConfig();
+  if (!cfg || !cfg.integrations || !cfg.integrations.homeassistant || !cfg.integrations.homeassistant.url) {
+    return { error: 'Home Assistant not configured' };
+  }
+  const ha = cfg.integrations.homeassistant;
+  return safeFetch(`${ha.url}/api/services/${domain}/${service}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${ha.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+});
+
+// ─── IPC: TAUTULLI ──────────────────────────────────────────────────────────
+ipcMain.handle('fetch-tautulli', async () => {
+  const cfg = loadOrbitConfig();
+  if (!cfg || !cfg.integrations || !cfg.integrations.tautulli || !cfg.integrations.tautulli.url || !cfg.integrations.tautulli.apiKey) {
+    return { error: 'Tautulli not configured' };
+  }
+  const t = cfg.integrations.tautulli;
+  return safeFetch(`${t.url}/api/v2?apikey=${t.apiKey}&cmd=get_activity`);
+});
+
+// ─── IPC: GENERIC API PROXY ─────────────────────────────────────────────────
+ipcMain.handle('api-get', async (_e, { url, headers }) => {
+  return safeFetch(url, { headers: headers || {} });
+});
+
+ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
+  const fetch = await getFetch();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+      signal: controller.signal
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return text; }
+  } catch (e) { return { error: e.message }; }
+  finally { clearTimeout(timer); }
+});
+
+// ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
+ipcMain.handle('fetch-signalrgb', async () =>
+  safeFetch(`${legacyConfig.signalrgb?.url || 'http://localhost:16034'}/api/v1/lighting`));
+
+ipcMain.handle('activate-effect', async (_e, effectId) => {
+  const fetch = await getFetch();
+  try {
+    const url = `${legacyConfig.signalrgb?.url || 'http://localhost:16034'}/api/v1/lighting/effects/${effectId}/activate`;
+    const res = await fetch(url, { method: 'PUT' });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return text; }
+  } catch (e) { return { error: e.message }; }
+});
+
+// ─── IPC: SYSTEM INFO ───────────────────────────────────────────────────────
 ipcMain.handle('get-sysinfo', async (_e, params) => {
   try {
     const { cpuSensorIndex = 0, gpuControllerIndex = 0, showDisk = false } = params || {};
     const si = require('systeminformation');
     const [cpu, cpuLoad, cpuTemp, graphics, mem, netStats, fsSize] = await Promise.all([
-      si.cpu(),
-      si.currentLoad(),
-      si.cpuTemperature().catch(() => ({ main: null, cores: [], chipset: null, socket: null, processors: [] })),
-      si.graphics(),
-      si.mem(),
-      si.networkStats(),
-      si.fsSize()
+      si.cpu(), si.currentLoad(),
+      si.cpuTemperature().catch(() => ({ main: null, cores: [], chipset: null, socket: null })),
+      si.graphics(), si.mem(), si.networkStats(), si.fsSize()
     ]);
-
-    // Build CPU sensor list (for picker UI)
     const cpuSensors = [];
     if (cpuTemp.main != null) cpuSensors.push({ index: 0, name: 'Main', value: cpuTemp.main });
     if (Array.isArray(cpuTemp.cores)) {
       cpuTemp.cores.forEach((v, i) => { if (v != null) cpuSensors.push({ index: cpuSensors.length, name: `Core ${i}`, value: v }); });
     }
     if (cpuTemp.chipset != null) cpuSensors.push({ index: cpuSensors.length, name: 'Chipset', value: cpuTemp.chipset });
-    if (cpuTemp.socket != null) cpuSensors.push({ index: cpuSensors.length, name: 'Socket', value: cpuTemp.socket });
     if (cpuSensors.length === 0) cpuSensors.push({ index: 0, name: 'N/A', value: null });
-
-    // Pick CPU temp by index
     const chosenCpuTemp = cpuSensors[cpuSensorIndex] ?? cpuSensors[0];
-    const cpuTempVal = chosenCpuTemp?.value ?? null;
-
-    // Build GPU list (for picker UI)
     const controllers = graphics.controllers || [];
     const gpuList = controllers.map((c, i) => ({ index: i, model: c.model || `GPU ${i}` }));
-
-    // Pick GPU by index
     const gpu = controllers[gpuControllerIndex] || controllers[0] || null;
     const gpuTempVal = (gpu && gpu.temperatureGpu && gpu.temperatureGpu > 0) ? gpu.temperatureGpu : null;
-
     const net = netStats && netStats[0];
     const disk = fsSize.find(d => d.mount === 'C:\\' || d.mount === 'C:' || d.mount === '/') || fsSize[0];
-
     const result = {
-      cpuSensors,
-      gpuList,
-      cpu: {
-        usage: Math.round(cpuLoad.currentLoad || 0),
-        speed: cpu.speed || 0,
-        brand: cpu.brand || 'CPU',
-        temp: cpuTempVal
-      },
-      gpu: {
-        usage: gpu ? Math.round(gpu.utilizationGpu || 0) : 0,
-        temp: gpuTempVal,
-        model: gpu ? (gpu.model || 'GPU') : 'GPU'
-      },
-      ram: {
-        usage: Math.round((mem.used / mem.total) * 100),
-        usedGB: (mem.used / 1073741824).toFixed(1),
-        totalGB: (mem.total / 1073741824).toFixed(1)
-      },
+      cpuSensors, gpuList,
+      cpu: { usage: Math.round(cpuLoad.currentLoad || 0), speed: cpu.speed || 0, brand: cpu.brand || 'CPU', temp: chosenCpuTemp?.value ?? null },
+      gpu: { usage: gpu ? Math.round(gpu.utilizationGpu || 0) : 0, temp: gpuTempVal, model: gpu ? (gpu.model || 'GPU') : 'GPU' },
+      ram: { usage: Math.round((mem.used / mem.total) * 100), usedGB: (mem.used / 1073741824).toFixed(1), totalGB: (mem.total / 1073741824).toFixed(1) },
       net: { txSec: net ? net.tx_sec : 0, rxSec: net ? net.rx_sec : 0 }
     };
-
     if (showDisk) {
       result.disk = { usage: disk ? Math.round(disk.use) : 0, mount: disk ? disk.mount : 'C:\\' };
     }
-
     return result;
   } catch (e) { return { error: e.message }; }
 });
 
-// Fast sysinfo — lightweight, called every 3s
-ipcMain.handle('get-sysinfo-fast', async (_e, params) => {
+ipcMain.handle('get-sysinfo-fast', async () => {
   const si = require('systeminformation');
   const [cpuLoad, mem, netStats] = await Promise.all([
-    si.currentLoad(),
-    si.mem(),
-    si.networkStats().catch(() => [])
+    si.currentLoad(), si.mem(), si.networkStats().catch(() => [])
   ]);
   const net = netStats && netStats[0];
   return {
@@ -404,7 +398,6 @@ ipcMain.handle('get-sysinfo-fast', async (_e, params) => {
   };
 });
 
-// Slow sysinfo — heavier, called every 10s
 ipcMain.handle('get-sysinfo-slow', async (_e, params) => {
   const si = require('systeminformation');
   const { cpuSensorIndex = 0, gpuControllerIndex = 0, showDisk = false } = params || {};
@@ -414,23 +407,40 @@ ipcMain.handle('get-sysinfo-slow', async (_e, params) => {
     si.graphics(),
     showDisk ? si.fsSize() : Promise.resolve([])
   ]);
-
   const cpuSensors = [
     cpuTemp.main != null ? { name: 'CPU (main)', value: cpuTemp.main } : null,
     ...(cpuTemp.cores || []).map((v, i) => ({ name: `Core ${i}`, value: v })),
     cpuTemp.chipset != null ? { name: 'Chipset', value: cpuTemp.chipset } : null
   ].filter(Boolean);
-
   const gpuList = (graphics.controllers || []).map((g, i) => ({ index: i, model: g.model }));
   const gpu = (graphics.controllers && graphics.controllers[gpuControllerIndex]) || (graphics.controllers && graphics.controllers[0]);
   const disk = showDisk ? (fsSize.find(d => d.mount === 'C:\\' || d.mount === 'C:' || d.mount === '/') || fsSize[0]) : null;
-
   const cpuTempVal = cpuSensors[cpuSensorIndex]?.value ?? null;
   const gpuTempVal = (gpu && gpu.temperatureGpu && gpu.temperatureGpu > 0) ? gpu.temperatureGpu : null;
-
   return {
     cpu: { speed: cpu.speed || 0, brand: cpu.brand || 'CPU', temp: cpuTempVal, sensors: cpuSensors },
     gpu: { usage: gpu ? Math.round(gpu.utilizationGpu || 0) : 0, temp: gpuTempVal, model: gpu ? (gpu.model || 'GPU') : 'GPU', list: gpuList },
     disk: showDisk && disk ? { usage: Math.round(disk.use), mount: disk.mount } : null
   };
 });
+
+// ─── IPC: UPDATES ───────────────────────────────────────────────────────────
+ipcMain.handle('check-update', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return result ? { version: result.updateInfo?.version } : null;
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    autoUpdater.downloadUpdate();
+    return { ok: true };
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
+
+ipcMain.handle('get-pending-update', () => pendingUpdate);

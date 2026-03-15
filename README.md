@@ -1,40 +1,41 @@
 # Orbit
 
-> The ambient display that revolves around you.
+A beautiful, modular desktop dashboard for power users.
 
-Orbit is a secondary screen companion app for USB-C displays. It turns your second monitor into a living ambient dashboard — showing what's playing on Plex, your lighting state, system stats, clock, and weather.
+## Features
 
-## Supported Displays
-- Corsair Xeneon 14" (primary target)
-- Any USB-C secondary monitor
+- Multi-page panel system with up to 6 panels per page
+- Home Assistant integration (lights, sensors)
+- Plex & Tautulli now-playing with multi-session support
+- SignalRGB effects with search & favorites
+- System monitoring (CPU, GPU, RAM, Network)
+- Media server management (Sonarr, Radarr, Overseerr, NZBGet)
+- Uptime Kuma monitoring
+- Spotify integration
+- Jellyfin integration
+- Customizable themes with accent color presets
+- Settings overlay with collapsible integration sections
+- Auto-updates with download progress
+- Setup wizard for first-run configuration
+- Keyboard, mouse hover zone, and touch/swipe navigation
 
-## Integrations
-- **Plex** via Tautulli (API key)
-- **SignalRGB** via local HTTP API
-- **Home Assistant** lights (long-lived token)
-- **System stats** (CPU, GPU, RAM, network)
-- **Weather** (no API key required)
-- More coming: Spotify, YouTube Music, Overseerr, Sonarr
+## Installation
 
-## Getting Started
-1. Download the latest installer from [Releases](../../releases)
-2. Run `OrbitSetup-x.x.x.exe`
-3. Select your display
-4. Edit `config.json` with your API keys (see [Configuration](docs/configuration.md))
+Download the latest installer from the releases page.
 
-## Building from Source
+## Development
+
 ```bash
 npm install
 npm start
 ```
 
-## ⚠️ Windows SmartScreen Warning
+## Build
 
-This app is not yet code-signed. Windows may show a SmartScreen warning when running the installer.
-
-To proceed: click **"More info"** → **"Run anyway"**.
-
-Code signing will be added in a future release.
+```bash
+npm run build
+```
 
 ## License
-Commercial software. See LICENSE.md.
+
+Commercial license — redistribution prohibited. See LICENSE.md.
