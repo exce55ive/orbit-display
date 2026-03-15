@@ -248,13 +248,18 @@ ipcMain.handle('open-setup', async () => {
 ipcMain.handle('setup-complete', async () => {
   const settings = loadSettings();
   if (mainWindow) {
+    // Already have a main window — just reload it and close extras
     mainWindow.loadFile('index.html');
-  } else if (settings.displayId) {
-    launchMain(settings.displayId);
+    BrowserWindow.getAllWindows().forEach(w => { if (w !== mainWindow) w.close(); });
   } else {
-    showPicker();
+    // Close setup window before opening next screen
+    BrowserWindow.getAllWindows().forEach(w => w.close());
+    if (settings.displayId) {
+      launchMain(settings.displayId);
+    } else {
+      showPicker();
+    }
   }
-  BrowserWindow.getAllWindows().forEach(w => { if (w !== mainWindow) w.close(); });
 });
 
 // ─── IPC: SETTINGS PERSISTENCE ───────────────────────────────────────────────
