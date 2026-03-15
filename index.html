@@ -640,7 +640,7 @@
           }
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
-      }, [oCfg?.url, sCfg?.url, rCfg?.url, nCfg?.url]);
+      }, [oCfg?.url, oCfg?.apiKey, sCfg?.url, sCfg?.apiKey, rCfg?.url, rCfg?.apiKey, nCfg?.url, nCfg?.username]);
       function section(name, configured, content) {
         return h('div', {className:'media-section'},
           h('div', {className:'media-section-title'}, name),
@@ -682,29 +682,32 @@
       const uCfg = config?.integrations?.uptimekuma;
       const configured = uCfg?.url && uCfg?.apiKey;
       useEffect(() => {
-        if (!configured) return;
+        const [apiError, setApiError] = useState('');
+      if (!configured) return;
         async function poll() {
           try {
-            // Try REST API (Uptime Kuma 1.23+)
             const r = await window.orbit.apiGet(uCfg.url + '/api/v1/monitors', { 'Authorization': 'Bearer ' + uCfg.apiKey });
+            if (typeof r === 'string' && r.includes('<html')) {
+              setApiError('REST API not enabled — enable it in Uptime Kuma → Settings → API Keys');
+              return;
+            }
             if (r && !r.error) {
-              // monitorList is an object keyed by ID
-              if (r.monitorList) {
-                setMonitors(Object.values(r.monitorList));
-              } else if (Array.isArray(r)) {
-                setMonitors(r);
-              } else if (r.monitors) {
-                setMonitors(Array.isArray(r.monitors) ? r.monitors : Object.values(r.monitors));
-              }
+              setApiError('');
+              if (r.monitorList) setMonitors(Object.values(r.monitorList));
+              else if (Array.isArray(r)) setMonitors(r);
+              else if (r.monitors) setMonitors(Array.isArray(r.monitors) ? r.monitors : Object.values(r.monitors));
+            } else if (r?.error) {
+              setApiError(r.error);
             }
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
-      }, [configured, uCfg?.url]);
+      }, [configured, uCfg?.url, uCfg?.apiKey]);
       if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'UPTIME KUMA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-uptimekuma')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'📡'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'UPTIME KUMA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-uptimekuma')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'UPTIME KUMA'),
+        apiError ? h('div',{style:{fontSize:'11px',color:'var(--dim)',textAlign:'center',padding:'8px 12px',lineHeight:'1.5'}}, apiError) :
         monitors.length === 0 ? h('div',{className:'offline-msg'},'No monitors found') :
         monitors.map((m,i) => {
           const latestStatus = m.heartBeatList?.[m.heartBeatList.length - 1]?.status ?? m.heartbeat?.status;
