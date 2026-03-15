@@ -471,26 +471,29 @@
     function LightsPanel({ config }) {
       const { isOn: signalActive } = useContext(SignalRGBContext);
       const [lights, setLights] = useState({});
-      const lightEntities = config?.integrations?.homeassistant?.lights || [];
+      // Normalize: handle both old string[] and new {entityId,name}[] formats
+      const rawLights = config?.integrations?.homeassistant?.lights || [];
+      const lightEntities = rawLights.map(e => typeof e === 'string' ? {entityId:e, name:''} : e);
       const haConfigured = config?.integrations?.homeassistant?.url && config?.integrations?.homeassistant?.token;
       useEffect(() => {
         if (!haConfigured || lightEntities.length === 0) return;
         async function poll() {
           const states = {};
-          for (const eid of lightEntities) { try { const r = await window.orbit.haGetState(eid); if (!r.error) states[eid] = r; } catch {} }
+          for (const e of lightEntities) { try { const r = await window.orbit.haGetState(e.entityId); if (!r.error) states[e.entityId] = r; } catch {} }
           setLights(states);
         }
         poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
-      }, [haConfigured, lightEntities.join(',')]);
+      }, [haConfigured, lightEntities.map(e=>e.entityId).join(',')]);
       const toggleLight = async (eid, on) => { await window.orbit.haCallService('light', on?'turn_off':'turn_on', {entity_id:eid}); };
       const setBrightness = async (eid, pct) => { await window.orbit.haCallService('light', 'turn_on', {entity_id:eid, brightness:Math.round((pct/100)*255)}); };
       if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'HOME ASSISTANT'),
-        lightEntities.map(eid => {
+        lightEntities.map(({entityId:eid, name:customName}) => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
-          const name = st?.attributes?.friendly_name || eid.replace('light.','').replace(/_/g,' ');
+          // Priority: custom name in Orbit > HA friendly_name > entity ID
+          const name = customName || st?.attributes?.friendly_name || eid.replace('light.','').replace(/_/g,' ');
           return h('div', {key:eid, className:'light-card', style:signalActive?{opacity:0.7}:{}},
             signalActive && h('div', {className:'light-signalrgb-badge', title:'Controlled by SignalRGB'}, '⚡ SignalRGB active'),
             h('div', {className:'light-header'},
@@ -1149,6 +1152,83 @@
         setCfg(prev => ({...prev, theme: {...(prev.theme||{}), accentColor: color}}));
       };
 
+      // Normalize entity list — handle old string[] and new {entityId,name}[] formats
+      function normalizeEntities(lights) {
+        if (!Array.isArray(lights)) return [];
+        return lights.map(e => typeof e === 'string' ? {entityId:e, name:''} : e);
+      }
+
+      function HAEntitiesEditor({ integrationKey }) {
+        const raw = cfg.integrations?.[integrationKey]?.lights;
+        const [entities, setEntities] = useState(normalizeEntities(raw));
+        const [newEntityId, setNewEntityId] = useState('');
+        const [newEntityName, setNewEntityName] = useState('');
+
+        function commit(next) {
+          setEntities(next);
+          updateIntegration(integrationKey, 'lights', next);
+        }
+        function addEntity() {
+          const ids = newEntityId.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
+          if (!ids.length) return;
+          const added = ids.map((id,i) => ({entityId:id, name: ids.length===1 ? newEntityName : ''}));
+          commit([...entities, ...added]);
+          setNewEntityId(''); setNewEntityName('');
+        }
+        function removeEntity(i) { const n=[...entities]; n.splice(i,1); commit(n); }
+        function updateName(i, name) { const n=[...entities]; n[i]={...n[i],name}; commit(n); }
+        function updateId(i, entityId) { const n=[...entities]; n[i]={...n[i],entityId}; commit(n); }
+
+        return h('div', null,
+          h('div', {className:'settings-label'}, 'LIGHT ENTITIES'),
+          // Existing entities
+          entities.length > 0 && h('div', {style:{marginBottom:'8px'}},
+            entities.map((e,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'4px'}},
+              h('input', {
+                className:'settings-input',
+                style:{flex:'2',fontSize:'11px'},
+                value:e.entityId,
+                placeholder:'light.entity_id',
+                onChange:ev=>updateId(i,ev.target.value)
+              }),
+              h('input', {
+                className:'settings-input',
+                style:{flex:'1',fontSize:'11px'},
+                value:e.name||'',
+                placeholder:'Display name',
+                onChange:ev=>updateName(i,ev.target.value)
+              }),
+              h('button', {
+                onClick:()=>removeEntity(i),
+                style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'14px',padding:'0 4px',flexShrink:0}
+              }, '×')
+            ))
+          ),
+          // Add new
+          h('div', {style:{display:'flex',gap:'6px',alignItems:'center',marginTop:'4px'}},
+            h('textarea', {
+              className:'settings-textarea',
+              style:{flex:'2',minHeight:'38px',fontSize:'11px',resize:'vertical'},
+              value:newEntityId,
+              placeholder:'light.entity_id\n(one per line or comma-separated)',
+              onChange:e=>setNewEntityId(e.target.value)
+            }),
+            h('input', {
+              className:'settings-input',
+              style:{flex:'1',fontSize:'11px'},
+              value:newEntityName,
+              placeholder:'Name (optional)',
+              onChange:e=>setNewEntityName(e.target.value)
+            }),
+            h('button', {
+              onClick:addEntity,
+              style:{background:'var(--accent)',border:'none',color:'#000',cursor:'pointer',fontSize:'11px',borderRadius:'4px',padding:'6px 10px',fontWeight:'700',flexShrink:0,whiteSpace:'nowrap'}
+            }, '+ Add')
+          ),
+          h('div', {style:{fontSize:'9px',color:'var(--dim)',marginTop:'3px'}}, 'Paste multiple entity IDs one per line. Give each a friendly display name.')
+        );
+      }
+
       function integrationSection(key, label, emoji, fields) {
         return h('div', {className:'settings-integration'},
           h('div', {className:'settings-integration-header', onClick:()=>toggleExpand(key)},
@@ -1157,10 +1237,14 @@
           ),
           expanded[key] && h('div', {className:'settings-integration-body'},
             fields.map(f => h(React.Fragment, {key:f.field},
-              h('div', {className:'settings-label'}, f.label),
-              f.type === 'textarea' ?
-                h('textarea', {className:'settings-textarea', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,f.field==='lights'?e.target.value.split('\n').filter(Boolean):e.target.value), placeholder:f.placeholder||''}) :
-                h('input', {className:'settings-input', type:f.type||'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
+              f.type === 'ha-entities'
+                ? h(HAEntitiesEditor, {integrationKey:key})
+                : h(React.Fragment, null,
+                    h('div', {className:'settings-label'}, f.label),
+                    f.type === 'textarea'
+                      ? h('textarea', {className:'settings-textarea', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value.split('\n').filter(Boolean)), placeholder:f.placeholder||''})
+                      : h('input', {className:'settings-input', type:f.type||'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
+                  )
             ))
           )
         );
@@ -1188,7 +1272,7 @@
             h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
               {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
-              {field:'lights',label:'LIGHT ENTITY IDS (one per line)',type:'textarea',placeholder:'light.living_room\nlight.bedroom'},
+              {field:'lights',type:'ha-entities'},
               {field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}
             ])),
             h('div', {id:'settings-signalrgb'}, integrationSection('homeassistant', 'SignalRGB (via HA)', '⚡', [{field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}])),
