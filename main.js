@@ -669,6 +669,27 @@ ipcMain.handle('start-signalr', (_e, { sonarrUrl, sonarrKey, radarrUrl, radarrKe
 });
 
 
+// ─── IPC: CHECK SERVICES (in-house pinger) ──────────────────────────────────
+ipcMain.handle('check-services', async (_e, services) => {
+  const fetch = await getFetch();
+  const results = await Promise.all(services.map(async ({ name, url }) => {
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      const res = await fetch(url, { method: 'HEAD', signal: controller.signal, redirect: 'manual' });
+      clearTimeout(timer);
+      const ms = Date.now() - start;
+      // 2xx, 3xx, and 401/403 all count as "up" (service is responding)
+      const up = res.status < 500;
+      return { name, url, status: up ? 'up' : 'down', ms, code: res.status };
+    } catch (e) {
+      return { name, url, status: 'down', ms: Date.now() - start, error: e.message };
+    }
+  }));
+  return results;
+});
+
 // ─── IPC: UPTIME KUMA (Socket.IO) ───────────────────────────────────────────
 ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
   try {

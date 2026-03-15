@@ -259,8 +259,10 @@
             <div style="font-size:13px;color:var(--dim);margin-bottom:16px;text-align:center;letter-spacing:1px;">Enable the integrations you use. You can always change these later in Settings.</div>
             <div class="two-col">
               ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
-                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}"></div>
-                <div class="field-group"><div class="field-label">Long-Lived Access Token</div><input class="field-input" id="ha-token" placeholder="Your HA token" value="${esc(config.integrations.homeassistant.token)}"></div>
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
+                <div class="field-group"><div class="field-label">Long-Lived Access Token</div><input class="field-input" id="ha-token" placeholder="Your HA token" value="${esc(config.integrations.homeassistant.token)}" oninput="showHABrowseBtn()"></div>
+                <button class="ha-browse-btn" id="ha-browse-btn" onclick="openHABrowser()" style="display:none;margin-top:8px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚙ Configure Entities</button>
+                <div id="ha-selected-count" style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;"></div>
               `)}
               ${integrationCard('tautulli', 'Tautulli', '🎬', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="tau-url" placeholder="http://192.168.1.x:8181" value="${esc(config.integrations.tautulli.url)}"></div>
@@ -299,8 +301,9 @@
               `)}
               ${integrationCard('uptimekuma', 'Uptime Kuma', '🔔', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="uptime-url" placeholder="http://192.168.1.x:3001" value="${esc(config.integrations.uptimekuma.url)}"></div>
-                <div class="field-group"><div class="field-label">Username</div><input class="field-input" id="uptime-user" value="${esc(config.integrations.uptimekuma.username)}"></div>
-                <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="uptime-pass" type="password" value="${esc(config.integrations.uptimekuma.password)}"></div>
+                <div class="field-group"><div class="field-label">Username <span style="color:rgba(255,255,255,0.3);font-size:10px;">(optional)</span></div><input class="field-input" id="uptime-user" value="${esc(config.integrations.uptimekuma.username)}"></div>
+                <div class="field-group"><div class="field-label">Password <span style="color:rgba(255,255,255,0.3);font-size:10px;">(optional)</span></div><input class="field-input" id="uptime-pass" type="password" value="${esc(config.integrations.uptimekuma.password)}"></div>
+                <div class="integration-hint">The service monitor will ping this URL directly — credentials only needed for legacy Uptime Kuma socket access.</div>
               `)}
               ${integrationCard('spotify', 'Spotify', '🎵', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="spotify-id" value="${esc(config.integrations.spotify.clientId)}"></div>
@@ -342,6 +345,13 @@
             }
           });
         });
+        // Init HA entity count display and browse button visibility
+        (function() {
+          const lights = config.integrations.homeassistant.lights;
+          const countEl = document.getElementById('ha-selected-count');
+          if (countEl && lights && lights.length > 0) countEl.textContent = lights.length + ' entities configured';
+          showHABrowseBtn();
+        })();
       } else if (currentStep === 2) {
         renderPagesStep(container);
       } else if (currentStep === 3) {
@@ -591,6 +601,7 @@
       config.integrations.homeassistant.enabled = isEnabled('homeassistant');
       config.integrations.homeassistant.url = getVal('ha-url');
       config.integrations.homeassistant.token = getVal('ha-token');
+      config.integrations.homeassistant.lights = window._haSelectedIds ? Array.from(window._haSelectedIds) : (config.integrations.homeassistant.lights || []);
 
       config.integrations.tautulli.enabled = isEnabled('tautulli');
       config.integrations.tautulli.url = getVal('tau-url');
@@ -656,6 +667,152 @@
 
     renderProgress();
     renderStep();
+
+    // ─── HA Entity Browser ───────────────────────────────────────────────────
+
+    // Inject modal overlay into body
+    (function injectHAModal() {
+      const overlay = document.createElement('div');
+      overlay.id = 'ha-modal-overlay';
+      overlay.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;';
+      overlay.innerHTML = `
+        <div style="background:#111;border:1px solid rgba(255,255,255,0.1);border-radius:12px;width:580px;max-height:80vh;display:flex;flex-direction:column;padding:24px;">
+          <div style="font-size:14px;font-weight:700;letter-spacing:2px;color:#00d9ff;margin-bottom:16px;">HA ENTITIES</div>
+          <input id="ha-search" placeholder="Search entities..." style="width:100%;box-sizing:border-box;padding:8px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#c8d6e5;font-family:inherit;font-size:12px;margin-bottom:12px;outline:none;">
+          <div id="ha-domain-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+          <div id="ha-entity-list" style="flex:1;overflow-y:auto;min-height:200px;max-height:350px;"></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);">
+            <span id="ha-selected-label" style="font-size:11px;color:rgba(255,255,255,0.4);">0 selected</span>
+            <div style="display:flex;gap:8px;">
+              <button onclick="closeHAModal()" style="padding:8px 16px;background:transparent;border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:#c8d6e5;cursor:pointer;font-family:inherit;font-size:12px;">Cancel</button>
+              <button onclick="saveHAEntities()" style="padding:8px 16px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">Save Entities</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+    })();
+
+    // Show/hide the Configure Entities button
+    function showHABrowseBtn() {
+      const url = document.getElementById('ha-url');
+      const token = document.getElementById('ha-token');
+      const btn = document.getElementById('ha-browse-btn');
+      if (btn) btn.style.display = (url && url.value.trim() && token && token.value.trim()) ? 'block' : 'none';
+    }
+
+    // HA modal state
+    var haAllEntities = [];
+    var haSelectedIds = new Set();
+    var haActiveDomain = null;
+
+    function renderHAEntities() {
+      const searchVal = (document.getElementById('ha-search') ? document.getElementById('ha-search').value : '').toLowerCase();
+      const list = document.getElementById('ha-entity-list');
+      const label = document.getElementById('ha-selected-label');
+      if (!list) return;
+
+      const filtered = haAllEntities.filter(e => {
+        if (haActiveDomain && e.domain !== haActiveDomain) return false;
+        if (searchVal) {
+          const name = (e.attributes && e.attributes.friendly_name ? e.attributes.friendly_name : '').toLowerCase();
+          if (!e.entity_id.toLowerCase().includes(searchVal) && !name.includes(searchVal)) return false;
+        }
+        return true;
+      });
+
+      list.innerHTML = '';
+      filtered.forEach(e => {
+        const friendlyName = e.attributes && e.attributes.friendly_name ? e.attributes.friendly_name : e.entity_id;
+        const checked = haSelectedIds.has(e.entity_id) ? 'checked' : '';
+        const row = document.createElement('label');
+        row.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 4px;cursor:pointer;border-radius:4px;';
+        row.innerHTML = `<input type="checkbox" data-eid="${e.entity_id}" ${checked} style="flex-shrink:0;accent-color:#00d9ff;">
+          <span style="font-size:12px;color:#c8d6e5;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${friendlyName}</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3);flex-shrink:0;">${e.entity_id}</span>`;
+        row.querySelector('input').addEventListener('change', function() {
+          if (this.checked) haSelectedIds.add(this.dataset.eid);
+          else haSelectedIds.delete(this.dataset.eid);
+          if (label) label.textContent = haSelectedIds.size + ' selected';
+        });
+        list.appendChild(row);
+      });
+
+      if (label) label.textContent = haSelectedIds.size + ' selected';
+    }
+
+    function renderHADomainPills() {
+      const pillsEl = document.getElementById('ha-domain-pills');
+      if (!pillsEl) return;
+      const domains = [...new Set(haAllEntities.map(e => e.domain))].sort();
+      pillsEl.innerHTML = '';
+
+      const allPill = document.createElement('button');
+      allPill.textContent = 'All';
+      allPill.style.cssText = 'padding:4px 10px;border-radius:12px;border:1px solid rgba(0,217,255,0.4);background:' + (haActiveDomain === null ? 'rgba(0,217,255,0.15)' : 'transparent') + ';color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;';
+      allPill.onclick = () => { haActiveDomain = null; renderHADomainPills(); renderHAEntities(); };
+      pillsEl.appendChild(allPill);
+
+      domains.forEach(d => {
+        const pill = document.createElement('button');
+        pill.textContent = d;
+        pill.style.cssText = 'padding:4px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);background:' + (haActiveDomain === d ? 'rgba(255,255,255,0.1)' : 'transparent') + ';color:rgba(255,255,255,0.6);cursor:pointer;font-family:inherit;font-size:11px;';
+        pill.onclick = () => { haActiveDomain = d; renderHADomainPills(); renderHAEntities(); };
+        pillsEl.appendChild(pill);
+      });
+    }
+
+    async function openHABrowser() {
+      const url = document.getElementById('ha-url') ? document.getElementById('ha-url').value.trim() : '';
+      const token = document.getElementById('ha-token') ? document.getElementById('ha-token').value.trim() : '';
+      if (!url || !token) { alert('Enter HA URL and token first'); return; }
+
+      const overlay = document.getElementById('ha-modal-overlay');
+      if (overlay) { overlay.style.display = 'flex'; }
+
+      const listEl = document.getElementById('ha-entity-list');
+      if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.4);font-size:12px;">Loading entities…</div>';
+
+      // Pre-populate from existing config
+      haSelectedIds = new Set(config.integrations.homeassistant.lights || []);
+      window._haSelectedIds = haSelectedIds;
+      haActiveDomain = null;
+
+      try {
+        const data = await window.orbit.apiGet(url + '/api/states', { 'Authorization': 'Bearer ' + token }, 20000);
+        if (Array.isArray(data)) {
+          haAllEntities = data.map(e => Object.assign({}, e, { domain: e.entity_id.split('.')[0] }));
+        } else {
+          haAllEntities = [];
+          if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#ff5555;font-size:12px;">Failed to load entities. Check URL and token.</div>';
+          return;
+        }
+      } catch (err) {
+        haAllEntities = [];
+        if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#ff5555;font-size:12px;">Error: ' + (err.message || 'Request failed') + '</div>';
+        return;
+      }
+
+      // Wire search
+      const searchEl = document.getElementById('ha-search');
+      if (searchEl) { searchEl.value = ''; searchEl.oninput = renderHAEntities; }
+
+      renderHADomainPills();
+      renderHAEntities();
+    }
+
+    function closeHAModal() {
+      const overlay = document.getElementById('ha-modal-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    function saveHAEntities() {
+      config.integrations.homeassistant.lights = Array.from(haSelectedIds);
+      window._haSelectedIds = haSelectedIds;
+      const countEl = document.getElementById('ha-selected-count');
+      if (countEl) countEl.textContent = haSelectedIds.size > 0 ? haSelectedIds.size + ' entities configured' : '';
+      closeHAModal();
+    }
+
   </script>
 </body>
 </html>
