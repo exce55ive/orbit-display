@@ -355,8 +355,24 @@ ipcMain.handle('activate-effect', async (_e, effectId) => {
   const fetch = await getFetch();
   const cfg2 = loadOrbitConfig();
   try {
-    const url = `${cfg2?.integrations?.signalrgb?.url || 'http://localhost:16034'}/api/v1/lighting/effects/${effectId}/activate`;
+    const base = cfg2?.integrations?.signalrgb?.url || 'http://localhost:16034';
+    const url = `${base}/api/v1/lighting/effects/${effectId}/activate`;
     const res = await fetch(url, { method: 'PUT' });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return text; }
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('signalrgb-set-enabled', async (_e, enabled) => {
+  const fetch = await getFetch();
+  const cfg2 = loadOrbitConfig();
+  try {
+    const base = cfg2?.integrations?.signalrgb?.url || 'http://localhost:16034';
+    const res = await fetch(`${base}/api/v1/lighting`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
     const text = await res.text();
     try { return JSON.parse(text); } catch { return text; }
   } catch (e) { return { error: e.message }; }

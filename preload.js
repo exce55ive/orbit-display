@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('orbit', {
   // SignalRGB (legacy direct)
   fetchSignalRGB: () => ipcRenderer.invoke('fetch-signalrgb'),
   activateEffect: (id) => ipcRenderer.invoke('activate-effect', id),
+  signalrgbSetEnabled: (enabled) => ipcRenderer.invoke('signalrgb-set-enabled', enabled),
 
   // Generic API proxy
   apiGet: (url, headers) => ipcRenderer.invoke('api-get', { url, headers }),

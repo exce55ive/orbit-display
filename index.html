@@ -380,33 +380,29 @@
       const [state, setState] = useState(null);
       const [search, setSearch] = useState('');
       const [favorites, setFavorites] = useState(config?.signalrgbFavorites || []);
-      const entityId = config?.integrations?.homeassistant?.signalrgbEntity;
+      // Always use direct SignalRGB API — no HA dependency
       useEffect(() => {
-        if (!entityId) {
-          async function pollDirect() {
-            try {
-              const r = await window.orbit.fetchSignalRGB();
-              if (r && !r.error && r.data) {
-                const cur = r.data.currentEffect || r.data.effect;
-                const effs = (r.data.effects||[]).map(e => typeof e === 'string' ? e : (e.name||e.id||String(e)));
-                setState({ state: r.data.enabled !== false ? 'on' : 'off', attributes: {
-                  brightness: Math.round((r.data.brightness||100)*2.55), effect: cur?.name||cur||'Unknown', effect_list: effs
-                }});
-              }
-            } catch {}
-          }
-          pollDirect(); const t = setInterval(pollDirect, 10000); return () => clearInterval(t);
+        async function pollDirect() {
+          try {
+            const r = await window.orbit.fetchSignalRGB();
+            if (r && !r.error && r.data) {
+              const cur = r.data.currentEffect || r.data.effect;
+              const effs = (r.data.effects||[]).map(e => typeof e === 'string' ? e : (e.name||e.id||String(e)));
+              setState({ state: r.data.enabled !== false ? 'on' : 'off', attributes: {
+                brightness: Math.round((r.data.brightness||100)*2.55), effect: cur?.name||cur||'Unknown', effect_list: effs
+              }});
+            }
+          } catch {}
         }
-        async function poll() { try { const r = await window.orbit.haGetState(entityId); if (!r.error) setState(r); } catch {} }
-        poll(); const t = setInterval(poll, 10000); return () => clearInterval(t);
-      }, [entityId]);
+        pollDirect(); const t = setInterval(pollDirect, 5000); return () => clearInterval(t);
+      }, []);
       const isOn = state?.state === 'on';
       const effectName = state?.attributes?.effect || 'No Effect';
       const brightness = haBrightPct(state?.attributes?.brightness);
       const effectList = state?.attributes?.effect_list || [];
       useEffect(() => { if (onSignalChange) onSignalChange(isOn); }, [isOn]);
-      const togglePower = async () => { if (entityId) await window.orbit.haCallService('light', isOn?'turn_off':'turn_on', {entity_id:entityId}); };
-      const selectEffect = async (eff) => { if (entityId) await window.orbit.haCallService('light', 'turn_on', {entity_id:entityId, effect:eff}); };
+      const togglePower = async () => { await window.orbit.signalrgbSetEnabled(!isOn); };
+      const selectEffect = async (eff) => { await window.orbit.activateEffect(eff); };
       const toggleFav = (eff) => {
         const next = favorites.includes(eff) ? favorites.filter(f=>f!==eff) : [...favorites, eff];
         setFavorites(next);
