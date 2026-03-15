@@ -128,7 +128,7 @@
       { id: 'complete', label: 'Complete' }
     ];
     let currentStep = 0;
-    let config = {
+    const DEFAULTS = {
       theme: { accentColor: '#00d9ff', darkMode: true },
       pages: [{ id: 'page1', name: 'Home', panels: [
         {type:'clock',col:1,width:1},{type:'signalrgb',col:2,width:1},{type:'lights',col:3,width:1},
@@ -145,6 +145,31 @@
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
     };
+
+    // Deep merge: existing config wins over defaults, preserving all saved fields
+    function deepMerge(defaults, saved) {
+      if (!saved || typeof saved !== 'object') return defaults;
+      const result = Object.assign({}, defaults);
+      for (const key of Object.keys(saved)) {
+        if (saved[key] && typeof saved[key] === 'object' && !Array.isArray(saved[key])) {
+          result[key] = deepMerge(defaults[key] || {}, saved[key]);
+        } else if (saved[key] !== undefined && saved[key] !== null) {
+          result[key] = saved[key];
+        }
+      }
+      return result;
+    }
+
+    // Load existing config and merge with defaults so no data is lost on reconfigure
+    let config = Object.assign({}, DEFAULTS);
+    if (window.orbit && window.orbit.loadConfig) {
+      window.orbit.loadConfig().then(saved => {
+        if (saved) {
+          config = deepMerge(DEFAULTS, saved);
+          render(); // re-render with loaded data
+        }
+      }).catch(() => {});
+    }
 
     // Available panel types
     const PANEL_TYPES = [
