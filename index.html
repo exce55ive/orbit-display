@@ -256,6 +256,25 @@
     const h = React.createElement;
     const { useState, useEffect, useRef, useCallback, useMemo, useContext, createContext } = React;
 
+    // ═══ ERROR BOUNDARY ═══
+    class PanelErrorBoundary extends React.Component {
+      constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+      static getDerivedStateFromError(err) { return { hasError: true, error: err }; }
+      componentDidCatch(err, info) { console.error('Panel error:', err, info); }
+      render() {
+        if (this.state.hasError) {
+          return h('div', { className: 'panel', style: { justifyContent: 'center', alignItems: 'center' } },
+            h('div', { style: { fontSize: '28px', marginBottom: '8px' } }, '⚠️'),
+            h('div', { style: { fontSize: '11px', color: 'var(--dim)', textAlign: 'center', padding: '0 12px' } },
+              'Panel error — check Settings'),
+            h('button', { className: 'settings-save', style: { marginTop: '12px', fontSize: '10px', padding: '4px 10px' },
+              onClick: () => this.setState({ hasError: false, error: null }) }, 'Retry')
+          );
+        }
+        return this.props.children;
+      }
+    }
+
     // ═══ BOOT ANIMATION ═══
     (function bootAnimation() {
       const lines = ['INITIALISING DISPLAY', 'LOADING INTEGRATIONS', 'CHECKING UPDATES', 'SYSTEM SENSORS OK', 'READY'];
@@ -1071,21 +1090,24 @@
     }
 
     // ═══ PANEL RENDERER ═══
+    function wrap(key, child) {
+      return h(PanelErrorBoundary, { key }, child);
+    }
     function renderPanel(panelCfg, config, openSettings) {
       const type = panelCfg.type;
       const key = type + '-' + (panelCfg.col || 0);
       switch (type) {
-        case 'clock': return h(ClockPanel, {key, config});
+        case 'clock': return wrap(key, h(ClockPanel, {key, config}));
         case 'signalrgb': return null; // Rendered specially in App for context
-        case 'lights': return h(LightsPanel, {key, config});
-        case 'nowplaying': return h(NowPlayingPanel, {key, config});
-        case 'system': return h(SystemPanel, {key, config});
-        case 'media': return h(MediaPanel, {key, config, openSettings});
-        case 'uptimekuma': return h(UptimeKumaPanel, {key, config, openSettings});
-        case 'spotify': return h(SpotifyPanel, {key, config, openSettings});
-        case 'links': return h(LinksPanel, {key, config});
-        case 'jellyfin': return h(JellyfinPanel, {key, config, openSettings});
-        default: return h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type));
+        case 'lights': return wrap(key, h(LightsPanel, {key, config}));
+        case 'nowplaying': return wrap(key, h(NowPlayingPanel, {key, config}));
+        case 'system': return wrap(key, h(SystemPanel, {key, config}));
+        case 'media': return wrap(key, h(MediaPanel, {key, config, openSettings}));
+        case 'uptimekuma': return wrap(key, h(UptimeKumaPanel, {key, config, openSettings}));
+        case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
+        case 'links': return wrap(key, h(LinksPanel, {key, config}));
+        case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
+        default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
 
