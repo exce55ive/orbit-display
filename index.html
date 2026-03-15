@@ -25,10 +25,10 @@
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
-    .panel { height: calc(100vh - 52px); padding: 20px 16px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .panel { height: calc(100vh - 52px); padding: 20px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
-    .panel-label { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
-    .source-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 10px; background: rgba(0,217,255,0.1); color: var(--accent); border: 1px solid rgba(0,217,255,0.2); text-transform: uppercase; }
+    .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .source-badge { display: inline-block; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 3px; background: rgba(0,217,255,0.08); color: var(--accent); border: 1px solid rgba(0,217,255,0.15); text-transform: uppercase; }
     .clock-time { font-size: 64px; font-weight: 300; color: var(--text-bright); letter-spacing: 3px; line-height: 1; margin-bottom: 6px; text-shadow: 0 0 30px rgba(0,217,255,0.15); }
     .clock-date { font-size: 14px; font-weight: 500; letter-spacing: 2px; color: var(--dim); margin-bottom: 20px; }
     .weather-current { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
@@ -48,7 +48,7 @@
     .effect-name { font-size: 36px; font-weight: 700; margin-bottom: 6px; transition: color 2s ease; text-shadow: 0 0 30px currentColor; line-height: 1.1; max-width: 100%; word-wrap: break-word; }
     .effect-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 16px; }
     .brightness-wrap { width: 100%; padding: 0 12px; margin-bottom: 12px; }
-    .brightness-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+    .brightness-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; margin-bottom: 4px; }
     .brightness-fill { height: 100%; border-radius: 3px; transition: width .5s, background 2s; }
     .brightness-label { font-size: 14px; font-weight: 600; }
     .ha-toggle { padding: 6px 20px; font-size: 12px; font-weight: 700; letter-spacing: 1px; border: 2px solid var(--border); border-radius: 20px; background: transparent; color: var(--text); cursor: pointer; transition: all .2s; margin-bottom: 12px; font-family: var(--font); }
@@ -82,9 +82,9 @@
     .light-brightness input { width: 100%; height: 3px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
     .light-brightness input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); cursor: pointer; }
     .light-signalrgb-badge { font-size: 10px; color: var(--amber); display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
-    .np-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
-    .np-empty-icon { font-size: 40px; opacity: 0.12; }
-    .np-empty-text { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+    .np-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+    .np-empty-icon { font-size: 28px; opacity: 0.10; }
+    .np-empty-text { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.28); }
     .np-offline { color: var(--amber); font-size: 13px; letter-spacing: 1px; }
     .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 110px); padding: 0 2px; }
     .panel-top { justify-content: flex-start !important; padding-top: 48px !important; padding-bottom: 16px !important; align-items: stretch !important; overflow-y: auto !important; }
@@ -94,10 +94,10 @@
     .np-title { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 3px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .np-subtitle { font-size: 11px; color: var(--text); margin-bottom: 6px; }
     .np-progress-wrap { width: 100%; margin-bottom: 4px; }
-    .np-progress-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .np-progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
     .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 15s linear; }
     .np-time { font-size: 10px; color: var(--dim); margin-bottom: 4px; }
-    .np-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 10px; margin-right: 4px; }
+    .np-badge { display: inline-block; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 3px; margin-right: 4px; }
     .np-badge-transcode { background: rgba(255,200,87,0.12); color: var(--amber); border: 1px solid rgba(255,200,87,0.2); }
     .np-badge-direct { background: rgba(80,250,123,0.12); color: var(--green); border: 1px solid rgba(80,250,123,0.2); }
     .np-meta { font-size: 10px; color: var(--dim); margin-top: 4px; }
@@ -109,9 +109,9 @@
     .sys-row-cog:hover { opacity: 1; color: var(--accent); }
     .sys-bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 2px; }
     .sys-info { font-size: 12px; color: var(--text); text-align: left; min-height: 16px; }
-    .sys-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .sys-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
     .sys-bar-fill { height: 100%; border-radius: 3px; transition: width .5s; }
-    .sys-value { width: 48px; font-size: 20px; font-weight: 700; font-family: var(--font); text-align: right; flex-shrink: 0; }
+    .sys-value { width: 52px; font-size: 28px; font-weight: 800; font-family: var(--font); text-align: right; flex-shrink: 0; }
     .sys-c-green { color: var(--green); } .sys-b-green { background: var(--green); }
     .sys-c-amber { color: var(--amber); } .sys-b-amber { background: var(--amber); }
     .sys-c-red { color: var(--red); } .sys-b-red { background: var(--red); }
@@ -136,7 +136,8 @@
     .media-not-configured:hover { color: var(--accent); }
     .media-stat { font-size: 11px; color: var(--text); margin-bottom: 3px; }
     .media-stat-label { color: var(--dim); }
-    .monitor-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); width: 100%; }
+    .monitor-item { display: flex; align-items: center; gap: 8px; padding: 8px 4px; border-bottom: 1px solid var(--border); width: 100%; border-radius: 4px; transition: background .12s; }
+    .monitor-item:hover { background: rgba(255,255,255,0.03); }
     .monitor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .monitor-dot.up { background: var(--green); box-shadow: 0 0 4px var(--green); }
     .monitor-dot.down { background: var(--red); box-shadow: 0 0 4px var(--red); }
@@ -150,8 +151,8 @@
     .spotify-controls { display: flex; gap: 16px; }
     .spotify-btn { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; transition: color .2s; }
     .spotify-btn:hover { color: var(--accent); }
-    .link-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all .2s; width: 100%; margin-bottom: 6px; }
-    .link-item:hover { border-color: var(--accent); background: rgba(0,217,255,0.04); }
+    .link-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: rgba(255,255,255,0.03); border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .15s; width: 100%; margin-bottom: 6px; }
+    .link-item:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); }
     .link-icon { font-size: 18px; }
     .link-label { font-size: 12px; font-weight: 600; color: var(--text); }
     .jf-session { width: 100%; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; text-align: left; }
@@ -264,9 +265,9 @@
     .quit-btn:hover { color: var(--red); border-color: var(--red); }
     .panel-cog-btn { background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 11px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; transition: color .2s; vertical-align: middle; }
     .panel-cog-btn:hover { color: var(--accent); }
-    .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-    .panel-unconfigured-icon { font-size: 28px; opacity: 0.15; }
-    .panel-unconfigured-text { font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+    .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+    .panel-unconfigured-icon { font-size: 24px; opacity: 0.10; }
+    .panel-unconfigured-text { font-size: 10px; color: rgba(255,255,255,0.25); letter-spacing: 1.5px; }
     .offline-msg { font-size: 11px; color: var(--dim); font-style: italic; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
     .pulse { animation: pulse 2s ease-in-out infinite; }
@@ -928,7 +929,7 @@
           ),
           // Up next
           queue.length > 0 && h('div', null,
-            h('div', {style:{fontSize:'9px',color:'var(--dim)',marginBottom:'5px'}}, 'UP NEXT'),
+            h('div', {style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'6px',letterSpacing:'2px',paddingBottom:'5px',borderBottom:'1px solid rgba(255,255,255,0.06)'}}, 'UP NEXT'),
             queue.map((t2,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}},
               t2.album?.images?.[2]?.url && h('img',{src:t2.album.images[2].url,style:{width:'20px',height:'20px',borderRadius:'2px',flexShrink:0}}),
               h('div',{style:{flex:1,minWidth:0}},
@@ -1549,12 +1550,12 @@
       return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
         h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
-          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'700',color:'var(--accent)'}}, seriesCount??'…')),
-          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'700'}}, queue.length))
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'700',color:'var(--accent)'}}, seriesCount??'…')),
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'800',color:'var(--text-bright)'}}, queue.length))
         ),
         // Active downloads
         queue.length > 0 && h('div',{style:{marginBottom:'12px'}},
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADING'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'DOWNLOADING'),
           queue.map((item,i)=>{
             const pct = item.size > 0 ? Math.round((1-(item.sizeLeft/item.size))*100) : 0;
             const seriesTitle = item.series?.title || seriesMap[item.seriesId] || item.title?.split('.')[0] || '?';
@@ -1568,7 +1569,7 @@
         ),
         // Downloaded today
         todayImports.length > 0 && h('div',{style:{marginBottom:'12px'}},
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADED TODAY'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'DOWNLOADED TODAY'),
           todayImports.map((r,i)=>{
             const seriesTitle = r.series?.title || seriesMap[r.seriesId] || '';
             const sn = r.episode?.seasonNumber ?? r.episodeId;
@@ -1586,7 +1587,7 @@
         ),
         // Upcoming calendar — series name prominent
         calendar.length > 0 && h('div',null,
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'UPCOMING'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'UPCOMING'),
           calendar.map((ep,i)=>{
             const seriesTitle = ep.series?.title || seriesMap[ep.seriesId] || 'Unknown';
             const epCode = 'S'+String(ep.seasonNumber||0).padStart(2,'0')+'E'+String(ep.episodeNumber||0).padStart(2,'0');
@@ -1677,12 +1678,12 @@
         h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
         // Stats
         h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
-          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'700',color:'var(--accent)'}}, movieCount??'…')),
-          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1.5px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'700'}}, queue.length))
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'700',color:'var(--accent)'}}, movieCount??'…')),
+          h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'800',color:'var(--text-bright)'}}, queue.length))
         ),
         // Active downloads
         queue.length > 0 && h('div',{style:{marginBottom:'12px'}},
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADING'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'DOWNLOADING'),
           queue.map((item,i)=>{
             const pct = item.size > 0 ? Math.round((1-(item.sizeLeft/item.size))*100) : 0;
             const title = (item.movie?.title || item.title || '').slice(0,36);
@@ -1695,7 +1696,7 @@
         ),
         // Downloaded today
         todayImports.length > 0 && h('div',{style:{marginBottom:'12px'}},
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADED TODAY'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'DOWNLOADED TODAY'),
           todayImports.map((r,i)=>{
             const fromMap = r.movieId ? movieMap[r.movieId] : null;
             const title = r.movie?.title || fromMap?.title || r.movieTitle || '?';
@@ -1709,7 +1710,7 @@
         ),
         // Upcoming
         upcoming.length > 0 && h('div',null,
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'UPCOMING'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'UPCOMING'),
           upcoming.map((m,i)=>{
             const when = m.daysAway <= 0 ? 'Today' : m.daysAway === 1 ? 'Tomorrow' : 'in '+m.daysAway+'d';
             return h('div',{key:i,style:{display:'flex',gap:'8px',alignItems:'baseline',marginBottom:'5px'}},
@@ -1774,12 +1775,12 @@
         counts && h('div',{style:{display:'flex',gap:'20px',marginBottom:'18px',flexWrap:'wrap',justifyContent:'center',width:'100%'}},
           [['TOTAL',counts.total,'var(--text)'],['PENDING',counts.pending,'#ffb86c'],['PROCESSING',counts.processing,'var(--accent)'],['AVAILABLE',counts.available,'#50fa7b']]
             .map(([l,v,c])=>h('div',{key:l},
-              h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'3px',letterSpacing:'1px'}},l),
-              h('div',{style:{fontSize:'28px',fontWeight:'700',color:c}},v??'…')
+              h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'3px',letterSpacing:'2px'}},l),
+              h('div',{style:{fontSize:'28px',fontWeight:'800',color:c}},v??'…')
             ))
         ),
         recent.length > 0 && h('div', null,
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}},'RECENT REQUESTS'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'RECENT REQUESTS'),
           recent.map((req,i)=>{
             const isMovie = req.type==='movie';
             const tmdb = req.media?.tmdbId;
@@ -1849,7 +1850,7 @@
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div', null,
             h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),
-            h('div',{style:{fontSize:'28px',fontWeight:'700',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
+            h('div',{style:{fontSize:'28px',fontWeight:'800',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
           ),
           remMB > 0 && h('div', null,
             h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'REMAINING'),
@@ -1857,7 +1858,7 @@
           )
         ),
         groups.length > 0 && h('div', null,
-          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}},'QUEUE'),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'QUEUE'),
           groups.map((g,i)=>{
             const pct = g.FileSizeMB > 0 ? Math.round((1-(g.RemainingSizeMB/g.FileSizeMB))*100) : 0;
             const name = (g.NZBNicename||g.NZBFilename||'Unknown').slice(0,38);
@@ -1965,11 +1966,11 @@
         h('div', {style:{display:'flex',gap:'20px',marginBottom:'10px'}},
           h('div', null,
             h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'SERVERS'),
-            h('div', {style:{fontSize:'28px',fontWeight:'700',color:'#5865F2'}}, guildCount)
+            h('div', {style:{fontSize:'28px',fontWeight:'800',color:'#5865F2'}}, guildCount)
           ),
           dmCount > 0 && h('div', null,
             h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'DMS'),
-            h('div', {style:{fontSize:'28px',fontWeight:'700',color:'var(--text-bright)'}}, dmCount)
+            h('div', {style:{fontSize:'28px',fontWeight:'800',color:'var(--text-bright)'}}, dmCount)
           )
         ),
         notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
