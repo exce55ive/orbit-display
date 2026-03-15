@@ -502,31 +502,36 @@ ipcMain.handle('spotify-auth-start', async () => {
   const clientId = cfg?.integrations?.spotify?.clientId;
   if (!clientId) return { error: 'No client ID configured' };
 
+  const http = require('http');
   const { shell } = require('electron');
-  const redirectUri = 'orbit://spotify-callback';
+  const redirectUri = 'http://127.0.0.1:8888/callback';
   const scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
   const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
   return new Promise((resolve) => {
-    // Register one-shot resolver for the deep link callback
-    _spotifyAuthResolve = async (callbackUrl) => {
-      _spotifyAuthResolve = null;
-      try {
-        const code = new URL(callbackUrl).searchParams.get('code');
-        const error = new URL(callbackUrl).searchParams.get('error');
-        if (error) { resolve({ error }); return; }
-        if (!code) { resolve({ error: 'No code in callback' }); return; }
+    const server = http.createServer(async (req, res) => {
+      if (!req.url.startsWith('/callback')) return;
+      const params = new URL(req.url, 'http://127.0.0.1:8888').searchParams;
+      const code = params.get('code');
+      const error = params.get('error');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<html><body style="font-family:monospace;background:#060a10;color:#00d9ff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><h2>Spotify connected ✓ — you can close this tab.</h2></body></html>');
+      server.close();
 
-        const fetch = await getFetch();
-        const clientSecret = cfg?.integrations?.spotify?.clientSecret;
-        const params = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri });
+      if (error) { resolve({ error }); return; }
+      if (!code) { resolve({ error: 'No code received' }); return; }
+
+      const fetch = await getFetch();
+      const clientSecret = cfg?.integrations?.spotify?.clientSecret;
+      const body = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri });
+      try {
         const r = await fetch('https://accounts.spotify.com/api/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
           },
-          body: params.toString()
+          body: body.toString()
         });
         const tokens = await r.json();
         if (tokens.access_token) {
@@ -540,11 +545,11 @@ ipcMain.handle('spotify-auth-start', async () => {
           resolve({ error: tokens.error_description || 'Token exchange failed' });
         }
       } catch (e) { resolve({ error: e.message }); }
-    };
+    });
 
-    shell.openExternal(authUrl);
-    // Timeout after 5 minutes
-    setTimeout(() => { if (_spotifyAuthResolve) { _spotifyAuthResolve = null; resolve({ error: 'Auth timeout' }); } }, 300000);
+    server.listen(8888, '127.0.0.1', () => shell.openExternal(authUrl));
+    server.on('error', (e) => resolve({ error: 'Port 8888 in use: ' + e.message }));
+    setTimeout(() => { try { server.close(); } catch {} resolve({ error: 'Auth timeout' }); }, 300000);
   });
 });
 
