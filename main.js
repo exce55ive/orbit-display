@@ -336,7 +336,8 @@ ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
 
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
 ipcMain.handle('fetch-signalrgb', async () => {
-  const base = legacyConfig.signalrgb?.url || 'http://localhost:16034';
+  const cfg = loadOrbitConfig();
+  const base = cfg?.integrations?.signalrgb?.url || 'http://localhost:16034';
   const [state, effectsList] = await Promise.all([
     safeFetch(`${base}/api/v1/lighting`),
     safeFetch(`${base}/api/v1/lighting/effects`).catch(() => ({ data: [] }))
@@ -352,8 +353,9 @@ ipcMain.handle('fetch-signalrgb', async () => {
 
 ipcMain.handle('activate-effect', async (_e, effectId) => {
   const fetch = await getFetch();
+  const cfg2 = loadOrbitConfig();
   try {
-    const url = `${legacyConfig.signalrgb?.url || 'http://localhost:16034'}/api/v1/lighting/effects/${effectId}/activate`;
+    const url = `${cfg2?.integrations?.signalrgb?.url || 'http://localhost:16034'}/api/v1/lighting/effects/${effectId}/activate`;
     const res = await fetch(url, { method: 'PUT' });
     const text = await res.text();
     try { return JSON.parse(text); } catch { return text; }
