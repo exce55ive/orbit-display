@@ -1211,9 +1211,17 @@
 
         useEffect(() => {
           if (!haUrl || !haToken) { setError('Configure HA URL and token first'); setLoading(false); return; }
-          window.orbit.apiGet(haUrl + '/api/states', {'Authorization': 'Bearer ' + haToken})
+          window.orbit.apiGet(haUrl + '/api/states', {'Authorization': 'Bearer ' + haToken}, 20000)
             .then(data => {
-              if (!Array.isArray(data)) { setError('HA returned unexpected response — check URL and token'); setLoading(false); return; }
+              if (data?.error) { setError('Network error: ' + data.error); setLoading(false); return; }
+              if (!Array.isArray(data)) {
+                // Show the actual HA response to help diagnose
+                const detail = typeof data === 'object' && data !== null
+                  ? (data.message || data.detail || JSON.stringify(data).slice(0, 120))
+                  : String(data).slice(0, 120);
+                setError('HA error: ' + detail);
+                setLoading(false); return;
+              }
               const sorted = [...data].sort((a,b) => a.entity_id.localeCompare(b.entity_id));
               setAllEntities(sorted);
               const d = new Set(sorted.map(e => e.entity_id.split('.')[0]));

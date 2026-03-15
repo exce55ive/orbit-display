@@ -31,7 +31,7 @@ contextBridge.exposeInMainWorld('orbit', {
   discordAuthStart: () => ipcRenderer.invoke('discord-auth-start'),
 
   // Generic API proxy
-  apiGet: (url, headers) => ipcRenderer.invoke('api-get', { url, headers }),
+  apiGet: (url, headers, timeout) => ipcRenderer.invoke('api-get', { url, headers, timeout }),
   apiPost: (url, body, headers) => ipcRenderer.invoke('api-post', { url, body, headers }),
   apiPut: (url, body, headers) => ipcRenderer.invoke('api-put', { url, body, headers }),
   startSignalR: (opts) => ipcRenderer.invoke('start-signalr', opts),

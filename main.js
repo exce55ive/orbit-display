@@ -329,8 +329,8 @@ ipcMain.handle('fetch-tautulli', async () => {
 });
 
 // ─── IPC: GENERIC API PROXY ─────────────────────────────────────────────────
-ipcMain.handle('api-get', async (_e, { url, headers }) => {
-  return safeFetch(url, { headers: headers || {} });
+ipcMain.handle('api-get', async (_e, { url, headers, timeout }) => {
+  return safeFetch(url, { headers: headers || {}, timeout: timeout || 8000 });
 });
 
 ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
