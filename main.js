@@ -258,15 +258,19 @@ ipcMain.handle('open-external', (_e, url) => {
 
 // ─── IPC: SETUP ──────────────────────────────────────────────────────────────
 ipcMain.handle('open-setup', async () => {
+  // Close any existing setup windows first
+  BrowserWindow.getAllWindows().forEach(w => { if (w !== mainWindow) w.close(); });
   const setupWin = new BrowserWindow({
     width: 860, height: 700, resizable: true, center: true,
     backgroundColor: '#0a0a0f',
+    alwaysOnTop: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false
     }
   });
   setupWin.loadFile('setup.html');
+  setupWin.once('ready-to-show', () => { setupWin.show(); setupWin.focus(); });
 });
 
 ipcMain.handle('setup-complete', async () => {
