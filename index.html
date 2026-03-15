@@ -744,7 +744,7 @@
     function SpotifyPanel({ config, openSettings }) {
       const sCfg = config?.integrations?.spotify;
       const configured = sCfg?.clientId && sCfg?.clientSecret;
-      const authorized = !!(sCfg?.accessToken);
+      const [authorized, setAuthorized] = useState(!!(sCfg?.accessToken));
       const [connecting, setConnecting] = useState(false);
       const [connectErr, setConnectErr] = useState('');
       const [playback, setPlayback] = useState(null);
@@ -753,9 +753,12 @@
         if (!authorized) return;
         async function poll() {
           try {
-            // Auto-refresh token if expired
-            let token = sCfg.accessToken;
-            if (sCfg.tokenExpiry && Date.now() > sCfg.tokenExpiry - 60000) {
+            // Always read token fresh from disk so we pick up the just-saved token
+            const freshCfg = await window.orbit.loadConfig();
+            const freshSpotify = freshCfg?.integrations?.spotify;
+            let token = freshSpotify?.accessToken;
+            if (!token) return;
+            if (freshSpotify?.tokenExpiry && Date.now() > freshSpotify.tokenExpiry - 60000) {
               const r = await window.orbit.spotifyRefreshToken();
               if (r.accessToken) token = r.accessToken;
             }
@@ -765,7 +768,7 @@
           } catch {}
         }
         poll(); const t = setInterval(poll, 5000); return () => clearInterval(t);
-      }, [authorized, sCfg?.accessToken]);
+      }, [authorized]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎵'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
@@ -778,8 +781,8 @@
             setConnecting(true); setConnectErr('');
             const r = await window.orbit.spotifyAuthStart();
             setConnecting(false);
-            if (r.error) setConnectErr(r.error);
-            // On success, config will reload with the new token on next render
+            if (r.error) { setConnectErr(r.error); }
+            else { setAuthorized(true); } // token saved to disk — flip authorized immediately
           }}, connecting ? 'Connecting...' : 'Connect Spotify')
         );
       }
