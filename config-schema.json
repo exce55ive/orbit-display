@@ -1,0 +1,25 @@
+{
+  "credentials": {
+    "tautulliUrl": "http://192.168.1.35:8182",
+    "tautulliApiKey": "",
+    "haUrl": "https://your-ha-instance",
+    "haToken": "",
+    "signalrgbEntityId": "",
+    "axiomUrl": "http://localhost:19900"
+  },
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Main Display",
+      "panels": [
+        { "type": "plex" },
+        { "type": "lights" },
+        { "type": "clock-weather" },
+        { "type": "system" },
+        { "type": "axiom" },
+        { "type": "empty" }
+      ]
+    }
+  ],
+  "display": { "columns": 6, "rows": 1 }
+}

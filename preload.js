@@ -31,4 +31,18 @@ contextBridge.exposeInMainWorld('xeneon', {
   // Settings persistence
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   loadSettings: () => ipcRenderer.invoke('load-settings'),
+
+  // Orbit config (setup wizard + multi-page)
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  loadConfig: () => ipcRenderer.invoke('load-config'),
+  openSetup: () => ipcRenderer.invoke('open-setup'),
+  setupComplete: () => ipcRenderer.invoke('setup-complete'),
+});
+
+// Also expose as 'orbit' for setup.html compatibility
+contextBridge.exposeInMainWorld('orbit', {
+  saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  loadConfig: () => ipcRenderer.invoke('load-config'),
+  openSetup: () => ipcRenderer.invoke('open-setup'),
+  setupComplete: () => ipcRenderer.invoke('setup-complete'),
 });

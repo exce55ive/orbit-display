@@ -157,12 +157,32 @@ function showPicker() {
 }
 
 app.whenReady().then(() => {
-  const settings = loadSettings();
-  if (settings.displayId) {
-    launchMain(settings.displayId);
+  // ── FIRST-RUN DETECTION ──
+  const orbitConfigPath = path.join(app.getPath('userData'), 'orbit-config.json');
+  const hasOrbitConfig = fs.existsSync(orbitConfigPath) && (() => {
+    try { const c = JSON.parse(fs.readFileSync(orbitConfigPath, 'utf-8')); return c.pages && c.pages.length > 0; } catch { return false; }
+  })();
+
+  if (!hasOrbitConfig) {
+    // No config — show setup wizard
+    const setupWin = new BrowserWindow({
+      width: 860, height: 700, resizable: true, center: true,
+      backgroundColor: '#0a0a0f',
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+    setupWin.loadFile('setup.html');
   } else {
-    // First run — show picker
-    showPicker();
+    // Has config — proceed to display picker or main window
+    const settings = loadSettings();
+    if (settings.displayId) {
+      launchMain(settings.displayId);
+    } else {
+      showPicker();
+    }
   }
 
   // Check for updates in production (not in dev)
@@ -235,6 +255,46 @@ ipcMain.handle('ha-call-service', async (_e, { domain, service, data }) => {
 // ─── UPDATE ──────────────────────────────────────────────────────────────────
 ipcMain.handle('install-update', () => {
   autoUpdater.quitAndInstall(false, true);
+});
+
+// ── ORBIT CONFIG (setup wizard + multi-page) ──
+ipcMain.handle('save-config', async (_e, orbitCfg) => {
+  const orbitConfigPath = path.join(app.getPath('userData'), 'orbit-config.json');
+  fs.writeFileSync(orbitConfigPath, JSON.stringify(orbitCfg, null, 2));
+  return { ok: true };
+});
+
+ipcMain.handle('load-config', async () => {
+  const orbitConfigPath = path.join(app.getPath('userData'), 'orbit-config.json');
+  if (!fs.existsSync(orbitConfigPath)) return null;
+  try { return JSON.parse(fs.readFileSync(orbitConfigPath, 'utf-8')); } catch { return null; }
+});
+
+ipcMain.handle('open-setup', async () => {
+  const setupWin = new BrowserWindow({
+    width: 860, height: 700, resizable: true, center: true,
+    backgroundColor: '#0a0a0f',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  setupWin.loadFile('setup.html');
+});
+
+ipcMain.handle('setup-complete', async () => {
+  // Close setup window and open main display
+  const settings = loadSettings();
+  if (mainWindow) {
+    mainWindow.loadFile('index.html');
+  } else if (settings.displayId) {
+    launchMain(settings.displayId);
+  } else {
+    showPicker();
+  }
+  // Close all non-main windows
+  BrowserWindow.getAllWindows().forEach(w => { if (w !== mainWindow) w.close(); });
 });
 
 // Config endpoint — expose config to renderer

@@ -204,6 +204,25 @@
     .sys-picker-select:focus { border-color: var(--cyan); }
     .sys-picker-toggle { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text); cursor: pointer; }
     .sys-picker-toggle input[type=checkbox] { cursor: pointer; accent-color: var(--cyan); }
+
+    /* ── MULTI-PAGE NAVIGATION ── */
+    .zone-empty { background: rgba(255,255,255,0.01); border: 1px dashed rgba(255,255,255,0.06) !important; }
+    .zone-unconfigured { display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.2); font-size: 12px; }
+    .page-nav { position: fixed; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; z-index: 100; transition: all .2s; font-family: var(--font); }
+    .page-nav:hover { background: rgba(0,217,255,0.15); border-color: var(--cyan); color: var(--cyan); }
+    .page-nav-left { left: 12px; }
+    .page-nav-right { right: 12px; }
+    .page-dots { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 100; }
+    .page-dots-row { display: flex; gap: 8px; }
+    .page-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.25); cursor: pointer; transition: background .2s; }
+    .page-dot.active { background: var(--cyan); }
+    .page-name-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.35); text-transform: uppercase; }
+    .settings-gear { position: fixed; top: 12px; right: 48px; background: transparent; border: none; color: rgba(255,255,255,0.25); font-size: 16px; cursor: pointer; z-index: 100; transition: color .2s; font-family: var(--font); }
+    .settings-gear:hover { color: rgba(255,255,255,0.7); }
+    .no-config-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 16px; width: 100vw; }
+    .no-config-text { color: rgba(255,255,255,0.4); font-size: 14px; letter-spacing: 2px; }
+    .no-config-btn { padding: 10px 24px; background: transparent; border: 1px solid var(--cyan); color: var(--cyan); font-family: var(--font); cursor: pointer; letter-spacing: 1px; font-size: 13px; border-radius: 6px; transition: all .2s; }
+    .no-config-btn:hover { background: rgba(0,217,255,0.1); }
   </style>
 </head>
 <body>
@@ -923,9 +942,27 @@
       );
     }
 
+    // ── PANEL RENDERER (multi-page) ──
+    function renderPanel(panel, credentials, ambientProps) {
+      switch (panel.type) {
+        case 'plex': return h(NowPlayingZone);
+        case 'lights': return h(LightsZone);
+        case 'clock-weather': return h(ClockZone);
+        case 'system': return h(SystemZone);
+        case 'axiom': return h(AxiomZone);
+        case 'signalrgb': return h(SignalZone, { onAmbientChange: ambientProps?.onAmbientChange });
+        case 'empty': return h('div', { className: 'zone zone-empty' });
+        default: return h('div', { className: 'zone zone-unconfigured' }, '⚠ Not configured');
+      }
+    }
+
     // ── APP ROOT ──
     function App() {
       const [ambientColor, setAmbientColor] = useState('#00d9ff');
+      const [orbitConfig, setOrbitConfig] = useState(null);
+      const [configLoaded, setConfigLoaded] = useState(false);
+      const [pageIndex, setPageIndex] = useState(0);
+      const [dragStart, setDragStart] = useState(null);
 
       // Load full config from main process and update global
       useEffect(() => {
@@ -936,10 +973,89 @@
         }).catch(() => {});
       }, []);
 
+      // Load orbit page config
+      useEffect(() => {
+        if (window.xeneon?.loadConfig) {
+          window.xeneon.loadConfig().then(cfg => {
+            setOrbitConfig(cfg);
+            setConfigLoaded(true);
+          }).catch(() => setConfigLoaded(true));
+        } else {
+          setConfigLoaded(true);
+        }
+      }, []);
+
       useEffect(() => {
         const el = document.getElementById('ambient-glow');
         if (el) el.style.background = `radial-gradient(ellipse at 50% 50%, ${ambientColor}08 0%, ${ambientColor}04 30%, transparent 70%)`;
       }, [ambientColor]);
+
+      // No config — show fallback
+      if (configLoaded && !orbitConfig) {
+        return h('div', { className: 'no-config-screen' },
+          h('div', { className: 'no-config-text' }, 'NO CONFIGURATION FOUND'),
+          h('button', {
+            className: 'no-config-btn',
+            onClick: () => window.xeneon?.openSetup?.() || window.orbit?.openSetup?.()
+          }, '⚙ OPEN SETUP')
+        );
+      }
+
+      // Config loaded — render multi-page
+      if (orbitConfig && orbitConfig.pages && orbitConfig.pages.length > 0) {
+        const currentPage = orbitConfig.pages[pageIndex] || orbitConfig.pages[0];
+        const multiPage = orbitConfig.pages.length > 1;
+
+        return h('div', {
+            style: { width: '100vw', height: '100vh', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 0 },
+            onPointerDown: (e) => setDragStart(e.clientX),
+            onPointerUp: (e) => {
+              if (dragStart === null) return;
+              const delta = e.clientX - dragStart;
+              setDragStart(null);
+              if (delta < -80 && orbitConfig) setPageIndex(i => Math.min(orbitConfig.pages.length - 1, i + 1));
+              if (delta > 80) setPageIndex(i => Math.max(0, i - 1));
+            }
+          },
+          // Render panels for current page
+          currentPage.panels.map((panel, i) =>
+            h('div', { key: pageIndex + '-' + i }, renderPanel(panel, orbitConfig.credentials, { onAmbientChange: setAmbientColor }))
+          ),
+
+          // Left arrow
+          multiPage && pageIndex > 0 && h('button', {
+            className: 'page-nav page-nav-left',
+            onClick: () => setPageIndex(i => Math.max(0, i - 1))
+          }, '◀'),
+
+          // Right arrow
+          multiPage && pageIndex < orbitConfig.pages.length - 1 && h('button', {
+            className: 'page-nav page-nav-right',
+            onClick: () => setPageIndex(i => Math.min(orbitConfig.pages.length - 1, i + 1))
+          }, '▶'),
+
+          // Page dots
+          multiPage && h('div', { className: 'page-dots' },
+            h('div', { className: 'page-dots-row' },
+              orbitConfig.pages.map((p, i) => h('div', {
+                key: i,
+                className: 'page-dot' + (i === pageIndex ? ' active' : ''),
+                onClick: () => setPageIndex(i),
+                title: p.name
+              }))
+            ),
+            h('div', { className: 'page-name-label' }, currentPage.name || '')
+          ),
+
+          // Settings gear
+          h('button', {
+            className: 'settings-gear',
+            onClick: () => window.xeneon?.openSetup?.() || window.orbit?.openSetup?.()
+          }, '⚙')
+        );
+      }
+
+      // Legacy fallback (no orbit config yet, render original layout)
       return h(React.Fragment, null,
         h(AxiomZone),
         h(SignalZone, { onAmbientChange: setAmbientColor }),

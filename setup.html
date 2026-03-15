@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Orbit Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0f; --bg-card: #10111a; --border: #1a2a3a;
+      --cyan: #00d9ff; --green: #00ff9d; --amber: #ffc857; --red: #ff4757;
+      --dim: #3a4a5a; --text: #c8d6e5; --text-bright: #e8f0f8;
+      --font: 'JetBrains Mono', monospace;
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+    body { padding: 32px 40px; overflow-y: auto; }
+    body::-webkit-scrollbar { width: 6px; }
+    body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── HEADER ── */
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { font-size: 28px; font-weight: 700; color: var(--cyan); letter-spacing: 4px; margin-bottom: 6px; }
+    .header p { font-size: 12px; color: var(--dim); letter-spacing: 2px; }
+
+    /* ── PROGRESS BAR ── */
+    .progress { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 36px; }
+    .step-item { display: flex; align-items: center; gap: 8px; cursor: default; }
+    .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); transition: all .3s; }
+    .step-dot.active { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+    .step-dot.done { background: var(--green); }
+    .step-label { font-size: 11px; letter-spacing: 1.5px; color: var(--dim); text-transform: uppercase; transition: color .3s; }
+    .step-label.active { color: var(--cyan); }
+    .step-label.done { color: var(--green); }
+    .step-arrow { color: var(--dim); font-size: 12px; }
+
+    /* ── STEP CONTAINERS ── */
+    .step { display: none; animation: fadeIn .3s ease; }
+    .step.visible { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── INTEGRATION CARDS ── */
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; transition: border-color .3s; }
+    .card.enabled { border-color: rgba(0,217,255,0.3); }
+    .card-header { display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 14px; font-weight: 600; }
+    .card-title .emoji { margin-right: 6px; }
+
+    /* ── TOGGLE SWITCH ── */
+    .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track { position: absolute; inset: 0; background: var(--dim); border-radius: 11px; cursor: pointer; transition: background .3s; }
+    .toggle-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--text); transition: transform .3s; }
+    .toggle input:checked + .toggle-track { background: var(--cyan); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+    .toggle.locked input { pointer-events: none; }
+    .toggle.locked .toggle-track { background: var(--green); opacity: 0.6; cursor: default; }
+
+    /* ── CARD FIELDS ── */
+    .card-fields { max-height: 0; overflow: hidden; transition: max-height .35s ease, padding .35s ease; padding-top: 0; }
+    .card-fields.expanded { max-height: 200px; padding-top: 14px; }
+    .card-fields label { display: block; font-size: 11px; color: var(--dim); letter-spacing: 1px; margin-bottom: 4px; text-transform: uppercase; }
+    .card-fields input { width: 100%; padding: 8px 10px; font-size: 12px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; margin-bottom: 10px; }
+    .card-fields input:focus { border-color: var(--cyan); }
+    .card-fields .dep-note { font-size: 10px; color: var(--amber); margin-bottom: 8px; }
+    .card-always { font-size: 11px; color: var(--green); margin-top: 8px; letter-spacing: 1px; }
+
+    /* ── PAGE CONFIG (STEP 2) ── */
+    .page-tabs { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .page-tab { padding: 6px 14px; font-size: 12px; font-family: var(--font); background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--dim); cursor: pointer; transition: all .2s; letter-spacing: 1px; }
+    .page-tab.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,217,255,0.06); }
+    .page-tab:hover { border-color: var(--text); }
+    .add-page-btn { padding: 6px 14px; font-size: 12px; font-family: var(--font); background: transparent; border: 1px dashed var(--dim); border-radius: 6px; color: var(--dim); cursor: pointer; transition: all .2s; }
+    .add-page-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+    .add-page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    .page-config { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+    .page-name-input { width: 100%; padding: 10px 12px; font-size: 14px; font-family: var(--font); background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright); outline: none; margin-bottom: 16px; letter-spacing: 1px; }
+    .page-name-input:focus { border-color: var(--cyan); }
+    .panels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+    .panel-slot { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+    .panel-slot-label { font-size: 10px; color: var(--dim); letter-spacing: 1.5px; margin-bottom: 6px; text-transform: uppercase; }
+    .panel-select { width: 100%; padding: 6px 8px; font-size: 12px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 4px; color: var(--text); outline: none; }
+    .panel-select:focus { border-color: var(--cyan); }
+    .remove-page-btn { background: transparent; border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-size: 11px; font-family: var(--font); color: var(--red); cursor: pointer; transition: all .2s; }
+    .remove-page-btn:hover { border-color: var(--red); background: rgba(255,71,87,0.08); }
+
+    /* ── CONFIRM (STEP 3) ── */
+    .summary-section { margin-bottom: 20px; }
+    .summary-title { font-size: 13px; font-weight: 700; color: var(--cyan); letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase; }
+    .summary-item { font-size: 13px; color: var(--text); margin-bottom: 6px; padding-left: 8px; }
+    .summary-item .check { color: var(--green); margin-right: 6px; }
+    .summary-page { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+    .summary-page-name { font-size: 13px; font-weight: 600; color: var(--text-bright); margin-bottom: 6px; }
+    .summary-panels { display: flex; flex-wrap: wrap; gap: 6px; }
+    .summary-panel-tag { font-size: 11px; padding: 3px 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 4px; color: var(--dim); }
+
+    /* ── BUTTONS ── */
+    .btn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; }
+    .btn { padding: 10px 28px; font-size: 13px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border-radius: 8px; cursor: pointer; transition: all .2s; }
+    .btn-next { background: transparent; border: 2px solid var(--cyan); color: var(--cyan); }
+    .btn-next:hover { background: rgba(0,217,255,0.1); }
+    .btn-back { background: transparent; border: 2px solid var(--dim); color: var(--dim); }
+    .btn-back:hover { border-color: var(--text); color: var(--text); }
+    .btn-launch { background: rgba(0,255,157,0.1); border: 2px solid var(--green); color: var(--green); font-size: 15px; padding: 12px 36px; }
+    .btn-launch:hover { background: rgba(0,255,157,0.2); }
+    .btn-placeholder { width: 100px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚙ ORBIT SETUP</h1>
+    <p>CONFIGURE YOUR DISPLAY</p>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="progress" id="progress">
+    <div class="step-item">
+      <div class="step-dot active" id="dot-1"></div>
+      <span class="step-label active" id="label-1">INTEGRATIONS</span>
+    </div>
+    <span class="step-arrow">→</span>
+    <div class="step-item">
+      <div class="step-dot" id="dot-2"></div>
+      <span class="step-label" id="label-2">PAGES</span>
+    </div>
+    <span class="step-arrow">→</span>
+    <div class="step-item">
+      <div class="step-dot" id="dot-3"></div>
+      <span class="step-label" id="label-3">CONFIRM</span>
+    </div>
+  </div>
+
+  <!-- STEP 1: INTEGRATIONS -->
+  <div class="step visible" id="step-1">
+    <div class="cards">
+      <!-- Plex / Tautulli -->
+      <div class="card" id="card-plex">
+        <div class="card-header">
+          <div class="card-title"><span class="emoji">🎬</span>Plex / Tautulli</div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-plex" onchange="toggleIntegration('plex')">
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+        <div class="card-fields" id="fields-plex">
+          <label>Tautulli URL</label>
+          <input type="text" id="input-plex-url" placeholder="http://192.168.1.35:8182" value="http://192.168.1.35:8182">
+          <label>API Key</label>
+          <input type="text" id="input-plex-apikey" placeholder="Your Tautulli API key">
+        </div>
+      </div>
+
+      <!-- Home Assistant -->
+      <div class="card" id="card-ha">
+        <div class="card-header">
+          <div class="card-title"><span class="emoji">🏠</span>Home Assistant</div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-ha" onchange="toggleIntegration('ha')">
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+        <div class="card-fields" id="fields-ha">
+          <label>HA URL</label>
+          <input type="text" id="input-ha-url" placeholder="https://your-ha-instance">
+          <label>Long-Lived Access Token</label>
+          <input type="text" id="input-ha-token" placeholder="Your HA token">
+        </div>
+      </div>
+
+      <!-- SignalRGB -->
+      <div class="card" id="card-signalrgb" style="display:none">
+        <div class="card-header">
+          <div class="card-title"><span class="emoji">🌈</span>SignalRGB</div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-signalrgb" onchange="toggleIntegration('signalrgb')">
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+        <div class="card-fields" id="fields-signalrgb">
+          <div class="dep-note">Uses Home Assistant credentials</div>
+          <label>SignalRGB Entity ID</label>
+          <input type="text" id="input-signalrgb-entity" placeholder="light.signalrgb_...">
+        </div>
+      </div>
+
+      <!-- Axiom Ops -->
+      <div class="card" id="card-axiom">
+        <div class="card-header">
+          <div class="card-title"><span class="emoji">🧭</span>Axiom Ops</div>
+          <label class="toggle">
+            <input type="checkbox" id="toggle-axiom" onchange="toggleIntegration('axiom')">
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+        <div class="card-fields" id="fields-axiom">
+          <label>Axiom Dashboard URL</label>
+          <input type="text" id="input-axiom-url" placeholder="http://localhost:19900">
+        </div>
+      </div>
+
+      <!-- System Stats -->
+      <div class="card enabled" id="card-system">
+        <div class="card-header">
+          <div class="card-title"><span class="emoji">⚡</span>System Stats</div>
+          <label class="toggle locked">
+            <input type="checkbox" checked disabled>
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+        <div class="card-always">Always available</div>
+      </div>
+
+      <!-- Clock & Weather -->
+      <div class="card enabled" id="card-clock">
+        <div class="card-header">
+          <div class="card-title"><span class="emoji">🕐</span>Clock & Weather</div>
+          <label class="toggle locked">
+            <input type="checkbox" checked disabled>
+            <div class="toggle-track"></div>
+          </label>
+        </div>
+        <div class="card-always">Always available</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <div class="btn-placeholder"></div>
+      <button class="btn btn-next" onclick="goToStep(2)">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: PAGES -->
+  <div class="step" id="step-2">
+    <div class="page-tabs" id="page-tabs"></div>
+    <div id="page-editor"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="goToStep(1)">← BACK</button>
+      <button class="btn btn-next" onclick="goToStep(3)">NEXT →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: CONFIRM -->
+  <div class="step" id="step-3">
+    <div id="summary"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-back" onclick="goToStep(2)">← BACK</button>
+      <button class="btn btn-launch" onclick="launchOrbit()">🚀 LAUNCH ORBIT</button>
+    </div>
+  </div>
+
+  <script>
+    // ── STATE ──
+    const state = {
+      step: 1,
+      integrations: {
+        plex: false,
+        ha: false,
+        signalrgb: false,
+        axiom: false,
+        system: true,   // always on
+        clock: true      // always on
+      },
+      credentials: {
+        tautulliUrl: 'http://192.168.1.35:8182',
+        tautulliApiKey: '',
+        haUrl: '',
+        haToken: '',
+        signalrgbEntityId: '',
+        axiomUrl: ''
+      },
+      pages: [
+        {
+          id: 'page-1',
+          name: 'Main Display',
+          panels: [
+            { type: 'plex' },
+            { type: 'lights' },
+            { type: 'clock-weather' },
+            { type: 'system' },
+            { type: 'axiom' },
+            { type: 'empty' }
+          ]
+        }
+      ],
+      activePageIndex: 0
+    };
+
+    const PANEL_TYPES = {
+      plex:          { label: '🎬 Plex', requires: 'plex' },
+      lights:        { label: '💡 Lights', requires: 'ha' },
+      'clock-weather': { label: '🕐 Clock & Weather', requires: null },
+      system:        { label: '⚡ System Stats', requires: null },
+      axiom:         { label: '🧭 Axiom Ops', requires: 'axiom' },
+      signalrgb:     { label: '🌈 SignalRGB', requires: 'signalrgb' },
+      empty:         { label: '— Empty', requires: null }
+    };
+
+    // ── INTEGRATION TOGGLE ──
+    function toggleIntegration(key) {
+      const cb = document.getElementById('toggle-' + key);
+      state.integrations[key] = cb.checked;
+
+      const card = document.getElementById('card-' + key);
+      const fields = document.getElementById('fields-' + key);
+
+      if (cb.checked) {
+        card.classList.add('enabled');
+        if (fields) fields.classList.add('expanded');
+      } else {
+        card.classList.remove('enabled');
+        if (fields) fields.classList.remove('expanded');
+      }
+
+      // Show/hide SignalRGB card based on HA
+      if (key === 'ha') {
+        const signalCard = document.getElementById('card-signalrgb');
+        if (state.integrations.ha) {
+          signalCard.style.display = '';
+        } else {
+          signalCard.style.display = 'none';
+          state.integrations.signalrgb = false;
+          document.getElementById('toggle-signalrgb').checked = false;
+          document.getElementById('card-signalrgb').classList.remove('enabled');
+          document.getElementById('fields-signalrgb').classList.remove('expanded');
+        }
+      }
+    }
+
+    // ── COLLECT CREDENTIALS ──
+    function collectCredentials() {
+      state.credentials.tautulliUrl = document.getElementById('input-plex-url')?.value || '';
+      state.credentials.tautulliApiKey = document.getElementById('input-plex-apikey')?.value || '';
+      state.credentials.haUrl = document.getElementById('input-ha-url')?.value || '';
+      state.credentials.haToken = document.getElementById('input-ha-token')?.value || '';
+      state.credentials.signalrgbEntityId = document.getElementById('input-signalrgb-entity')?.value || '';
+      state.credentials.axiomUrl = document.getElementById('input-axiom-url')?.value || '';
+    }
+
+    // ── AVAILABLE PANEL TYPES ──
+    function getAvailablePanelTypes() {
+      const available = [];
+      for (const [type, info] of Object.entries(PANEL_TYPES)) {
+        if (info.requires === null || state.integrations[info.requires]) {
+          available.push({ type, label: info.label });
+        }
+      }
+      return available;
+    }
+
+    // ── STEP NAVIGATION ──
+    function goToStep(n) {
+      // Collect data before leaving step
+      if (state.step === 1) collectCredentials();
+
+      state.step = n;
+
+      // Show/hide steps
+      for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById('step-' + i);
+        el.classList.toggle('visible', i === n);
+      }
+
+      // Update progress dots
+      for (let i = 1; i <= 3; i++) {
+        const dot = document.getElementById('dot-' + i);
+        const label = document.getElementById('label-' + i);
+        dot.className = 'step-dot';
+        label.className = 'step-label';
+        if (i < n) { dot.classList.add('done'); label.classList.add('done'); }
+        else if (i === n) { dot.classList.add('active'); label.classList.add('active'); }
+      }
+
+      // Render step content
+      if (n === 2) renderPages();
+      if (n === 3) renderSummary();
+    }
+
+    // ── STEP 2: PAGE EDITOR ──
+    function renderPages() {
+      const tabsEl = document.getElementById('page-tabs');
+      const editorEl = document.getElementById('page-editor');
+
+      // Clamp active index
+      if (state.activePageIndex >= state.pages.length) state.activePageIndex = state.pages.length - 1;
+
+      // Tabs
+      let tabsHtml = '';
+      state.pages.forEach((page, i) => {
+        const cls = i === state.activePageIndex ? 'page-tab active' : 'page-tab';
+        tabsHtml += '<button class="' + cls + '" onclick="selectPage(' + i + ')">' + (page.name || 'Page ' + (i + 1)) + '</button>';
+      });
+      const disabledAttr = state.pages.length >= 5 ? ' disabled' : '';
+      tabsHtml += '<button class="add-page-btn"' + disabledAttr + ' onclick="addPage()">+ Add Page</button>';
+      tabsEl.innerHTML = tabsHtml;
+
+      // Page config
+      const page = state.pages[state.activePageIndex];
+      const available = getAvailablePanelTypes();
+
+      let html = '<div class="page-config">';
+      html += '<input class="page-name-input" type="text" placeholder="Page name..." value="' + escHtml(page.name) + '" oninput="updatePageName(this.value)">';
+
+      html += '<div class="panels-grid">';
+      for (let i = 0; i < 6; i++) {
+        const panel = page.panels[i] || { type: 'empty' };
+        html += '<div class="panel-slot">';
+        html += '<div class="panel-slot-label">PANEL ' + (i + 1) + '</div>';
+        html += '<select class="panel-select" onchange="updatePanel(' + i + ', this.value)">';
+        available.forEach(p => {
+          const sel = p.type === panel.type ? ' selected' : '';
+          html += '<option value="' + p.type + '"' + sel + '>' + p.label + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+      }
+      html += '</div>';
+
+      if (state.pages.length > 1) {
+        html += '<button class="remove-page-btn" onclick="removePage()">✕ Remove Page</button>';
+      }
+      html += '</div>';
+
+      editorEl.innerHTML = html;
+    }
+
+    function selectPage(i) {
+      state.activePageIndex = i;
+      renderPages();
+    }
+
+    function addPage() {
+      if (state.pages.length >= 5) return;
+      const id = 'page-' + (state.pages.length + 1);
+      state.pages.push({
+        id: id,
+        name: 'Page ' + (state.pages.length + 1),
+        panels: [
+          { type: 'empty' }, { type: 'empty' }, { type: 'empty' },
+          { type: 'empty' }, { type: 'empty' }, { type: 'empty' }
+        ]
+      });
+      state.activePageIndex = state.pages.length - 1;
+      renderPages();
+    }
+
+    function removePage() {
+      if (state.pages.length <= 1) return;
+      state.pages.splice(state.activePageIndex, 1);
+      if (state.activePageIndex >= state.pages.length) state.activePageIndex = state.pages.length - 1;
+      renderPages();
+    }
+
+    function updatePageName(val) {
+      state.pages[state.activePageIndex].name = val;
+      // Update tab label without full re-render
+      const tabs = document.querySelectorAll('.page-tab');
+      if (tabs[state.activePageIndex]) {
+        tabs[state.activePageIndex].textContent = val || 'Page ' + (state.activePageIndex + 1);
+      }
+    }
+
+    function updatePanel(slotIndex, type) {
+      state.pages[state.activePageIndex].panels[slotIndex] = { type: type };
+    }
+
+    // ── STEP 3: SUMMARY ──
+    function renderSummary() {
+      const el = document.getElementById('summary');
+      let html = '';
+
+      // Integrations
+      html += '<div class="summary-section">';
+      html += '<div class="summary-title">Integrations</div>';
+      const integrationLabels = {
+        plex: '🎬 Plex / Tautulli',
+        ha: '🏠 Home Assistant',
+        signalrgb: '🌈 SignalRGB',
+        axiom: '🧭 Axiom Ops',
+        system: '⚡ System Stats',
+        clock: '🕐 Clock & Weather'
+      };
+      for (const [key, label] of Object.entries(integrationLabels)) {
+        if (state.integrations[key]) {
+          html += '<div class="summary-item"><span class="check">✅</span>' + label + '</div>';
+        }
+      }
+      html += '</div>';
+
+      // Pages
+      html += '<div class="summary-section">';
+      html += '<div class="summary-title">Pages</div>';
+      state.pages.forEach(page => {
+        html += '<div class="summary-page">';
+        html += '<div class="summary-page-name">' + escHtml(page.name) + '</div>';
+        html += '<div class="summary-panels">';
+        page.panels.forEach(p => {
+          const info = PANEL_TYPES[p.type];
+          html += '<span class="summary-panel-tag">' + (info ? info.label : p.type) + '</span>';
+        });
+        html += '</div></div>';
+      });
+      html += '</div>';
+
+      el.innerHTML = html;
+    }
+
+    // ── LAUNCH ──
+    async function launchOrbit() {
+      collectCredentials();
+
+      const config = {
+        credentials: { ...state.credentials },
+        pages: state.pages.map(p => ({
+          id: p.id,
+          name: p.name,
+          panels: p.panels.map(panel => ({ type: panel.type }))
+        })),
+        display: { columns: 6, rows: 1 }
+      };
+
+      try {
+        const api = window.orbit || window.xeneon;
+        await api.saveConfig(config);
+        await api.setupComplete();
+      } catch (e) {
+        console.error('Setup launch error:', e);
+      }
+    }
+
+    // ── HELPERS ──
+    function escHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s || '';
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
