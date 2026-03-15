@@ -307,10 +307,6 @@
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="spotify-secret" value="${esc(config.integrations.spotify.clientSecret)}"></div>
                 <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
               `)}
-                <div class="integration-hint">Create OAuth app at console.cloud.google.com — redirect URI: http://127.0.0.1:8891/callback</div>
-              `)}
-                <div class="integration-hint">Register app at portal.azure.com — public client PKCE, redirect URI: http://127.0.0.1:8892/callback</div>
-              `)}
               ${integrationCard('discord', 'Discord', '💬', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="discord-id" value="${esc(config.integrations.discord?.clientId || '')}"></div>
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="discord-secret" value="${esc(config.integrations.discord?.clientSecret || '')}"></div>
