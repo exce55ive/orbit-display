@@ -28,7 +28,7 @@
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
     .panel { height: calc(100vh - 52px); padding: 20px 16px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
-    .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .panel-label { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
     .source-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 10px; background: rgba(0,217,255,0.1); color: var(--accent); border: 1px solid rgba(0,217,255,0.2); text-transform: uppercase; }
     .clock-time { font-size: 64px; font-weight: 300; color: var(--text-bright); letter-spacing: 3px; line-height: 1; margin-bottom: 6px; text-shadow: 0 0 30px rgba(0,217,255,0.15); }
     .clock-date { font-size: 14px; font-weight: 500; letter-spacing: 2px; color: var(--dim); margin-bottom: 20px; }
@@ -146,8 +146,8 @@
     .monitor-uptime { font-size: 10px; color: var(--dim); }
     .spotify-connect { padding: 10px 20px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 2px solid var(--green); border-radius: 20px; background: rgba(80,250,123,0.08); color: var(--green); cursor: pointer; transition: all .2s; }
     .spotify-connect:hover { background: rgba(80,250,123,0.15); }
-    .spotify-track { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
-    .spotify-artist { font-size: 14px; color: var(--text); margin-bottom: 12px; }
+    .spotify-track { font-size: 22px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+    .spotify-artist { font-size: 16px; color: var(--text); margin-bottom: 12px; }
     .spotify-controls { display: flex; gap: 16px; }
     .spotify-btn { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; transition: color .2s; }
     .spotify-btn:hover { color: var(--accent); }
@@ -174,6 +174,10 @@
     .settings-panel { width: 420px; height: 100vh; overflow-y: auto; background: #0d1520; border-left: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
     .settings-panel::-webkit-scrollbar { width: 4px; }
     .settings-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
     .settings-header { display: flex; align-items: center; justify-content: space-between; }
     .settings-title { font-size: 16px; font-weight: 700; color: var(--text-bright); letter-spacing: 2px; }
     .settings-close { background: none; border: none; color: var(--dim); font-size: 18px; cursor: pointer; font-family: var(--font); }
@@ -305,7 +309,7 @@
       ]}],
       integrations: {
         weather:{city:'Perth'}, tautulli:{url:'',apiKey:''}, plex:{url:'',token:''},
-        homeassistant:{url:'',token:'',lights:[],signalrgbEntity:''},
+        homeassistant:{url:'',token:'',lights:[]},
         sonarr:{url:'',apiKey:''}, radarr:{url:'',apiKey:''}, overseerr:{url:'',apiKey:''},
         nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',apiKey:''},
         spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''}
@@ -671,10 +675,8 @@
             h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
               {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
-              {field:'lights',type:'ha-entities'},
-              {field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}
+              {field:'lights',type:'ha-entities'}
             ])),
-            h('div', {id:'settings-signalrgb'}, integrationSection('homeassistant', 'SignalRGB (via HA)', '⚡', [{field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}])),
             h('div', {id:'settings-sonarr'}, integrationSection('sonarr', 'Sonarr', '📺', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-radarr'}, integrationSection('radarr', 'Radarr', '🎥', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-overseerr'}, integrationSection('overseerr', 'Overseerr', '📋', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
@@ -682,7 +684,7 @@
             h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'},{field:'favChannel1',label:'FAVOURITE CHANNEL 1'},{field:'favChannel2',label:'FAVOURITE CHANNEL 2'}])),
             h('div', {id:'settings-links'},
               h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
               (cfg.links||[]).map((lnk,i) =>

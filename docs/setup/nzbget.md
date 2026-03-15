@@ -1,43 +1,36 @@
-## NZBGet
+# NZBGet — Downloads Panel
 
-### URL
+The NZBGet panel shows your active download queue, current speed, and how much data is left to download.
 
-```
-http://YOUR-SERVER-IP:6789
-```
+## What it shows
 
----
+- Active download queue with item names
+- Current combined download speed
+- Total remaining download size
 
-### Auth
+## Requirements
 
-NZBGet uses username/password — no API key.
+- NZBGet running and reachable on your network
 
-Default credentials:
-```
-username: nzbget
-password: tegbzn6789
-```
+## How to get your credentials
 
-**Change the default password** (you should):
+Use the same username and password you use to log into the NZBGet web interface. These are set during NZBGet installation (defaults are often `nzbget` / `tegbzn6789` — change them if you haven't).
 
-NZBGet → **Settings → Security → ControlPassword**
+## Settings fields
 
----
+| Field | Value |
+|---|---|
+| URL | `http://YOUR-SERVER-IP:6789` |
+| Username | NZBGet username |
+| Password | NZBGet password |
 
-### Put It in Orbit
+## Notes
 
-**Settings → Integrations → NZBGet**
+- Orbit polls NZBGet every **1.5 seconds** while downloads are active, so the queue and speed display stay close to real time.
 
-```json
-{
-  "nzbget": {
-    "url": "http://YOUR-SERVER-IP:6789",
-    "username": "nzbget",
-    "password": "YOUR_PASSWORD"
-  }
-}
-```
+## Troubleshooting
 
----
-
-← Back to [Setup Index](./README.md)
+**Queue not showing:**
+- Verify your URL, username, and password by logging into the NZBGet web UI directly.
+- Check the port — NZBGet's default is `6789` but it may have been changed during setup.
+- Ensure NZBGet is running and not paused.

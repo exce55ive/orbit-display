@@ -1,34 +1,35 @@
-## Jellyfin
+# Jellyfin — Now Playing Panel
 
-### URL
+The Jellyfin panel shows active streams on your Jellyfin server — what's playing, who's watching, playback progress, and technical details like codec and transcode status.
 
-```
-http://YOUR-SERVER-IP:8096
-```
+## What it shows
 
----
+- Active streams with title and username
+- Playback progress
+- Video codec and resolution
+- Transcode status (direct play vs. transcoding)
 
-### API Key
+## Requirements
 
-Jellyfin → **Dashboard → Advanced → API Keys → +**
+- Jellyfin media server running and reachable on your network
 
-Give it a name (e.g. `Orbit`) and copy the key.
+## How to get your API key
 
----
+1. Open the Jellyfin web interface.
+2. Go to **Dashboard → API Keys**.
+3. Click **+** to create a new key, give it a name (e.g. "Orbit"), and save.
+4. Copy the generated key.
 
-### Put It in Orbit
+## Settings fields
 
-**Settings → Integrations → Jellyfin**
+| Field | Value |
+|---|---|
+| URL | `http://YOUR-SERVER-IP:8096` |
+| API Key | Paste the key from Jellyfin |
 
-```json
-{
-  "jellyfin": {
-    "url": "http://YOUR-SERVER-IP:8096",
-    "api_key": "YOUR_JELLYFIN_API_KEY"
-  }
-}
-```
+## Troubleshooting
 
----
-
-← Back to [Setup Index](./README.md)
+**No streams showing:**
+- Confirm Jellyfin is accessible at the URL in Settings.
+- Check that the API key is valid — you can verify by opening `http://YOUR-SERVER-IP:8096/Sessions?api_key=YOUR_KEY` in a browser.
+- Ensure there are active playback sessions in Jellyfin (idle users won't appear).

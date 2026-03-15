@@ -1,33 +1,30 @@
-## SignalRGB
+# SignalRGB — Lighting Panel
 
-### Local API URL
+The SignalRGB panel shows your available lighting effects and lets you switch between them instantly from Orbit.
 
-```
-http://localhost:16034
-```
+## What it shows
 
-No API key required. SignalRGB exposes a local HTTP API on port `16034` by default.
+- List of available SignalRGB lighting effects
+- Currently active effect name
+- Lighting on/off status
 
----
+## Requirements
 
-### Prerequisites
+- SignalRGB installed and **running on the same machine as Orbit**
 
-SignalRGB must be **running** before Orbit starts. If the app is closed, the API won't be available and the Orbit widget will show as disconnected.
+## Configuration
 
----
+No configuration needed. Orbit connects to SignalRGB automatically via its local API — there are no credentials to enter.
 
-### Put It in Orbit
+## How to use
 
-**Settings → Integrations → SignalRGB**
+- The panel lists all effects available in your SignalRGB setup.
+- Click any effect name to activate it instantly.
+- Effects apply in real time across all connected devices.
 
-```json
-{
-  "signalrgb": {
-    "url": "http://localhost:16034"
-  }
-}
-```
+## Troubleshooting
 
----
-
-← Back to [Setup Index](./README.md)
+**No effects listed or panel shows "offline":**
+- Make sure SignalRGB is open and running on the same Windows machine as Orbit.
+- SignalRGB must be on the **same machine** — it won't work over the network.
+- Try restarting SignalRGB, then refresh the Orbit panel.

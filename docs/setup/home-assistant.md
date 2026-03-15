@@ -1,38 +1,45 @@
-## Home Assistant
+# Home Assistant — Lights Panel
 
-### URL
+The Home Assistant panel shows your light entities with on/off toggles and brightness controls, all accessible directly from Orbit.
 
-Local:
-```
-http://YOUR-HA-IP:8123
-```
+## What it shows
 
-Remote: use your Nabu Casa URL or reverse proxy address.
+- All selected light entities with their current on/off state
+- Brightness slider for dimmable lights
+- Real-time state reflects what's happening in your home
 
----
+## Requirements
 
-### Long-Lived Access Token (LLAT)
+- Home Assistant running and reachable on your network
+- A long-lived access token (replaces username/password for API access)
 
-1. Open Home Assistant.
-2. Click your **Profile** (bottom-left avatar).
-3. Scroll to **Long-Lived Access Tokens** → **Create Token**.
-4. Name it `Orbit`. Copy the token — **it won't be shown again**.
+## How to create an access token
 
----
+1. Open Home Assistant in your browser.
+2. Click your **Profile** icon in the bottom-left corner.
+3. Scroll down to **Long-Lived Access Tokens**.
+4. Click **Create Token**, give it a name (e.g. "Orbit"), and confirm.
+5. **Copy the token immediately** — it's only shown once.
 
-### Put It in Orbit
+## Settings fields
 
-**Settings → Integrations → Home Assistant**
+| Field | Value |
+|---|---|
+| URL | `http://YOUR-SERVER-IP:8123` |
+| Token | Paste your long-lived access token |
+| Light entities | Select using the Browse HA button |
 
-```json
-{
-  "home_assistant": {
-    "url": "http://YOUR-HA-IP:8123",
-    "token": "YOUR_LONG_LIVED_ACCESS_TOKEN"
-  }
-}
-```
+## Selecting light entities
 
----
+Click **Browse HA** in Orbit Settings to fetch all your entities live. Search by entity name or domain (e.g. `light`), then tick the ones you want to display. Changes apply when you save.
 
-← Back to [Setup Index](./README.md)
+## Troubleshooting
+
+**Entities not available or panel blank:**
+- Ensure the token has not expired or been deleted in Home Assistant.
+- Verify the URL is accessible in your browser.
+- Click **Browse HA** again to refresh the entity list.
+
+**Toggle doesn't work:**
+- Confirm your token has write permissions (long-lived tokens do by default).
+- Check that the light entity is not unavailable in Home Assistant.

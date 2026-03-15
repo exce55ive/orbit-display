@@ -27,7 +27,7 @@
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
     .panel { height: calc(100vh - 52px); padding: 20px 16px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
-    .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .panel-label { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
     .source-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 10px; background: rgba(0,217,255,0.1); color: var(--accent); border: 1px solid rgba(0,217,255,0.2); text-transform: uppercase; }
     .clock-time { font-size: 64px; font-weight: 300; color: var(--text-bright); letter-spacing: 3px; line-height: 1; margin-bottom: 6px; text-shadow: 0 0 30px rgba(0,217,255,0.15); }
     .clock-date { font-size: 14px; font-weight: 500; letter-spacing: 2px; color: var(--dim); margin-bottom: 20px; }
@@ -145,8 +145,8 @@
     .monitor-uptime { font-size: 10px; color: var(--dim); }
     .spotify-connect { padding: 10px 20px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 2px solid var(--green); border-radius: 20px; background: rgba(80,250,123,0.08); color: var(--green); cursor: pointer; transition: all .2s; }
     .spotify-connect:hover { background: rgba(80,250,123,0.15); }
-    .spotify-track { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
-    .spotify-artist { font-size: 14px; color: var(--text); margin-bottom: 12px; }
+    .spotify-track { font-size: 22px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+    .spotify-artist { font-size: 16px; color: var(--text); margin-bottom: 12px; }
     .spotify-controls { display: flex; gap: 16px; }
     .spotify-btn { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; transition: color .2s; }
     .spotify-btn:hover { color: var(--accent); }
@@ -173,6 +173,10 @@
     .settings-panel { width: 420px; height: 100vh; overflow-y: auto; background: #0d1520; border-left: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
     .settings-panel::-webkit-scrollbar { width: 4px; }
     .settings-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
     .settings-header { display: flex; align-items: center; justify-content: space-between; }
     .settings-title { font-size: 16px; font-weight: 700; color: var(--text-bright); letter-spacing: 2px; }
     .settings-close { background: none; border: none; color: var(--dim); font-size: 18px; cursor: pointer; font-family: var(--font); }
@@ -359,7 +363,7 @@
       ]}],
       integrations: {
         weather:{city:'Perth'}, tautulli:{url:'',apiKey:''}, plex:{url:'',token:''},
-        homeassistant:{url:'',token:'',lights:[],signalrgbEntity:''},
+        homeassistant:{url:'',token:'',lights:[]},
         sonarr:{url:'',apiKey:''}, radarr:{url:'',apiKey:''}, overseerr:{url:'',apiKey:''},
         nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',apiKey:''},
         spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''}
@@ -552,12 +556,12 @@
         async function poll() { try { const r = await window.orbit.fetchTautulli(); if (r?.error) { setError(true); setData(null); } else { setError(false); setData(r); } } catch { setError(true); } }
         poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
       }, [tCfg]);
-      if (!tCfg) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text'},'Configure Tautulli in Settings'));
+      if (!tCfg) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text'},'Configure Tautulli in Settings'));
       const sessions = data?.response?.data?.sessions || [];
-      if (error) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
-      if (!sessions.length) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
+      if (error) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
+      if (!sessions.length) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
       return h('div', {className:'panel panel-top'},
-        h('div', {className:'panel-label'}, 'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')),
+        h('div', {className:'panel-label'}, 'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'PLEX · TAUTULLI'),
         h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
         h('div', {className:'np-session-list'},
@@ -771,21 +775,28 @@
       useEffect(() => {
         if (!configured) return;
         async function poll() {
+          const baseUrl = uCfg.url.replace(/\/$/, '');
+          const endpoint = baseUrl + '/api/v1/monitors';
+          let r = null;
+          // Try Bearer token first (v1 style), then ?apikey= query param (v2 style)
           try {
-            const r = await window.orbit.apiGet(uCfg.url + '/api/v1/monitors', { 'Authorization': 'Bearer ' + uCfg.apiKey });
-            if (typeof r === 'string' && r.includes('<html')) {
-              setApiError('REST API unavailable — upgrade Uptime Kuma to v1.23+ and create an API key in Settings');
-              return;
-            }
-            if (r && !r.error) {
-              setApiError('');
-              if (r.monitorList) setMonitors(Object.values(r.monitorList));
-              else if (Array.isArray(r)) setMonitors(r);
-              else if (r.monitors) setMonitors(Array.isArray(r.monitors) ? r.monitors : Object.values(r.monitors));
-            } else if (r?.error) {
-              setApiError(r.error);
-            }
+            const res = await window.orbit.apiGet(endpoint, { 'Authorization': 'Bearer ' + uCfg.apiKey });
+            if (res && typeof res === 'object' && !res.error) r = res;
           } catch {}
+          if (!r) {
+            try {
+              const res2 = await window.orbit.apiGet(endpoint + '?apikey=' + encodeURIComponent(uCfg.apiKey), {});
+              if (res2 && typeof res2 === 'object' && !res2.error) r = res2;
+            } catch {}
+          }
+          if (r) {
+            setApiError('');
+            if (r.monitorList) setMonitors(Object.values(r.monitorList));
+            else if (Array.isArray(r)) setMonitors(r);
+            else if (r.monitors) setMonitors(Array.isArray(r.monitors) ? r.monitors : Object.values(r.monitors));
+          } else {
+            setApiError('Create a new API key in Uptime Kuma → Settings → API Keys, then paste it here');
+          }
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
       }, [configured, uCfg?.url, uCfg?.apiKey]);
@@ -898,13 +909,13 @@
             h('div', {style:{flex:1,minWidth:0}},
               h('div', {className:'spotify-track', style:{marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.name),
               h('div', {className:'spotify-artist', style:{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.artists?.map(a=>a.name).join(', ')),
-              track.album?.name && h('div', {style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.album.name)
+              track.album?.name && h('div', {style:{fontSize:'13px',color:'var(--dim)',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.album.name)
             )
           ),
           // Progress bar
           h('div', {className:'np-progress-bar', style:{marginBottom:'4px'}},
             h('div', {className:'np-progress-fill', style:{width:prog+'%'}})),
-          h('div', {style:{display:'flex',justifyContent:'space-between',fontSize:'9px',color:'var(--dim)',marginBottom:'10px'}},
+          h('div', {style:{display:'flex',justifyContent:'space-between',fontSize:'12px',color:'var(--dim)',marginBottom:'10px'}},
             h('span', null, formatDuration(Math.round((playback?.progress_ms||0)/1000))),
             h('span', null, '-'+formatDuration(remSec))
           ),
@@ -921,8 +932,8 @@
             queue.map((t2,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}},
               t2.album?.images?.[2]?.url && h('img',{src:t2.album.images[2].url,style:{width:'20px',height:'20px',borderRadius:'2px',flexShrink:0}}),
               h('div',{style:{flex:1,minWidth:0}},
-                h('div',{style:{fontSize:'10px',color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},t2.name),
-                h('div',{style:{fontSize:'9px',color:'var(--dim)'}},t2.artists?.map(a=>a.name).join(', '))
+                h('div',{style:{fontSize:'13px',color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},t2.name),
+                h('div',{style:{fontSize:'12px',color:'var(--dim)'}},t2.artists?.map(a=>a.name).join(', '))
               )
             ))
           )
@@ -982,9 +993,9 @@
         h('div',{className:'panel-unconfigured-icon'},'🎞️'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
-      return h('div', {className:'panel panel-top'},
+      return h('div', {className: sessions.length === 0 ? 'panel' : 'panel panel-top'},
         h('div', {className:'panel-label'}, 'JELLYFIN ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-jellyfin')},'⚙')),
-        h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'JELLYFIN'),
+        sessions.length > 0 && h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'JELLYFIN'),
         sessions.length > 0 && h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
         sessions.length === 0
           ? h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎞️'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS'))
@@ -1374,10 +1385,8 @@
             h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
               {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
-              {field:'lights',type:'ha-entities'},
-              {field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}
+              {field:'lights',type:'ha-entities'}
             ])),
-            h('div', {id:'settings-signalrgb'}, integrationSection('homeassistant', 'SignalRGB (via HA)', '⚡', [{field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}])),
             h('div', {id:'settings-sonarr'}, integrationSection('sonarr', 'Sonarr', '📺', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-radarr'}, integrationSection('radarr', 'Radarr', '🎥', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-overseerr'}, integrationSection('overseerr', 'Overseerr', '📋', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
@@ -1385,7 +1394,7 @@
             h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'},{field:'favChannel1',label:'FAVOURITE CHANNEL 1'},{field:'favChannel2',label:'FAVOURITE CHANNEL 2'}])),
             h('div', {id:'settings-links'},
               h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
               (cfg.links||[]).map((lnk,i) =>
@@ -1835,7 +1844,7 @@
       const rateMBs = status ? (status.DownloadRate/1024/1024).toFixed(2) : '0.00';
       const remMB = status ? status.RemainingSizeMB : 0;
       const paused = status?.DownloadPaused;
-      return h('div',{className:'panel panel-top'},
+      return h('div',{className: groups.length > 0 ? 'panel panel-top' : 'panel'},
         h('div',{className:'panel-label'},'NZBGET ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div', null,
@@ -1864,7 +1873,7 @@
       );
     }
 
-    // ═══ GMAIL PANEL ═══
+    // ═══ DISCORD PANEL ═══
     function DiscordPanel({ config, openSettings }) {
       const dCfg = config?.integrations?.discord;
       const configured = dCfg?.clientId && dCfg?.clientSecret;
@@ -1873,6 +1882,8 @@
       const [connectErr, setConnectErr] = useState('');
       const [user, setUser] = useState(dCfg?.user || null);
       const [guildCount, setGuildCount] = useState(dCfg?.guildCount || 0);
+      const [dmCount, setDmCount] = useState(0);
+      const [notificationsLine, setNotificationsLine] = useState(null);
 
       useEffect(() => {
         // Load stored user data from config
@@ -1880,7 +1891,7 @@
         if (dCfg?.guildCount != null) setGuildCount(dCfg.guildCount);
       }, [dCfg?.user?.id, dCfg?.guildCount]);
 
-      // Poll guilds periodically to keep count fresh
+      // Poll guilds, DMs, and mentions periodically
       useEffect(() => {
         if (!authorized || !dCfg?.accessToken) return;
         async function poll() {
@@ -1888,12 +1899,25 @@
             const freshCfg = await window.orbit.loadConfig();
             const token = freshCfg?.integrations?.discord?.accessToken;
             if (!token) return;
+            const headers = { Authorization: 'Bearer '+token };
             const [userRes, guildsRes] = await Promise.all([
-              window.orbit.apiGet('https://discord.com/api/users/@me', { Authorization: 'Bearer '+token }),
-              window.orbit.apiGet('https://discord.com/api/users/@me/guilds', { Authorization: 'Bearer '+token })
+              window.orbit.apiGet('https://discord.com/api/users/@me', headers),
+              window.orbit.apiGet('https://discord.com/api/users/@me/guilds', headers)
             ]);
             if (userRes && !userRes.error && userRes.id) setUser(userRes);
             if (Array.isArray(guildsRes)) setGuildCount(guildsRes.length);
+            // DM channels
+            try {
+              const chRes = await window.orbit.apiGet('https://discord.com/api/users/@me/channels', headers);
+              if (Array.isArray(chRes)) {
+                setDmCount(chRes.filter(c => c.type === 1 && c.last_message_id).length);
+              }
+            } catch {}
+            // Best-effort mentions/notifications
+            try {
+              const mentRes = await window.orbit.apiGet('https://discord.com/api/users/@me/mentions', headers);
+              if (Array.isArray(mentRes)) setNotificationsLine('🔔 '+mentRes.length+' notifications');
+            } catch {}
           } catch {}
         }
         poll(); const t = setInterval(poll, 300000); return () => clearInterval(t);
@@ -1930,16 +1954,36 @@
       const handle = user?.discriminator && user.discriminator !== '0'
         ? user.username + '#' + user.discriminator
         : '@' + (user?.username || '');
+      const fav1 = dCfg?.favChannel1;
+      const fav2 = dCfg?.favChannel2;
 
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
         h('img', {src:avatarUrl, style:{width:'52px',height:'52px',borderRadius:'50%',marginBottom:'10px',border:'2px solid rgba(88,101,242,0.4)'}}),
         h('div', {style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)',marginBottom:'2px'}}, displayName),
-        h('div', {style:{fontSize:'12px',color:'var(--dim)',marginBottom:'16px'}}, handle),
-        h('div', {style:{display:'flex',gap:'20px',marginBottom:'20px'}},
+        h('div', {style:{fontSize:'12px',color:'var(--dim)',marginBottom:'12px'}}, handle),
+        h('div', {style:{display:'flex',gap:'20px',marginBottom:'10px'}},
           h('div', null,
             h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'SERVERS'),
             h('div', {style:{fontSize:'28px',fontWeight:'700',color:'#5865F2'}}, guildCount)
+          ),
+          dmCount > 0 && h('div', null,
+            h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'DMS'),
+            h('div', {style:{fontSize:'28px',fontWeight:'700',color:'var(--text-bright)'}}, dmCount)
+          )
+        ),
+        notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
+        (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%'}},
+          h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px',marginBottom:'6px'}}, '🎙️ VOICE'),
+          h('div', {style:{display:'flex',flexDirection:'column',gap:'4px',width:'100%'}},
+            fav1 && h('button', {
+              onClick:()=>window.orbit.openExternal('discord://'),
+              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
+            }, '🎙️ '+fav1),
+            fav2 && h('button', {
+              onClick:()=>window.orbit.openExternal('discord://'),
+              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
+            }, '🎙️ '+fav2)
           )
         ),
         h('button', {
