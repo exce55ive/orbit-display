@@ -1583,9 +1583,9 @@
             const display = seriesTitle
               ? seriesTitle + (epCode ? ' — '+epCode : '') + (epTitle ? ' · '+epTitle : '')
               : epCode + (epTitle ? ' · '+epTitle : '');
-            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'5px'}},
+            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'5px'}},
               h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0,marginTop:'1px'}},'✓'),
-              h('div',{style:{fontSize:'12px',color:'var(--text)',lineHeight:'1.4'}}, display || '(no metadata)')
+              h('div',{style:{fontSize:'12px',color:'var(--text)',lineHeight:'1.4',overflow:'hidden',whiteSpace:'nowrap',textOverflow:'ellipsis',minWidth:0}}, display || '(no metadata)')
             );
           })
         ),
@@ -1706,7 +1706,7 @@
             const title = r.movie?.title || fromMap?.title || r.movieTitle || '?';
             const year = r.movie?.year || fromMap?.year;
             const display = title + (year ? ' ('+year+')' : '');
-            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'5px'}},
+            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'5px'}},
               h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0,marginTop:'1px'}},'✓'),
               h('div',{style:{fontSize:'13px',color:'var(--text)',lineHeight:'1.4'}}, display)
             );
