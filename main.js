@@ -596,3 +596,62 @@ ipcMain.handle('spotify-refresh-token', async () => {
     return { error: tokens.error_description || 'Refresh failed' };
   } catch (e) { return { error: e.message }; }
 });
+
+// ─── SignalR WebSocket clients (Sonarr / Radarr real-time events) ─────────────
+let _signalRConnections = {};
+
+function startSignalRConnection(name, baseUrl, apiKey) {
+  if (!baseUrl || !apiKey) return null;
+  const wsBase = baseUrl.replace(/^https?/, 'ws');
+  const wsUrl = wsBase + '/signalr/events?access_token=' + encodeURIComponent(apiKey);
+  let reconnectTimer = null;
+  let ws = null;
+
+  function connect() {
+    try {
+      const WS = globalThis.WebSocket;
+      if (!WS) return; // Node < 22 without ws module
+      ws = new WS(wsUrl);
+      let buf = '';
+      ws.addEventListener('open', () => {
+        ws.send('{"protocol":"json","version":1}\x1e');
+      });
+      ws.addEventListener('message', (evt) => {
+        buf += evt.data;
+        const parts = buf.split('\x1e');
+        buf = parts.pop();
+        for (const p of parts) {
+          if (!p.trim()) continue;
+          try {
+            const msg = JSON.parse(p);
+            if (msg.type === 1 && msg.arguments?.[0]) {
+              mainWindow?.webContents.send(name + '-signalr-event', msg.arguments[0]);
+            }
+          } catch {}
+        }
+      });
+      ws.addEventListener('close', () => {
+        reconnectTimer = setTimeout(connect, 8000);
+      });
+      ws.addEventListener('error', () => {});
+    } catch {
+      reconnectTimer = setTimeout(connect, 12000);
+    }
+  }
+
+  connect();
+  return {
+    close: () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      try { if (ws) ws.close(); } catch {}
+    }
+  };
+}
+
+ipcMain.handle('start-signalr', (_e, { sonarrUrl, sonarrKey, radarrUrl, radarrKey }) => {
+  if (_signalRConnections.sonarr) _signalRConnections.sonarr.close();
+  if (_signalRConnections.radarr) _signalRConnections.radarr.close();
+  if (sonarrUrl && sonarrKey) _signalRConnections.sonarr = startSignalRConnection('sonarr', sonarrUrl, sonarrKey);
+  if (radarrUrl && radarrKey) _signalRConnections.radarr = startSignalRConnection('radarr', radarrUrl, radarrKey);
+  return { ok: true };
+});

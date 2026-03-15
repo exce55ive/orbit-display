@@ -86,7 +86,8 @@
     .np-empty-icon { font-size: 40px; opacity: 0.12; }
     .np-empty-text { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
     .np-offline { color: var(--amber); font-size: 13px; letter-spacing: 1px; }
-    .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 72px); padding: 0 2px; }
+    .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 110px); padding: 0 2px; }
+    .panel-top { justify-content: flex-start !important; padding-top: 48px !important; align-items: stretch !important; }
     .np-session-list::-webkit-scrollbar { width: 3px; }
     .np-session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .np-session { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; text-align: left; }
@@ -156,14 +157,13 @@
     .jf-session { width: 100%; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; text-align: left; }
     .jf-title { font-size: 13px; font-weight: 700; color: var(--text-bright); }
     .jf-user { font-size: 10px; color: var(--dim); }
-    .nav-arrow { position: fixed; top: 50%; transform: translateY(-50%); width: 48px; height: 80px; background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--accent); cursor: pointer; opacity: 0; transition: opacity 0.2s; z-index: 50; }
-    .nav-arrow.visible { opacity: 1; }
-    .nav-arrow.left { left: 8px; }
-    .nav-arrow.right { right: 8px; }
-    .page-dots { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 50; }
-    .page-dots-row { display: flex; gap: 8px; }
-    .page-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.2s; cursor: pointer; }
-    .page-dot.active { background: var(--accent); transform: scale(1.4); }
+    /* nav arrows removed — swipe + keyboard only */
+    .page-dots { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 50; pointer-events: auto; }
+    .page-dots-row { display: flex; gap: 12px; align-items: center; }
+    .page-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.2s; cursor: pointer; border: none; padding: 0; display: block; }
+    .page-dot:hover { background: rgba(255,255,255,0.45); }
+    .page-dot.active { background: var(--accent); width: 12px; height: 12px; box-shadow: 0 0 6px var(--accent); }
+    .page-name-label { font-size: 11px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
     .page-name-label { font-size: 9px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
     .settings-gear { position: fixed; top: 12px; right: 48px; background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 16px; cursor: pointer; z-index: 60; transition: color .2s, opacity .2s; font-family: var(--font); opacity: 0; }
     body:hover .settings-gear { opacity: 1; }
@@ -521,7 +521,7 @@
       const sessions = data?.response?.data?.sessions || [];
       if (error) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
       if (!sessions.length) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
-      return h('div', {className:'panel'},
+      return h('div', {className:'panel panel-top'},
         h('div', {className:'panel-label'}, 'NOW PLAYING ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'PLEX · TAUTULLI'),
         h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
@@ -947,7 +947,7 @@
         h('div',{className:'panel-unconfigured-icon'},'🎞️'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
-      return h('div', {className:'panel'},
+      return h('div', {className:'panel panel-top'},
         h('div', {className:'panel-label'}, 'JELLYFIN ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-jellyfin')},'⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'JELLYFIN'),
         sessions.length > 0 && h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
@@ -1376,10 +1376,12 @@
     function SonarrPanel({ config, openSettings }) {
       const sCfg = config?.integrations?.sonarr;
       const configured = sCfg?.url && sCfg?.apiKey;
+      const [seriesMap, setSeriesMap] = useState({});
       const [seriesCount, setSeriesCount] = useState(null);
       const [queue, setQueue] = useState([]);
       const [todayImports, setTodayImports] = useState([]);
       const [calendar, setCalendar] = useState([]);
+      const pollRef = useRef(null);
 
       useEffect(() => {
         if (!configured) return;
@@ -1390,24 +1392,37 @@
             const futureStr = new Date(Date.now()+4*86400000).toISOString().split('T')[0];
             const [series, hist, cal, q] = await Promise.all([
               window.orbit.apiGet(sCfg.url+'/api/v3/series', hdr),
-              window.orbit.apiGet(sCfg.url+'/api/v3/history?pageSize=40&sortKey=date&sortDir=desc', hdr),
-              window.orbit.apiGet(sCfg.url+'/api/v3/calendar?start='+todayStr+'&end='+futureStr+'&unmonitored=false', hdr),
-              window.orbit.apiGet(sCfg.url+'/api/v3/queue?pageSize=5', hdr)
+              window.orbit.apiGet(sCfg.url+'/api/v3/history?pageSize=50&sortKey=date&sortDir=desc&includeSeries=true&includeEpisode=true', hdr),
+              window.orbit.apiGet(sCfg.url+'/api/v3/calendar?start='+todayStr+'&end='+futureStr+'&unmonitored=false&includeSeries=true', hdr),
+              window.orbit.apiGet(sCfg.url+'/api/v3/queue?pageSize=5&includeSeries=true&includeEpisode=true', hdr)
             ]);
-            if (Array.isArray(series)) setSeriesCount(series.length);
+            if (Array.isArray(series)) {
+              setSeriesCount(series.length);
+              const map = {};
+              series.forEach(s => { map[s.id] = s.title; });
+              setSeriesMap(map);
+            }
             if (Array.isArray(hist?.records)) {
               const imports = hist.records.filter(r => {
                 if (r.eventType !== 'downloadFolderImported') return false;
                 return new Date(r.date).toISOString().startsWith(todayStr);
               });
-              setTodayImports(imports.slice(0,5));
+              setTodayImports(imports.slice(0,6));
             }
             if (Array.isArray(cal)) setCalendar(cal.slice(0,6));
             if (Array.isArray(q?.records)) setQueue(q.records.slice(0,3));
           } catch {}
         }
+        pollRef.current = poll;
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
       }, [sCfg?.url, sCfg?.apiKey]);
+
+      // SignalR push — trigger immediate repoll on grab/import events
+      useEffect(() => {
+        if (!configured || !window.orbit.onSonarrEvent) return;
+        const unsub = window.orbit.onSonarrEvent(() => { if (pollRef.current) pollRef.current(); });
+        return unsub;
+      }, [configured]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
@@ -1419,9 +1434,8 @@
         if (diff <= 0) return 'Today'; if (diff === 1) return 'Tomorrow'; return '+'+diff+'d';
       }
 
-      return h('div',{className:'panel'},
+      return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
-        // Stats
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'26px',fontWeight:'700',color:'var(--accent)'}}, seriesCount??'…')),
           h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'26px',fontWeight:'700'}}, queue.length))
@@ -1431,9 +1445,10 @@
           h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADING'),
           queue.map((item,i)=>{
             const pct = item.size > 0 ? Math.round((1-(item.sizeLeft/item.size))*100) : 0;
-            const title = (item.series?.title || item.title || '').slice(0,36);
+            const seriesTitle = item.series?.title || seriesMap[item.seriesId] || item.title?.split('.')[0] || '?';
+            const ep = item.episode ? 'S'+String(item.episode.seasonNumber||0).padStart(2,'0')+'E'+String(item.episode.episodeNumber||0).padStart(2,'0') : '';
             return h('div',{key:i,style:{marginBottom:'8px'}},
-              h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, title),
+              h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'2px',fontWeight:'600'}}, seriesTitle + (ep?' · '+ep:'')),
               h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
               h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'%')
             );
@@ -1443,26 +1458,34 @@
         todayImports.length > 0 && h('div',{style:{marginBottom:'12px'}},
           h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADED TODAY'),
           todayImports.map((r,i)=>{
-            const series = r.series?.title || r.seriesTitle || '';
-            const ep = r.episode ? 'S'+String(r.episode.seasonNumber||0).padStart(2,'0')+'E'+String(r.episode.episodeNumber||0).padStart(2,'0') : '';
+            const seriesTitle = r.series?.title || seriesMap[r.seriesId] || '';
+            const sn = r.episode?.seasonNumber ?? r.episodeId;
+            const en = r.episode?.episodeNumber;
+            const epCode = (sn != null && en != null) ? 'S'+String(sn).padStart(2,'0')+'E'+String(en).padStart(2,'0') : '';
             const epTitle = r.episode?.title || '';
-            const label = series + (ep ? ' — '+ep+(epTitle?' · '+epTitle:'') : '');
-            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'4px'}},
-              h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0}},'✓'),
-              h('div',{style:{fontSize:'12px',color:'var(--text)',lineHeight:'1.4'}}, label)
+            const display = seriesTitle
+              ? seriesTitle + (epCode ? ' — '+epCode : '') + (epTitle ? ' · '+epTitle : '')
+              : epCode + (epTitle ? ' · '+epTitle : '');
+            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'5px'}},
+              h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0,marginTop:'1px'}},'✓'),
+              h('div',{style:{fontSize:'12px',color:'var(--text)',lineHeight:'1.4'}}, display || '(no metadata)')
             );
           })
         ),
-        // Upcoming calendar
+        // Upcoming calendar — series name prominent
         calendar.length > 0 && h('div',null,
           h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'UPCOMING'),
           calendar.map((ep,i)=>{
-            const series = ep.series?.title || ep.seriesTitle || '';
-            const code = 'S'+String(ep.seasonNumber||0).padStart(2,'0')+'E'+String(ep.episodeNumber||0).padStart(2,'0');
+            const seriesTitle = ep.series?.title || seriesMap[ep.seriesId] || 'Unknown';
+            const epCode = 'S'+String(ep.seasonNumber||0).padStart(2,'0')+'E'+String(ep.episodeNumber||0).padStart(2,'0');
             const day = dayLabel(ep.airDate||ep.airDateUtc);
-            return h('div',{key:i,style:{display:'flex',gap:'8px',alignItems:'baseline',marginBottom:'4px'}},
-              h('span',{style:{fontSize:'10px',color:'var(--accent)',flexShrink:0,minWidth:'58px'}},(ep.hasFile?'✓ ':'')+(day)),
-              h('div',{style:{fontSize:'12px',color:'var(--dim)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, series+' · '+code)
+            const hasFile = ep.hasFile;
+            return h('div',{key:i,style:{marginBottom:'7px'}},
+              h('div',{style:{display:'flex',gap:'6px',alignItems:'baseline'}},
+                h('span',{style:{fontSize:'10px',color: hasFile?'#50fa7b':'var(--accent)',flexShrink:0,minWidth:'60px',fontWeight:'600'}}, (hasFile?'✓ ':'')+day),
+                h('div',{style:{fontSize:'13px',color:'var(--text)',fontWeight:'600',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, seriesTitle)
+              ),
+              h('div',{style:{fontSize:'11px',color:'var(--dim)',paddingLeft:'66px'}}, epCode + (ep.title ? ' · '+ep.title : ''))
             );
           })
         )
@@ -1472,10 +1495,12 @@
     function RadarrPanel({ config, openSettings }) {
       const rCfg = config?.integrations?.radarr;
       const configured = rCfg?.url && rCfg?.apiKey;
+      const [movieMap, setMovieMap] = useState({});
       const [movieCount, setMovieCount] = useState(null);
       const [queue, setQueue] = useState([]);
       const [todayImports, setTodayImports] = useState([]);
       const [upcoming, setUpcoming] = useState([]);
+      const pollRef = useRef(null);
 
       useEffect(() => {
         if (!configured) return;
@@ -1486,11 +1511,16 @@
             const futureStr = new Date(Date.now()+90*86400000).toISOString().split('T')[0];
             const [movies, hist, cal, q] = await Promise.all([
               window.orbit.apiGet(rCfg.url+'/api/v3/movie', hdr),
-              window.orbit.apiGet(rCfg.url+'/api/v3/history?pageSize=40&sortKey=date&sortDir=desc', hdr),
+              window.orbit.apiGet(rCfg.url+'/api/v3/history?pageSize=50&sortKey=date&sortDir=desc&includeMovie=true', hdr),
               window.orbit.apiGet(rCfg.url+'/api/v3/calendar?start='+todayStr+'&end='+futureStr+'&unmonitored=false', hdr),
-              window.orbit.apiGet(rCfg.url+'/api/v3/queue?pageSize=5', hdr)
+              window.orbit.apiGet(rCfg.url+'/api/v3/queue?pageSize=5&includeMovie=true', hdr)
             ]);
-            if (Array.isArray(movies)) setMovieCount(movies.length);
+            if (Array.isArray(movies)) {
+              setMovieCount(movies.length);
+              const map = {};
+              movies.forEach(m => { map[m.id] = { title: m.title, year: m.year }; });
+              setMovieMap(map);
+            }
             if (Array.isArray(hist?.records)) {
               const imports = hist.records.filter(r => {
                 if (r.eventType !== 'downloadFolderImported') return false;
@@ -1499,33 +1529,39 @@
               setTodayImports(imports.slice(0,5));
             }
             if (Array.isArray(cal)) {
-              // Classify and sort by closest date
               const now = Date.now();
               const classified = cal.map(m => {
                 const cinema = m.inCinemas ? new Date(m.inCinemas) : null;
                 const digital = m.digitalRelease ? new Date(m.digitalRelease) : null;
                 const physical = m.physicalRelease ? new Date(m.physicalRelease) : null;
-                // Earliest future release
                 const dates = [cinema, digital, physical].filter(d => d && d.getTime() > now-86400000);
                 const earliest = dates.sort((a,b)=>a-b)[0];
                 const type = earliest === cinema ? '🎭 CINEMA' : '💾 DOWNLOAD';
                 const daysAway = earliest ? Math.ceil((earliest-now)/86400000) : 999;
-                return { title:m.title, year:m.year, type, daysAway, earliest, hasFile:m.hasFile };
+                return { title:m.title, year:m.year, type, daysAway, hasFile:m.hasFile };
               }).filter(m => !m.hasFile && m.daysAway < 90).sort((a,b)=>a.daysAway-b.daysAway);
               setUpcoming(classified.slice(0,5));
             }
             if (Array.isArray(q?.records)) setQueue(q.records.slice(0,3));
           } catch {}
         }
+        pollRef.current = poll;
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
       }, [rCfg?.url, rCfg?.apiKey]);
+
+      // SignalR push
+      useEffect(() => {
+        if (!configured || !window.orbit.onRadarrEvent) return;
+        const unsub = window.orbit.onRadarrEvent(() => { if (pollRef.current) pollRef.current(); });
+        return unsub;
+      }, [configured]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
         h('div',{className:'panel-unconfigured-icon'},'🎬'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
 
-      return h('div',{className:'panel'},
+      return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
         // Stats
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
@@ -1549,11 +1585,13 @@
         todayImports.length > 0 && h('div',{style:{marginBottom:'12px'}},
           h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADED TODAY'),
           todayImports.map((r,i)=>{
-            const title = r.movie?.title || r.movieTitle || r.sourceTitle?.replace(/\.(mkv|mp4|nzb)$/i,'') || '?';
-            const year = r.movie?.year ? ' ('+r.movie.year+')' : '';
-            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'4px'}},
-              h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0}},'✓'),
-              h('div',{style:{fontSize:'12px',color:'var(--text)'}}, title+year)
+            const fromMap = r.movieId ? movieMap[r.movieId] : null;
+            const title = r.movie?.title || fromMap?.title || r.movieTitle || '?';
+            const year = r.movie?.year || fromMap?.year;
+            const display = title + (year ? ' ('+year+')' : '');
+            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'5px'}},
+              h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0,marginTop:'1px'}},'✓'),
+              h('div',{style:{fontSize:'13px',color:'var(--text)',lineHeight:'1.4'}}, display)
             );
           })
         ),
@@ -1579,6 +1617,8 @@
       const configured = oCfg?.url && oCfg?.apiKey;
       const [counts, setCounts] = useState(null);
       const [recent, setRecent] = useState([]);
+      const [titles, setTitles] = useState({}); // tmdbId → title string
+
       useEffect(() => {
         if (!configured) return;
         const headers = {'X-Api-Key': oCfg.apiKey};
@@ -1589,18 +1629,35 @@
               window.orbit.apiGet(oCfg.url+'/api/v1/request?take=8&skip=0&sort=added', headers)
             ]);
             if (!c?.error) setCounts(c);
-            if (Array.isArray(r?.results)) setRecent(r.results.slice(0,8));
+            if (Array.isArray(r?.results)) {
+              const items = r.results.slice(0,8);
+              setRecent(items);
+              // Async-fetch titles for each request
+              items.forEach(async (req) => {
+                const tmdb = req.media?.tmdbId;
+                const type = req.type;
+                if (!tmdb || !type) return;
+                try {
+                  const endpoint = type === 'movie' ? `/api/v1/movie/${tmdb}` : `/api/v1/tv/${tmdb}`;
+                  const details = await window.orbit.apiGet(oCfg.url+endpoint, headers);
+                  const title = details?.title || details?.name || details?.originalTitle || details?.originalName;
+                  const year = details?.releaseDate?.slice(0,4) || details?.firstAirDate?.slice(0,4);
+                  if (title) setTitles(prev => ({...prev, [tmdb]: title + (year ? ' ('+year+')' : '')}));
+                } catch {}
+              });
+            }
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
       }, [oCfg?.url, oCfg?.apiKey]);
+
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'OVERSEERR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
         h('div',{className:'panel-unconfigured-icon'},'🎭'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
       const statusLabel = {1:'PENDING',2:'APPROVED',3:'DECLINED',4:'PARTIAL',5:'AVAILABLE'};
       const statusColor = {1:'#ffb86c',2:'var(--accent)',3:'#ff5555',4:'#8be9fd',5:'#50fa7b'};
-      return h('div',{className:'panel'},
+      return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'OVERSEERR ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
         counts && h('div',{style:{display:'flex',gap:'16px',marginBottom:'16px',flexWrap:'wrap'}},
           [['TOTAL',counts.total,'var(--text)'],['PENDING',counts.pending,'#ffb86c'],['PROCESSING',counts.processing,'var(--accent)'],['AVAILABLE',counts.available,'#50fa7b']]
@@ -1613,12 +1670,21 @@
           h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}},'RECENT REQUESTS'),
           recent.map((req,i)=>{
             const isMovie = req.type==='movie';
+            const tmdb = req.media?.tmdbId;
+            const title = (tmdb && titles[tmdb]) || null;
             const user = req.requestedBy?.displayName||req.requestedBy?.plexUsername||'?';
             const st = req.status||1;
-            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',padding:'4px 0',borderBottom:'1px solid var(--border)'}},
-              h('span',{style:{fontSize:'13px',color:isMovie?'#bd93f9':'var(--accent)',flexShrink:0}}, isMovie?'🎬':'📺'),
-              h('div',{style:{flex:1,fontSize:'13px',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, user),
-              h('span',{style:{fontSize:'11px',color:statusColor[st]||'var(--dim)',flexShrink:0,fontWeight:'600'}}, statusLabel[st]||'?')
+            return h('div',{key:i,style:{marginBottom:'9px',paddingBottom:'8px',borderBottom:'1px solid var(--border)'}},
+              h('div',{style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'2px'}},
+                h('span',{style:{fontSize:'12px',color:isMovie?'#bd93f9':'var(--accent)',flexShrink:0}}, isMovie?'🎬':'📺'),
+                title
+                  ? h('div',{style:{flex:1,fontSize:'13px',color:'var(--text)',fontWeight:'600',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, title)
+                  : h('div',{style:{flex:1,fontSize:'11px',color:'var(--dim)'}}, 'Loading…')
+              ),
+              h('div',{style:{display:'flex',justifyContent:'space-between',paddingLeft:'20px'}},
+                h('span',{style:{fontSize:'11px',color:'var(--dim)'}}, user),
+                h('span',{style:{fontSize:'11px',color:statusColor[st]||'var(--dim)',fontWeight:'600'}}, statusLabel[st]||'?')
+              )
             );
           })
         )
@@ -1666,7 +1732,7 @@
       const rateMBs = status ? (status.DownloadRate/1024/1024).toFixed(2) : '0.00';
       const remMB = status ? status.RemainingSizeMB : 0;
       const paused = status?.DownloadPaused;
-      return h('div',{className:'panel'},
+      return h('div',{className:'panel panel-top'},
         h('div',{className:'panel-label'},'NZBGET ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div', null,
@@ -1731,12 +1797,21 @@
       const [signalIsOn, setSignalIsOn] = useState(false);
       const touchRef = useRef(null);
 
-      // Load config
+      // Load config + start SignalR
       useEffect(() => {
         window.orbit.loadConfig().then(cfg => {
           if (cfg) {
             setConfig(cfg);
             if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor);
+            // Start SignalR for real-time Sonarr/Radarr events
+            if (window.orbit.startSignalR) {
+              window.orbit.startSignalR({
+                sonarrUrl: cfg.integrations?.sonarr?.url || '',
+                sonarrKey: cfg.integrations?.sonarr?.apiKey || '',
+                radarrUrl: cfg.integrations?.radarr?.url || '',
+                radarrKey: cfg.integrations?.radarr?.apiKey || ''
+              });
+            }
           } else {
             setConfig(DEFAULT_CONFIG);
           }
@@ -1810,14 +1885,10 @@
       return h(SignalRGBContext.Provider, {value: {isOn: signalIsOn}},
         h('div', {id:'app'}, ...renderedPanels),
 
-        // Navigation arrows
-        pages.length > 1 && h('div', {className:'nav-arrow left'+(showLeftArrow?' visible':''), onClick:()=>setCurrentPage(p=>p-1)}, '‹'),
-        pages.length > 1 && h('div', {className:'nav-arrow right'+(showRightArrow?' visible':''), onClick:()=>setCurrentPage(p=>p+1)}, '›'),
-
-        // Page dots
+        // Page dots (swipe / keyboard only — no arrows)
         pages.length > 1 && h('div', {className:'page-dots'},
           h('div', {className:'page-dots-row'},
-            pages.map((_,i) => h('div', {key:i, className:'page-dot'+(i===currentPage?' active':''), onClick:()=>setCurrentPage(i)}))
+            pages.map((pg,i) => h('button', {key:i, className:'page-dot'+(i===currentPage?' active':''), onClick:()=>setCurrentPage(i), title:pg.name||'Page '+(i+1)}))
           ),
           h('div', {className:'page-name-label'}, page?.name || '')
         ),
