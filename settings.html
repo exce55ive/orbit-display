@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orbit Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #060a10;
+      --surface: rgba(255,255,255,0.03);
+      --border: rgba(255,255,255,0.08);
+      --text: #c8d6e5;
+      --text-bright: #e8f0f8;
+      --dim: rgba(255,255,255,0.35);
+      --accent: #00d9ff;
+      --amber: #ffc857;
+      --red: #ff5555;
+      --green: #50fa7b;
+      --font: "JetBrains Mono", "Fira Code", monospace;
+    }
+    html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
+    body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
+    #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
+    .panel { height: calc(100vh - 52px); padding: 20px 16px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .panel:last-child { border-right: none; }
+    .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .source-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 10px; background: rgba(0,217,255,0.1); color: var(--accent); border: 1px solid rgba(0,217,255,0.2); text-transform: uppercase; }
+    .clock-time { font-size: 64px; font-weight: 300; color: var(--text-bright); letter-spacing: 3px; line-height: 1; margin-bottom: 6px; text-shadow: 0 0 30px rgba(0,217,255,0.15); }
+    .clock-date { font-size: 14px; font-weight: 500; letter-spacing: 2px; color: var(--dim); margin-bottom: 20px; }
+    .weather-current { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
+    .weather-icon { font-size: 32px; }
+    .weather-temp { font-size: 36px; font-weight: 700; color: var(--text-bright); }
+    .weather-desc { font-size: 14px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
+    .weather-summary { font-size: 12px; color: var(--dim); margin-bottom: 10px; max-width: 100%; padding: 0 4px; line-height: 1.5; }
+    .weather-detail { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--dim); margin-bottom: 10px; padding: 0 2px; }
+    .weather-extra { font-size: 11px; color: var(--dim); margin-bottom: 12px; display: flex; gap: 12px; justify-content: center; }
+    .weather-strip { display: flex; gap: 4px; width: 100%; padding: 0 4px; overflow-x: auto; justify-content: center; }
+    .weather-day { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; padding: 4px 5px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); min-width: 48px; flex-shrink: 0; }
+    .weather-day-name { font-weight: 600; color: var(--text); }
+    .weather-day-icon { font-size: 14px; }
+    .weather-day-temps { font-size: 9px; }
+    .weather-hi { color: var(--amber); }
+    .weather-lo { color: var(--accent); }
+    .effect-name { font-size: 36px; font-weight: 700; margin-bottom: 6px; transition: color 2s ease; text-shadow: 0 0 30px currentColor; line-height: 1.1; max-width: 100%; word-wrap: break-word; }
+    .effect-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 16px; }
+    .brightness-wrap { width: 100%; padding: 0 12px; margin-bottom: 12px; }
+    .brightness-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+    .brightness-fill { height: 100%; border-radius: 3px; transition: width .5s, background 2s; }
+    .brightness-label { font-size: 14px; font-weight: 600; }
+    .ha-toggle { padding: 6px 20px; font-size: 12px; font-weight: 700; letter-spacing: 1px; border: 2px solid var(--border); border-radius: 20px; background: transparent; color: var(--text); cursor: pointer; transition: all .2s; margin-bottom: 12px; font-family: var(--font); }
+    .ha-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    .ha-toggle.on { border-color: var(--green); color: var(--green); background: rgba(80,250,123,0.08); }
+    .ha-toggle.off { border-color: var(--red); color: var(--red); background: rgba(255,85,85,0.08); }
+    .fav-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; padding: 0 8px; width: 100%; justify-content: center; }
+    .fav-pill { padding: 3px 8px; font-size: 10px; font-family: var(--font); border-radius: 10px; background: rgba(255,200,87,0.1); border: 1px solid rgba(255,200,87,0.3); color: var(--amber); cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .fav-pill:hover { background: rgba(255,200,87,0.2); }
+    .effect-search { width: calc(100% - 16px); padding: 6px 10px; font-size: 11px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; margin-bottom: 4px; }
+    .effect-search:focus { border-color: var(--accent); }
+    .effect-list { width: 100%; max-height: 180px; overflow-y: auto; padding: 0 8px; }
+    .effect-list::-webkit-scrollbar { width: 3px; }
+    .effect-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .effect-option { padding: 5px 10px; font-size: 11px; cursor: pointer; border-radius: 4px; transition: background .15s; text-align: left; display: flex; align-items: center; gap: 6px; }
+    .effect-option:hover { background: rgba(255,255,255,0.06); }
+    .effect-option.active { background: rgba(0,217,255,0.12); color: var(--accent); font-weight: 600; }
+    .effect-star { cursor: pointer; font-size: 12px; opacity: 0.3; transition: opacity .2s; }
+    .effect-star.starred { opacity: 1; color: var(--amber); }
+    .effect-star:hover { opacity: 0.8; }
+    .light-card { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; }
+    .light-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .light-name { font-size: 12px; font-weight: 600; flex: 1; text-align: left; color: var(--text); }
+    .light-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); transition: all .3s; }
+    .light-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .light-toggle { padding: 3px 12px; font-size: 10px; font-weight: 700; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text); cursor: pointer; font-family: var(--font); transition: all .2s; }
+    .light-toggle:hover { border-color: var(--accent); }
+    .light-toggle.on { border-color: var(--green); color: var(--green); }
+    .light-toggle.off { border-color: var(--dim); color: var(--dim); }
+    .light-brightness { width: 100%; }
+    .light-brightness input { width: 100%; height: 3px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
+    .light-brightness input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); cursor: pointer; }
+    .light-signalrgb-badge { font-size: 10px; color: var(--amber); display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+    .np-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    .np-empty-icon { font-size: 40px; opacity: 0.12; }
+    .np-empty-text { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
+    .np-offline { color: var(--amber); font-size: 13px; letter-spacing: 1px; }
+    .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 110px); padding: 0 2px; }
+    .panel-top { justify-content: flex-start !important; padding-top: 48px !important; padding-bottom: 16px !important; align-items: stretch !important; overflow-y: auto !important; }
+    .np-session-list::-webkit-scrollbar { width: 3px; }
+    .np-session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .np-session { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; text-align: left; }
+    .np-title { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 3px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .np-subtitle { font-size: 11px; color: var(--text); margin-bottom: 6px; }
+    .np-progress-wrap { width: 100%; margin-bottom: 4px; }
+    .np-progress-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 15s linear; }
+    .np-time { font-size: 10px; color: var(--dim); margin-bottom: 4px; }
+    .np-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 10px; margin-right: 4px; }
+    .np-badge-transcode { background: rgba(255,200,87,0.12); color: var(--amber); border: 1px solid rgba(255,200,87,0.2); }
+    .np-badge-direct { background: rgba(80,250,123,0.12); color: var(--green); border: 1px solid rgba(80,250,123,0.2); }
+    .np-meta { font-size: 10px; color: var(--dim); margin-top: 4px; }
+    .np-streams-count { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+    .sys-stats { width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 0 8px; }
+    .sys-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .sys-label { width: 44px; font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text); flex-shrink: 0; text-align: left; }
+    .sys-row-cog { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 10px; padding: 0 2px; opacity: 0.6; line-height: 1; }
+    .sys-row-cog:hover { opacity: 1; color: var(--accent); }
+    .sys-bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+    .sys-info { font-size: 12px; color: var(--text); text-align: left; min-height: 16px; }
+    .sys-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .sys-bar-fill { height: 100%; border-radius: 3px; transition: width .5s; }
+    .sys-value { width: 48px; font-size: 20px; font-weight: 700; font-family: var(--font); text-align: right; flex-shrink: 0; }
+    .sys-c-green { color: var(--green); } .sys-b-green { background: var(--green); }
+    .sys-c-amber { color: var(--amber); } .sys-b-amber { background: var(--amber); }
+    .sys-c-red { color: var(--red); } .sys-b-red { background: var(--red); }
+    .net-row { display: flex; align-items: center; gap: 10px; }
+    .net-label { width: 34px; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text); flex-shrink: 0; text-align: left; }
+    .net-speeds { flex: 1; display: flex; gap: 14px; justify-content: center; }
+    .net-speed { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .net-speed-label { font-size: 10px; color: var(--dim); }
+    .net-speed-value { font-size: 14px; font-weight: 700; }
+    .net-up { color: var(--green); } .net-down { color: var(--accent); }
+    .sys-gear-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 12px; padding: 2px 4px; transition: color .2s; font-family: var(--font); }
+    .sys-gear-btn:hover { color: var(--text); }
+    .sys-picker-panel { width: 100%; padding: 8px 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; display: flex; flex-direction: column; gap: 6px; }
+    .sys-picker-row { display: flex; align-items: center; gap: 6px; }
+    .sys-picker-label { font-size: 10px; color: var(--dim); width: 70px; flex-shrink: 0; }
+    .sys-picker-select { flex: 1; padding: 3px 6px; font-size: 10px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 4px; color: var(--text); outline: none; }
+    .sys-picker-toggle { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text); cursor: pointer; }
+    .sys-picker-toggle input { cursor: pointer; accent-color: var(--accent); }
+    .media-section { width: 100%; padding: 8px; text-align: left; }
+    .media-section-title { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+    .media-not-configured { font-size: 10px; color: var(--dim); font-style: italic; cursor: pointer; }
+    .media-not-configured:hover { color: var(--accent); }
+    .media-stat { font-size: 11px; color: var(--text); margin-bottom: 3px; }
+    .media-stat-label { color: var(--dim); }
+    .monitor-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); width: 100%; }
+    .monitor-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .monitor-dot.up { background: var(--green); box-shadow: 0 0 4px var(--green); }
+    .monitor-dot.down { background: var(--red); box-shadow: 0 0 4px var(--red); }
+    .monitor-dot.pending { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+    .monitor-name { font-size: 11px; color: var(--text); flex: 1; text-align: left; }
+    .monitor-uptime { font-size: 10px; color: var(--dim); }
+    .spotify-connect { padding: 10px 20px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 2px solid var(--green); border-radius: 20px; background: rgba(80,250,123,0.08); color: var(--green); cursor: pointer; transition: all .2s; }
+    .spotify-connect:hover { background: rgba(80,250,123,0.15); }
+    .spotify-track { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+    .spotify-artist { font-size: 14px; color: var(--text); margin-bottom: 12px; }
+    .spotify-controls { display: flex; gap: 16px; }
+    .spotify-btn { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; transition: color .2s; }
+    .spotify-btn:hover { color: var(--accent); }
+    .link-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all .2s; width: 100%; margin-bottom: 6px; }
+    .link-item:hover { border-color: var(--accent); background: rgba(0,217,255,0.04); }
+    .link-icon { font-size: 18px; }
+    .link-label { font-size: 12px; font-weight: 600; color: var(--text); }
+    .jf-session { width: 100%; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; text-align: left; }
+    .jf-title { font-size: 13px; font-weight: 700; color: var(--text-bright); }
+    .jf-user { font-size: 10px; color: var(--dim); }
+    /* nav arrows removed — swipe + keyboard only */
+    .page-dots { display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto; }
+    .page-dots-row { display: flex; gap: 12px; align-items: center; }
+    .page-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.2s; cursor: pointer; border: none; padding: 0; display: block; }
+    .page-dot:hover { background: rgba(255,255,255,0.45); }
+    .page-dot.active { background: var(--accent); width: 12px; height: 12px; box-shadow: 0 0 6px var(--accent); }
+    .page-name-label { font-size: 11px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+    .page-name-label { font-size: 9px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+    .settings-gear { display: none; }
+    .panel-cog-btn { display: none !important; }
+    .sys-gear-btn { display: none !important; }
+    
+    .settings-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: flex-end; }
+    .settings-panel { width: 420px; height: 100vh; overflow-y: auto; background: #0d1520; border-left: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .settings-panel::-webkit-scrollbar { width: 4px; }
+    .settings-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .settings-header { display: flex; align-items: center; justify-content: space-between; }
+    .settings-title { font-size: 16px; font-weight: 700; color: var(--text-bright); letter-spacing: 2px; }
+    .settings-close { background: none; border: none; color: var(--dim); font-size: 18px; cursor: pointer; font-family: var(--font); }
+    .settings-close:hover { color: var(--text); }
+    .settings-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    .settings-tab { padding: 6px 14px; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; font-family: var(--font); border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--dim); cursor: pointer; transition: all .2s; }
+    .settings-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(0,217,255,0.06); }
+    .settings-section { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; margin-top: 8px; }
+    .settings-input { width: 100%; padding: 8px 12px; font-size: 12px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; }
+    .settings-input:focus { border-color: var(--accent); }
+    .settings-textarea { width: 100%; padding: 8px 12px; font-size: 11px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; resize: vertical; min-height: 60px; }
+    .settings-textarea:focus { border-color: var(--accent); }
+    .settings-label { font-size: 11px; color: var(--dim); margin-bottom: 4px; letter-spacing: 1px; }
+    /* ── Bottom Bar ──────────────────────────────────────────────────────── */
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 52px; background: rgba(6,10,16,0.94); border-top: 1px solid var(--border); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .bottom-bar-left { position: absolute; left: 16px; display: flex; align-items: center; gap: 8px; }
+    .bottom-bar-right { position: absolute; right: 16px; display: flex; align-items: center; gap: 8px; }
+    .bottom-gear { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.3); font-size: 14px; cursor: pointer; padding: 6px 10px; font-family: var(--font); transition: all 0.2s; line-height: 1; }
+    .bottom-gear:hover { border-color: rgba(255,255,255,0.3); color: var(--text); }
+    .bottom-update-btn { background: rgba(80,250,123,0.1); border: 1px solid rgba(80,250,123,0.35); border-radius: 6px; color: var(--green); font-size: 11px; cursor: pointer; padding: 5px 10px; font-family: var(--font); font-weight: 700; letter-spacing: 0.5px; transition: all 0.2s; white-space: nowrap; }
+    .bottom-update-btn:hover { background: rgba(80,250,123,0.2); }
+    /* HA Entity Browser */
+    .ha-browser-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+    .ha-browser-modal { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; width: min(560px, 95vw); max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
+    .ha-browser-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .ha-browser-title { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--text-bright); }
+    .ha-browser-search { box-sizing: border-box; width: calc(100% - 32px); margin: 12px 16px 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font); font-size: 13px; padding: 10px 12px; outline: none; flex-shrink: 0; }
+    .ha-browser-search:focus { border-color: var(--accent); }
+    .ha-browser-domains { display: flex; gap: 6px; padding: 10px 16px 4px; flex-wrap: wrap; flex-shrink: 0; }
+    .ha-domain-pill { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--dim); font-size: 10px; font-family: var(--font); padding: 4px 10px; border-radius: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .ha-domain-pill:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+    .ha-domain-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(0,217,255,0.08); }
+    .ha-browser-count { font-size: 10px; color: var(--dim); padding: 2px 16px 6px; flex-shrink: 0; }
+    .ha-browser-list { flex: 1; overflow-y: auto; padding: 4px 8px; }
+    .ha-browser-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: background 0.1s; }
+    .ha-browser-item:hover { background: rgba(255,255,255,0.04); }
+    .ha-browser-item.selected { background: rgba(0,217,255,0.08); }
+    .ha-browser-check { width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent); flex-shrink: 0; }
+    .ha-browser-item.selected .ha-browser-check { border-color: var(--accent); background: rgba(0,217,255,0.15); }
+    .ha-browser-entity-info { flex: 1; min-width: 0; }
+    .ha-browser-entity-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ha-browser-entity-id { font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ha-browser-entity-state { font-size: 10px; color: var(--dim); flex-shrink: 0; max-width: 72px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ha-browser-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; }
+    .ha-browser-add-btn { flex: 1; padding: 10px; background: var(--accent); border: none; border-radius: 6px; color: #000; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: opacity 0.15s; }
+    .ha-browser-add-btn:disabled { background: rgba(255,255,255,0.08); color: var(--dim); cursor: default; }
+    .ha-browse-btn { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); font-family: var(--font); font-size: 11px; padding: 7px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+    .ha-browse-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .settings-save { padding: 10px 20px; background: var(--accent); color: var(--bg); font-family: var(--font); font-weight: 700; font-size: 12px; letter-spacing: 2px; border: none; border-radius: 6px; cursor: pointer; margin-top: 8px; transition: opacity .2s; }
+    .settings-save:hover { opacity: 0.9; }
+    .settings-saved-msg { font-size: 11px; color: var(--green); margin-top: 4px; }
+    .settings-integration { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+    .settings-integration-header { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text); background: rgba(255,255,255,0.02); }
+    .settings-integration-header:hover { background: rgba(255,255,255,0.04); }
+    .settings-integration-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+    .settings-theme-colors { display: flex; gap: 8px; flex-wrap: wrap; }
+    .settings-color-swatch { width: 36px; height: 36px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: all .2s; }
+    .settings-color-swatch.active { border-color: var(--text-bright); transform: scale(1.1); }
+    .settings-version { font-size: 11px; color: var(--dim); }
+    .settings-update-btn { padding: 8px 16px; font-size: 11px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; transition: all .2s; }
+    .settings-update-btn:hover { background: rgba(0,217,255,0.1); }
+    .settings-changelog { font-size: 11px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+    .update-pill { display: none; }
+    .update-pill:hover { opacity: 1; background: rgba(80,250,123,0.25); }
+    .update-confirm-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(6,10,16,0.9); }
+    .update-confirm-modal { width: 340px; padding: 24px; background: #0d1520; border: 1px solid var(--border); border-radius: 12px; text-align: center; }
+    .update-confirm-title { font-size: 14px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
+    .update-confirm-version { font-size: 12px; color: var(--green); margin-bottom: 16px; }
+    .update-confirm-btns { display: flex; gap: 8px; justify-content: center; }
+    .update-confirm-btn { padding: 8px 20px; font-size: 11px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border-radius: 6px; cursor: pointer; transition: all .2s; }
+    .update-confirm-btn.primary { background: var(--green); color: var(--bg); border: none; }
+    .update-confirm-btn.cancel { background: transparent; border: 1px solid var(--border); color: var(--dim); }
+    .update-progress-bar { width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; margin-top: 12px; }
+    .update-progress-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .3s; }
+    .update-status-text { font-size: 10px; color: var(--dim); margin-top: 6px; }
+    #boot-overlay { position: fixed; inset: 0; z-index: 10000; background: var(--bg); display: flex; align-items: center; justify-content: center; transition: opacity 0.5s; }
+    #boot-overlay.hidden { opacity: 0; pointer-events: none; }
+    #boot-content { text-align: center; }
+    #boot-logo { font-size: 48px; font-weight: 700; letter-spacing: 8px; color: var(--accent); text-shadow: 0 0 40px rgba(0,217,255,0.4); margin-bottom: 24px; }
+    #boot-lines { font-size: 11px; color: var(--dim); letter-spacing: 2px; text-align: left; display: inline-block; line-height: 2; }
+    #boot-cursor { font-size: 14px; color: var(--accent); animation: blink 0.8s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .quit-btn { position: fixed; top: 12px; right: 12px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
+    body:hover .quit-btn { opacity: 1; }
+    .quit-btn:hover { color: var(--red); border-color: var(--red); }
+    .panel-cog-btn { background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 11px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; transition: color .2s; vertical-align: middle; }
+    .panel-cog-btn:hover { color: var(--accent); }
+    .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+    .panel-unconfigured-icon { font-size: 28px; opacity: 0.15; }
+    .panel-unconfigured-text { font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+    .offline-msg { font-size: 11px; color: var(--dim); font-style: italic; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    .page-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; cursor: default; }
+    .page-row:hover { border-color: rgba(0,217,255,0.3); }
+    .page-row.drag-over { border-color: var(--accent); background: rgba(0,217,255,0.06); }
+    .page-drag-handle { color: var(--dim); cursor: grab; font-size: 14px; user-select: none; }
+    .page-drag-handle:active { cursor: grabbing; }
+    .page-name-display { flex: 1; font-size: 12px; color: var(--text); }
+    .page-rename-input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--accent); color: var(--text-bright); font-size: 12px; font-family: var(--font); outline: none; padding: 0; }
+    .page-edit-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 11px; padding: 0 2px; }
+    .page-edit-btn:hover { color: var(--accent); }
+    .page-panels-info { font-size: 10px; color: var(--dim); margin-top: 2px; }
+    .reconfigure-pages { background: transparent; border: 1px solid var(--border); color: var(--dim); border-radius: 6px; padding: 6px 12px; font-size: 11px; font-family: var(--font); cursor: pointer; letter-spacing: 1px; margin-top: 8px; }
+    .reconfigure-pages:hover { border-color: var(--accent); color: var(--accent); }
+  </style>
+
+    /* Settings window overrides — full page, no overlay */
+    html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg); }
+    .settings-overlay { position: relative !important; inset: auto !important; background: var(--bg) !important; display: flex; flex-direction: column; height: 100vh; }
+    .settings-panel { width: 100% !important; max-width: 100% !important; height: 100vh !important; max-height: 100vh !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; display: flex; flex-direction: column; }
+    .settings-body { flex: 1; overflow-y: auto; }
+    .settings-close { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="settings-root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script>
+    const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
+    const h = React.createElement;
+
+    const DEFAULT_CONFIG = {
+      theme: { accentColor: '#00d9ff', darkMode: true },
+      pages: [{ id: 'page1', name: 'Home', panels: [
+        {type:'clock',col:1,width:1},{type:'signalrgb',col:2,width:1},{type:'lights',col:3,width:1},
+        {type:'nowplaying',col:4,width:1},{type:'system',col:5,width:1},{type:'links',col:6,width:1}
+      ]}],
+      integrations: {
+        weather:{city:'Perth'}, tautulli:{url:'',apiKey:''}, plex:{url:'',token:''},
+        homeassistant:{url:'',token:'',lights:[],signalrgbEntity:''},
+        sonarr:{url:'',apiKey:''}, radarr:{url:'',apiKey:''}, overseerr:{url:'',apiKey:''},
+        nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',apiKey:''},
+        spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''}
+      },
+      signalrgbFavorites: [],
+      links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
+    };
+
+    const DOMAIN_ICONS = {light:'💡',switch:'🔌',sensor:'📊',binary_sensor:'🔲',climate:'🌡️',
+      media_player:'📺',camera:'📷',cover:'🚪',fan:'💨',vacuum:'🤖',script:'📝',
+      automation:'⚙️',scene:'🎬',input_boolean:'🔘',input_select:'📋',person:'👤',
+      device_tracker:'📍',sun:'☀️',weather:'🌤️',number:'🔢',select:'📋',button:'🔲'};
+
+    let _switchTabRef = null;
+    function openSettingsAt(sectionId) {
+      // In the settings window, just scroll to the section
+      setTimeout(() => {
+        const el = document.getElementById(sectionId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+
+        // ═══ PAGES TAB (Settings) ═══
+    function PagesTab({ cfg, setCfg }) {
+      const [editingIndex, setEditingIndex] = useState(-1);
+      const [editingValue, setEditingValue] = useState('');
+      const [dragOverIndex, setDragOverIndex] = useState(-1);
+
+      function startEdit(i, name) {
+        setEditingIndex(i);
+        setEditingValue(name || 'Page '+(i+1));
+      }
+      function saveName(i) {
+        if (editingValue.trim()) {
+          cfg.pages[i].name = editingValue.trim();
+          setCfg({...cfg});
+        }
+        setEditingIndex(-1);
+        setEditingValue('');
+      }
+      function cancelEdit() {
+        setEditingIndex(-1);
+        setEditingValue('');
+      }
+
+      return h('div', null,
+        h('div', {className:'settings-section'}, 'PAGES'),
+        (cfg.pages||[]).map(function(page, i) {
+          return h('div', {
+            key: page.id || i,
+            className: 'page-row' + (dragOverIndex === i ? ' drag-over' : ''),
+            draggable: true,
+            onDragStart: function(e) {
+              e.dataTransfer.setData('text/plain', String(i));
+              e.dataTransfer.effectAllowed = 'move';
+            },
+            onDragOver: function(e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setDragOverIndex(i);
+            },
+            onDragLeave: function() {
+              setDragOverIndex(-1);
+            },
+            onDrop: function(e) {
+              e.preventDefault();
+              setDragOverIndex(-1);
+              var from = Number(e.dataTransfer.getData('text/plain'));
+              var to = i;
+              if (from === to || isNaN(from)) return;
+              var pages = cfg.pages.slice();
+              var moved = pages.splice(from, 1)[0];
+              pages.splice(to, 0, moved);
+              cfg.pages = pages;
+              setCfg({...cfg});
+            },
+            onDragEnd: function() {
+              setDragOverIndex(-1);
+            }
+          },
+            h('span', {className:'page-drag-handle'}, '⠿'),
+            editingIndex === i
+              ? h('input', {
+                  className: 'page-rename-input',
+                  value: editingValue,
+                  autoFocus: true,
+                  onChange: function(e) { setEditingValue(e.target.value); },
+                  onBlur: function() { saveName(i); },
+                  onKeyDown: function(e) {
+                    if (e.key === 'Enter') saveName(i);
+                    if (e.key === 'Escape') cancelEdit();
+                  }
+                })
+              : h('div', {style:{flex:1}},
+                  h('span', {className:'page-name-display'}, page.name || 'Page '+(i+1)),
+                  h('div', {className:'page-panels-info'}, (page.panels||[]).map(function(p){return p.type;}).join(', '))
+                ),
+            h('button', {className:'page-edit-btn', onClick: function() { startEdit(i, page.name); }}, '✏')
+          );
+        }),
+        // Panel order reordering within each page
+        (cfg.pages||[]).length > 0 && h('div', {style:{marginTop:'16px'}},
+          h('div', {className:'settings-section'}, 'PANEL ORDER'),
+          h('div', {style:{fontSize:'10px',color:'var(--dim)',marginBottom:'8px'}}, 'Click a page above, then reorder its panels here'),
+          (cfg.pages||[]).map(function(page, pageIdx) {
+            if (!page.panels || page.panels.length === 0) return null;
+            return h('div', {key:page.id||pageIdx, style:{marginBottom:'12px'}},
+              h('div', {style:{fontSize:'10px',color:'var(--accent)',marginBottom:'5px',letterSpacing:'1px'}}, (page.name||'Page '+(pageIdx+1)).toUpperCase()),
+              page.panels.map(function(panel, pi) {
+                const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',uptimekuma:'🔔',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡'};
+                const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',uptimekuma:'Uptime Kuma',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant'};
+                return h('div', {key:pi, style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',padding:'5px 8px',background:'rgba(255,255,255,0.02)',border:'1px solid var(--border)',borderRadius:'4px'}},
+                  h('span', {style:{color:'var(--dim)',fontSize:'12px',minWidth:'18px'}},(pi+1)+'.'),
+                  h('span', null, (ICONS[panel.type]||'▪')+' '+(NAMES[panel.type]||panel.type)),
+                  h('div', {style:{marginLeft:'auto',display:'flex',gap:'4px'}},
+                    h('button', {
+                      onClick: function() {
+                        if (pi <= 0) return;
+                        var ps = cfg.pages[pageIdx].panels.slice();
+                        var tmp = ps[pi]; ps[pi] = ps[pi-1]; ps[pi-1] = tmp;
+                        cfg.pages[pageIdx].panels = ps;
+                        setCfg({...cfg});
+                      },
+                      disabled: pi === 0,
+                      style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===0?0.3:1}
+                    }, '↑'),
+                    h('button', {
+                      onClick: function() {
+                        if (pi >= page.panels.length - 1) return;
+                        var ps = cfg.pages[pageIdx].panels.slice();
+                        var tmp = ps[pi]; ps[pi] = ps[pi+1]; ps[pi+1] = tmp;
+                        cfg.pages[pageIdx].panels = ps;
+                        setCfg({...cfg});
+                      },
+                      disabled: pi === page.panels.length - 1,
+                      style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===page.panels.length-1?0.3:1}
+                    }, '↓')
+                  )
+                );
+              })
+            );
+          })
+        ),
+        h('button', {
+          className: 'reconfigure-pages',
+          onClick: function() {
+            if (window.orbit && typeof window.orbit.openSetup === 'function') {
+              window.orbit.openSetup();
+            }
+          }
+        }, '↺ Reconfigure Pages')
+      );
+    }
+
+    // ═══ SETTINGS OVERLAY ═══
+    function SettingsOverlay({ config, onClose, onSave }) {
+      const [tab, setTab] = useState('pages');
+      _switchTabRef = setTab; // allow openSettingsAt to switch tabs
+      const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(config || DEFAULT_CONFIG)));
+      const [saved, setSaved] = useState(false);
+      const [expanded, setExpanded] = useState({});
+      const toggleExpand = (key) => setExpanded(p => ({...p, [key]: !p[key]}));
+      const updateIntegration = (key, field, value) => {
+        setCfg(prev => {
+          const next = JSON.parse(JSON.stringify(prev));
+          if (!next.integrations) next.integrations = {};
+          if (!next.integrations[key]) next.integrations[key] = {};
+          next.integrations[key][field] = value;
+          return next;
+        });
+      };
+      const save = async () => { await window.orbit.saveConfig(cfg); onSave(cfg); setSaved(true); setTimeout(()=>setSaved(false), 2000); };
+      const THEME_COLORS = [{name:'Cyan',color:'#00d9ff'},{name:'Blue',color:'#4488ff'},{name:'Green',color:'#50fa7b'},{name:'Purple',color:'#bd93f9'}];
+      const setAccent = (color) => {
+        document.documentElement.style.setProperty('--accent', color);
+        setCfg(prev => ({...prev, theme: {...(prev.theme||{}), accentColor: color}}));
+      };
+
+      // Normalize entity list — handle old string[] and new {entityId,name}[] formats
+      function normalizeEntities(lights) {
+        if (!Array.isArray(lights)) return [];
+        return lights.map(e => typeof e === 'string' ? {entityId:e, name:''} : e);
+      }
+
+      // ─── HA ENTITY BROWSER MODAL ────────────────────────────────────────────
+      const DOMAIN_ICONS = {light:'💡',switch:'🔌',sensor:'📊',binary_sensor:'🔲',climate:'🌡️',
+        media_player:'📺',camera:'📷',cover:'🚪',fan:'💨',vacuum:'🤖',script:'📝',
+        automation:'⚙️',scene:'🎬',input_boolean:'🔘',input_select:'📋',person:'👤',
+        device_tracker:'📍',sun:'☀️',weather:'🌤️',number:'🔢',select:'📋',button:'🔲'};
+
+      function HAEntityBrowser({ haUrl, haToken, onClose, onAdd }) {
+        const [search, setSearch] = useState('');
+        const [domain, setDomain] = useState('all');
+        const [allEntities, setAllEntities] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState(null);
+        const [selected, setSelected] = useState(new Set());
+        const [domains, setDomains] = useState([]);
+
+        useEffect(() => {
+          if (!haUrl || !haToken) { setError('Configure HA URL and token first'); setLoading(false); return; }
+          window.orbit.apiGet(haUrl + '/api/states', {'Authorization': 'Bearer ' + haToken}, 20000)
+            .then(data => {
+              if (data?.error) { setError('Network error: ' + data.error); setLoading(false); return; }
+              if (!Array.isArray(data)) {
+                // Show the actual HA response to help diagnose
+                const detail = typeof data === 'object' && data !== null
+                  ? (data.message || data.detail || JSON.stringify(data).slice(0, 120))
+                  : String(data).slice(0, 120);
+                setError('HA error: ' + detail);
+                setLoading(false); return;
+              }
+              const sorted = [...data].sort((a,b) => a.entity_id.localeCompare(b.entity_id));
+              setAllEntities(sorted);
+              const d = new Set(sorted.map(e => e.entity_id.split('.')[0]));
+              setDomains(['all', ...Array.from(d).sort()]);
+              setLoading(false);
+            })
+            .catch(e => { setError('Failed to reach HA: ' + e.message); setLoading(false); });
+        }, [haUrl, haToken]);
+
+        const filtered = allEntities.filter(e => {
+          if (domain !== 'all' && e.entity_id.split('.')[0] !== domain) return false;
+          if (!search) return true;
+          const q = search.toLowerCase();
+          return e.entity_id.includes(q) || (e.attributes?.friendly_name||'').toLowerCase().includes(q);
+        });
+
+        function toggle(entityId) {
+          setSelected(prev => { const n = new Set(prev); n.has(entityId) ? n.delete(entityId) : n.add(entityId); return n; });
+        }
+        function addSelected() {
+          const toAdd = Array.from(selected).map(entityId => {
+            const e = allEntities.find(x => x.entity_id === entityId);
+            return { entityId, name: e?.attributes?.friendly_name || '' };
+          });
+          onAdd(toAdd);
+          onClose();
+        }
+
+        return h('div', {className:'ha-browser-overlay', onClick:e=>{if(e.target===e.currentTarget)onClose();}},
+          h('div', {className:'ha-browser-modal'},
+            h('div', {className:'ha-browser-header'},
+              h('div', {className:'ha-browser-title'}, '🏠 BROWSE ENTITIES'),
+              h('button', {className:'settings-close', onClick:onClose}, '✕')
+            ),
+            loading
+              ? h('div', {style:{textAlign:'center',padding:'48px',color:'var(--dim)'}}, '⏳ Loading entities…')
+              : error
+                ? h('div', {style:{textAlign:'center',padding:'48px',color:'#ff5555',fontSize:'12px'}}, error)
+                : h(React.Fragment, null,
+                    h('input', {className:'ha-browser-search', placeholder:'Search by name or entity ID…',
+                      value:search, onChange:e=>setSearch(e.target.value), autoFocus:true}),
+                    h('div', {className:'ha-browser-domains'},
+                      domains.map(d => h('button', {key:d, className:'ha-domain-pill'+(domain===d?' active':''), onClick:()=>setDomain(d)},
+                        d === 'all' ? 'All ('+allEntities.length+')' : (DOMAIN_ICONS[d]||'·') + ' ' + d
+                      ))
+                    ),
+                    h('div', {className:'ha-browser-count'}, filtered.length + ' entities' + (selected.size ? ' · ' + selected.size + ' selected' : '')),
+                    h('div', {className:'ha-browser-list'},
+                      filtered.slice(0, 300).map(e => {
+                        const isSel = selected.has(e.entity_id);
+                        const name = e.attributes?.friendly_name;
+                        const dom = e.entity_id.split('.')[0];
+                        return h('div', {key:e.entity_id, className:'ha-browser-item'+(isSel?' selected':''), onClick:()=>toggle(e.entity_id)},
+                          h('div', {className:'ha-browser-check'}, isSel ? '✓' : ''),
+                          h('span', {style:{fontSize:'14px',flexShrink:0}}, DOMAIN_ICONS[dom] || '·'),
+                          h('div', {className:'ha-browser-entity-info'},
+                            name && h('div', {className:'ha-browser-entity-name'}, name),
+                            h('div', {className:'ha-browser-entity-id'}, e.entity_id)
+                          ),
+                          h('div', {className:'ha-browser-entity-state'}, e.state)
+                        );
+                      })
+                    ),
+                    h('div', {className:'ha-browser-footer'},
+                      h('button', {className:'ha-browser-add-btn', disabled:selected.size===0, onClick:addSelected},
+                        selected.size > 0 ? '+ Add ' + selected.size + ' entit' + (selected.size===1?'y':'ies') : 'Select entities above'
+                      )
+                    )
+                  )
+          )
+        );
+      }
+
+      // ─── HA ENTITIES EDITOR ─────────────────────────────────────────────────
+      function HAEntitiesEditor({ integrationKey }) {
+        const raw = cfg.integrations?.[integrationKey]?.lights;
+        const [entities, setEntities] = useState(normalizeEntities(raw));
+        const [showBrowser, setShowBrowser] = useState(false);
+        const haUrl = cfg.integrations?.homeassistant?.url || '';
+        const haToken = cfg.integrations?.homeassistant?.token || '';
+
+        function commit(next) { setEntities(next); updateIntegration(integrationKey, 'lights', next); }
+        function removeEntity(i) { const n=[...entities]; n.splice(i,1); commit(n); }
+        function updateName(i, name) { const n=[...entities]; n[i]={...n[i],name}; commit(n); }
+        function updateId(i, entityId) { const n=[...entities]; n[i]={...n[i],entityId}; commit(n); }
+        function onBrowserAdd(toAdd) {
+          const existing = new Set(entities.map(e => e.entityId));
+          const fresh = toAdd.filter(e => !existing.has(e.entityId));
+          commit([...entities, ...fresh]);
+        }
+
+        return h('div', null,
+          showBrowser && h(HAEntityBrowser, {haUrl, haToken, onClose:()=>setShowBrowser(false), onAdd:onBrowserAdd}),
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}},
+            h('div', {className:'settings-label', style:{marginBottom:0}}, 'LIGHT ENTITIES'),
+            h('button', {className:'ha-browse-btn', onClick:()=>setShowBrowser(true)}, '🔍 Browse HA')
+          ),
+          entities.length > 0 && h('div', {style:{marginBottom:'8px'}},
+            entities.map((e,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'4px'}},
+              h('input', {className:'settings-input', style:{flex:'2',fontSize:'11px'}, value:e.entityId, placeholder:'light.entity_id', onChange:ev=>updateId(i,ev.target.value)}),
+              h('input', {className:'settings-input', style:{flex:'1',fontSize:'11px'}, value:e.name||'', placeholder:'Display name', onChange:ev=>updateName(i,ev.target.value)}),
+              h('button', {onClick:()=>removeEntity(i), style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'16px',padding:'0 4px',flexShrink:0}}, '×')
+            ))
+          ),
+          entities.length === 0 && h('div', {style:{fontSize:'11px',color:'var(--dim)',padding:'10px',textAlign:'center',border:'1px dashed var(--border)',borderRadius:'6px',marginBottom:'8px'}},
+            'No entities added. Click Browse HA to search and add.'
+          )
+        );
+      }
+
+      function integrationSection(key, label, emoji, fields) {
+        return h('div', {className:'settings-integration'},
+          h('div', {className:'settings-integration-header', onClick:()=>toggleExpand(key)},
+            h('span', null, emoji+' '+label),
+            h('span', null, expanded[key] ? '▼' : '▶')
+          ),
+          expanded[key] && h('div', {className:'settings-integration-body'},
+            fields.map(f => h(React.Fragment, {key:f.field},
+              f.type === 'ha-entities'
+                ? h(HAEntitiesEditor, {integrationKey:key})
+                : h(React.Fragment, null,
+                    h('div', {className:'settings-label'}, f.label),
+                    f.type === 'textarea'
+                      ? h('textarea', {className:'settings-textarea', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value.split('\n').filter(Boolean)), placeholder:f.placeholder||''})
+                      : h('input', {className:'settings-input', type:f.type||'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
+                  )
+            ))
+          )
+        );
+      }
+
+      return h('div', {className:'settings-overlay', onClick:e=>{if(e.target===e.currentTarget)onClose();}},
+        h('div', {className:'settings-panel'},
+          h('div', {className:'settings-header'},
+            h('div', {className:'settings-title'}, 'SETTINGS'),
+            h('button', {className:'settings-close', onClick:onClose}, '✕')
+          ),
+          h('div', {className:'settings-tabs'},
+            ['pages','theme','about'].map(t2 =>
+              h('button', {key:t2, className:'settings-tab'+(tab===t2?' active':''), onClick:()=>setTab(t2)}, t2)
+            )
+          ),
+
+          // ── PAGES TAB (includes integration config sections as scroll targets) ──
+          tab === 'pages' && h('div', null,
+            h(PagesTab, { cfg, setCfg }),
+            h('div', {id:'settings-integrations-anchor', style:{marginTop:'16px'}},
+            h('div', {id:'settings-weather'}, integrationSection('weather', 'Weather', '🌤️', [{field:'city',label:'CITY',placeholder:'Perth'}])),
+            h('div', {id:'settings-tautulli'}, integrationSection('tautulli', 'Tautulli', '🎬', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-plex'}, integrationSection('plex', 'Plex', '▶️', [{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}])),
+            h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
+              {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
+              {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
+              {field:'lights',type:'ha-entities'},
+              {field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}
+            ])),
+            h('div', {id:'settings-signalrgb'}, integrationSection('homeassistant', 'SignalRGB (via HA)', '⚡', [{field:'signalrgbEntity',label:'SIGNALRGB ENTITY ID',placeholder:'light.signalrgb'}])),
+            h('div', {id:'settings-sonarr'}, integrationSection('sonarr', 'Sonarr', '📺', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-radarr'}, integrationSection('radarr', 'Radarr', '🎥', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-overseerr'}, integrationSection('overseerr', 'Overseerr', '📋', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-nzbget'}, integrationSection('nzbget', 'NZBGet', '📦', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
+            h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-links'},
+              h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
+              (cfg.links||[]).map((lnk,i) =>
+                h('div', {key:i, style:{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}},
+                  h('input', {className:'field-input', style:{width:'44px'}, placeholder:'🔗', value:lnk.icon||'', onChange:e=>{
+                    const l=[...(cfg.links||[])]; l[i]={...l[i],icon:e.target.value}; setCfg(c=>({...c,links:l}));
+                  }}),
+                  h('input', {className:'field-input', style:{flex:1}, placeholder:'Label', value:lnk.label||'', onChange:e=>{
+                    const l=[...(cfg.links||[])]; l[i]={...l[i],label:e.target.value}; setCfg(c=>({...c,links:l}));
+                  }}),
+                  h('input', {className:'field-input', style:{flex:2}, placeholder:'https://...', value:lnk.url||'', onChange:e=>{
+                    const l=[...(cfg.links||[])]; l[i]={...l[i],url:e.target.value}; setCfg(c=>({...c,links:l}));
+                  }}),
+                  h('button', {className:'page-delete-btn', onClick:()=>{
+                    const l=(cfg.links||[]).filter((_,idx)=>idx!==i); setCfg(c=>({...c,links:l}));
+                  }}, '✕')
+                )
+              ),
+              h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginBottom:'8px'}, onClick:()=>{
+                const l=[...(cfg.links||[]),{icon:'🔗',label:'New Link',url:'https://'}]; setCfg(c=>({...c,links:l}));
+              }}, '+ ADD LINK')
+            ),
+            h('button', {className:'settings-save', onClick:save}, 'SAVE'),
+            saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+          )), // close integrations-anchor + pages tab wrapper
+
+          // ── THEME TAB ──
+          tab === 'theme' && h('div', null,
+            h('div', {className:'settings-section'}, 'THEME'),
+            h('div', {className:'settings-label'}, 'PRIMARY COLOR'),
+            h('div', {className:'settings-theme-colors'},
+              THEME_COLORS.map(tc => h('div', {key:tc.color, className:'settings-color-swatch'+(cfg.theme?.accentColor===tc.color?' active':''), style:{background:tc.color}, onClick:()=>setAccent(tc.color), title:tc.name}))
+            ),
+            h('div', {style:{marginTop:'16px'}},
+              h('div', {className:'settings-label'}, 'DARK MODE'),
+              h('div', {style:{fontSize:'11px',color:'var(--dim)'}}, 'Always dark (more themes coming soon)')
+            ),
+            h('button', {className:'settings-save', onClick:save}, 'SAVE'),
+            saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+          ),
+
+          // ── ABOUT TAB ──
+          tab === 'about' && h('div', null,
+            h('div', {className:'settings-section'}, 'ABOUT'),
+            h('div', {className:'settings-version'}, 'Orbit v0.0.1'),
+            h('button', {className:'settings-update-btn', style:{marginTop:'12px'}, onClick:()=>window.orbit.checkUpdate()}, 'Check for Updates'),
+            h('div', {className:'settings-changelog'}, 'v0.0.1 — Initial release\n• Multi-page panel system\n• 10 panel types\n• Settings overlay\n• Theme support\n• Auto-updates')
+          )
+        )
+      );
+    }
+
+
+
+    function SettingsRoot() {
+      const [config, setConfig] = useState(null);
+
+      useEffect(() => {
+        window.orbit.loadConfig().then(cfg => {
+          setConfig(cfg || DEFAULT_CONFIG);
+        });
+        // Listen for accent color changes live
+      }, []);
+
+      if (!config) return h('div', {style:{padding:'40px',color:'var(--dim)',fontFamily:'var(--font)',textAlign:'center'}}, 'Loading…');
+
+      return h(SettingsOverlay, {
+        config,
+        onClose: () => window.close(),
+        onSave: (cfg) => {
+          window.orbit.saveConfig(cfg).then(() => {
+            // Notify main window to reload config
+            window.orbit.notifyConfigSaved();
+            window.close();
+          });
+        }
+      });
+    }
+
+    ReactDOM.createRoot(document.getElementById('settings-root')).render(h(SettingsRoot));
+  </script>
+</body>
+</html>

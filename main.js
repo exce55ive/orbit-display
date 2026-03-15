@@ -235,6 +235,32 @@ ipcMain.handle('show-picker', () => { showPicker(); return { ok: true }; });
 // ─── IPC: ORBIT CONFIG ──────────────────────────────────────────────────────
 ipcMain.handle('save-config', async (_e, config) => {
   saveOrbitConfig(config);
+  // Notify main window to reload config
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('config-updated', config);
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('open-settings', async () => {
+  // Close any existing settings window first
+  BrowserWindow.getAllWindows().forEach(w => {
+    if (w !== mainWindow && w.getTitle && w.getTitle() === 'Orbit Settings') w.close();
+  });
+  const settingsWin = new BrowserWindow({
+    width: 520, height: 720,
+    minWidth: 440, minHeight: 500,
+    resizable: true, center: true,
+    title: 'Orbit Settings',
+    backgroundColor: '#060a10',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false
+    }
+  });
+  settingsWin.loadFile('settings.html');
+  settingsWin.removeMenu();
   return { ok: true };
 });
 
@@ -243,6 +269,8 @@ ipcMain.handle('load-config', async () => {
 });
 
 // ─── IPC: OPEN EXTERNAL URL ─────────────────────────────────────────────────
+ipcMain.handle('notify-config-saved', () => { return { ok: true }; }); // no-op; main window receives config-updated via save-config
+
 ipcMain.handle('open-external', (_e, url) => {
   shell.openExternal(url);
   return { ok: true };

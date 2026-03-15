@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('orbit', {
 
   // Setup
   openSetup: () => ipcRenderer.invoke('open-setup'),
+  openSettings: () => ipcRenderer.invoke('open-settings'),
+  notifyConfigSaved: () => ipcRenderer.invoke('notify-config-saved'),
+  onConfigUpdated: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('config-updated', h); return () => ipcRenderer.removeListener('config-updated', h); },
   setupComplete: () => ipcRenderer.invoke('setup-complete'),
 
   // Settings persistence

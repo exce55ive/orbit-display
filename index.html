@@ -375,9 +375,8 @@
     let _openSettingsRef = null;
     let _switchTabRef = null;
     function openSettingsAt(sectionId) {
-      if (_openSettingsRef) _openSettingsRef();
-      // Switch to pages tab (where integrations live) then scroll
-      if (_switchTabRef) _switchTabRef('pages');
+      // Open settings window; it will handle scrolling to section via hash
+      if (window.orbit && window.orbit.openSettings) window.orbit.openSettings();
       setTimeout(() => {
         const el = document.getElementById(sectionId);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2044,7 +2043,6 @@
     function App() {
       const [config, setConfig] = useState(null);
       const [currentPage, setCurrentPage] = useState(0);
-      const [showSettings, setShowSettings] = useState(false);
       const [showLeftArrow, setShowLeftArrow] = useState(false);
       const [showRightArrow, setShowRightArrow] = useState(false);
       const [signalIsOn, setSignalIsOn] = useState(false);
@@ -2056,7 +2054,6 @@
           if (cfg) {
             setConfig(cfg);
             if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor);
-            // Start SignalR for real-time Sonarr/Radarr events
             if (window.orbit.startSignalR) {
               window.orbit.startSignalR({
                 sonarrUrl: cfg.integrations?.sonarr?.url || '',
@@ -2069,6 +2066,14 @@
             setConfig(DEFAULT_CONFIG);
           }
         });
+        // React to config saved from settings window
+        if (window.orbit.onConfigUpdated) {
+          const unsub = window.orbit.onConfigUpdated(cfg => {
+            setConfig(cfg);
+            if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor);
+          });
+          return unsub;
+        }
       }, []);
 
       const pages = config?.pages || DEFAULT_CONFIG.pages;
@@ -2117,7 +2122,7 @@
 
       if (!config) return null;
 
-      const openSettings = () => setShowSettings(true);
+      const openSettings = () => window.orbit.openSettings();
       _openSettingsRef = openSettings;
 
       // Fill panels to 6 columns
@@ -2144,8 +2149,7 @@
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
 
-        // Settings overlay
-        showSettings && h(SettingsOverlay, {config, onClose:()=>setShowSettings(false), onSave:c=>{setConfig(c); if(c.theme?.accentColor) document.documentElement.style.setProperty('--accent',c.theme.accentColor);}})
+
       );
     }
 
