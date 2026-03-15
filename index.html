@@ -823,21 +823,63 @@
         if (!configured) return;
         async function poll() {
           try {
-            const r = await window.orbit.apiGet(jCfg.url+'/Sessions', {'X-MediaBrowser-Token':jCfg.apiKey});
+            const r = await window.orbit.apiGet(
+              jCfg.url+'/Sessions?ActiveWithinSeconds=300',
+              {'X-MediaBrowser-Token': jCfg.apiKey, 'Authorization': 'MediaBrowser Token="'+jCfg.apiKey+'"'}
+            );
             if (Array.isArray(r)) setSessions(r.filter(s => s.NowPlayingItem));
           } catch {}
         }
-        poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
-      }, [configured, jCfg?.url]);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'JELLYFIN'), h('div',{className:'panel-unconfigured-icon'},'🎞️'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+        poll(); const t = setInterval(poll, 10000); return () => clearInterval(t);
+      }, [configured, jCfg?.url, jCfg?.apiKey]);
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},'JELLYFIN ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-jellyfin')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'🎞️'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'JELLYFIN'),
-        h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'JELLYFIN'),
-        sessions.length === 0 ? h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎞️'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')) :
-        sessions.map((s,i) => h('div', {key:i, className:'jf-session'},
-          h('div', {className:'jf-title'}, s.NowPlayingItem?.Name || 'Unknown'),
-          h('div', {className:'jf-user'}, s.UserName || '')
-        ))
+        h('div', {className:'panel-label'}, 'JELLYFIN ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-jellyfin')},'⚙')),
+        h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'JELLYFIN'),
+        sessions.length > 0 && h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
+        sessions.length === 0
+          ? h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎞️'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS'))
+          : h('div', {className:'np-session-list'},
+              sessions.map((s,i) => {
+                const item = s.NowPlayingItem || {};
+                const isEp = item.Type === 'Episode';
+                const title = isEp ? item.Name : (item.Name || 'Unknown');
+                const sub = isEp
+                  ? (item.SeriesName || '') + (item.ParentIndexNumber != null ? ' · S'+String(item.ParentIndexNumber).padStart(2,'0')+'E'+String(item.IndexNumber||0).padStart(2,'0') : '')
+                  : (item.ProductionYear ? String(item.ProductionYear) : '');
+                const pos = s.PlayState?.PositionTicks || 0;
+                const dur = item.RunTimeTicks || 0;
+                const prog = dur > 0 ? Math.round((pos/dur)*100) : 0;
+                const remSec = dur > 0 ? Math.max(0, Math.round((dur-pos)/10000000)) : 0;
+                const isTrans = s.TranscodingInfo && s.TranscodingInfo.IsVideoDirect === false;
+                const isPaused = s.PlayState?.IsPaused;
+                const res = s.TranscodingInfo?.Width
+                  ? s.TranscodingInfo.Width+'p'
+                  : (item.Width ? item.Width+'p' : '');
+                const codec = s.TranscodingInfo?.VideoCodec || item.MediaStreams?.find(m=>m.Type==='Video')?.Codec || '';
+                return h('div', {key:i, className:'np-session'},
+                  h('div', {className:'np-title'}, title),
+                  sub && h('div', {className:'np-subtitle'}, sub),
+                  h('div', {className:'np-progress-wrap'},
+                    h('div', {className:'np-progress-bar'},
+                      h('div', {className:'np-progress-fill', style:{width:prog+'%'}}))),
+                  remSec > 0 && h('div', {className:'np-time'}, formatDuration(remSec)+' remaining'),
+                  h('div', {style:{display:'flex',gap:'6px',flexWrap:'wrap',marginTop:'4px'}},
+                    h('span', {className:'np-badge '+(isTrans?'np-badge-transcode':'np-badge-direct')}, isTrans?'🔄 TRANSCODE':'▶ DIRECT'),
+                    isPaused && h('span', {className:'np-badge'}, '⏸ PAUSED'),
+                    res && h('span', {className:'np-badge np-badge-direct'}, res),
+                    codec && h('span', {className:'np-badge'}, codec.toUpperCase())
+                  ),
+                  h('div', {className:'np-meta'},
+                    (s.UserName||'')+(s.DeviceName?' · '+s.DeviceName:''))
+                );
+              })
+            )
       );
     }
 
