@@ -1089,6 +1089,113 @@
       );
     }
 
+    // ═══ INDIVIDUAL MEDIA PANELS ═══
+    function SonarrPanel({ config, openSettings }) {
+      const sCfg = config?.integrations?.sonarr;
+      const configured = sCfg?.url && sCfg?.apiKey;
+      const [queue, setQueue] = useState(null);
+      const [missing, setMissing] = useState(null);
+      useEffect(() => {
+        if (!configured) return;
+        async function poll() {
+          try {
+            const [q, m] = await Promise.all([
+              window.orbit.apiGet(sCfg.url+'/api/v3/queue', {'X-Api-Key':sCfg.apiKey}),
+              window.orbit.apiGet(sCfg.url+'/api/v3/wanted/missing?pageSize=1', {'X-Api-Key':sCfg.apiKey})
+            ]);
+            if (!q?.error) setQueue(q);
+            if (!m?.error) setMissing(m?.totalRecords ?? m?.total ?? 0);
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [sCfg?.url, sCfg?.apiKey]);
+      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'📺'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
+        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), queue?.totalRecords ?? queue?.records?.length ?? '...'),
+        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Missing: '), missing != null ? missing : '...')
+      );
+    }
+
+    function RadarrPanel({ config, openSettings }) {
+      const rCfg = config?.integrations?.radarr;
+      const configured = rCfg?.url && rCfg?.apiKey;
+      const [queue, setQueue] = useState(null);
+      const [missing, setMissing] = useState(null);
+      useEffect(() => {
+        if (!configured) return;
+        async function poll() {
+          try {
+            const [q, m] = await Promise.all([
+              window.orbit.apiGet(rCfg.url+'/api/v3/queue', {'X-Api-Key':rCfg.apiKey}),
+              window.orbit.apiGet(rCfg.url+'/api/v3/wanted/missing?pageSize=1', {'X-Api-Key':rCfg.apiKey})
+            ]);
+            if (!q?.error) setQueue(q);
+            if (!m?.error) setMissing(m?.totalRecords ?? m?.total ?? 0);
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [rCfg?.url, rCfg?.apiKey]);
+      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
+        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), queue?.totalRecords ?? queue?.records?.length ?? '...'),
+        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Missing: '), missing != null ? missing : '...')
+      );
+    }
+
+    function OverseerrPanel({ config, openSettings }) {
+      const oCfg = config?.integrations?.overseerr;
+      const configured = oCfg?.url && oCfg?.apiKey;
+      const [data, setData] = useState(null);
+      useEffect(() => {
+        if (!configured) return;
+        async function poll() {
+          try {
+            const r = await window.orbit.apiGet(oCfg.url+'/api/v1/request?take=100&skip=0&sort=added', {'X-Api-Key':oCfg.apiKey});
+            if (!r?.error) setData(r);
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [oCfg?.url, oCfg?.apiKey]);
+      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'OVERSEERR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'🎭'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'OVERSEERR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
+        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Pending: '), data?.results?.filter(r=>r.status===1).length ?? '...'),
+        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Approved: '), data?.results?.filter(r=>r.status===2).length ?? '...')
+      );
+    }
+
+    function NZBGetPanel({ config, openSettings }) {
+      const nCfg = config?.integrations?.nzbget;
+      const configured = nCfg?.url && nCfg?.username;
+      const [status, setStatus] = useState(null);
+      const [queueData, setQueueData] = useState(null);
+      useEffect(() => {
+        if (!configured) return;
+        async function poll() {
+          try {
+            const auth = btoa(nCfg.username+':'+(nCfg.password||''));
+            const [s, q] = await Promise.all([
+              window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'status',id:1}]), {Authorization:'Basic '+auth}),
+              window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'listgroups',id:2}]), {Authorization:'Basic '+auth})
+            ]);
+            if (!s?.error) setStatus(s);
+            if (!q?.error) setQueueData(q);
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [nCfg?.url, nCfg?.username]);
+      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'NZBGET ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'⬇'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'NZBGET ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
+        status ? h('div', null,
+          h('div',{className:'media-stat'}, '↓ ', ((status[0]?.result?.DownloadRate||0)/1024/1024).toFixed(1), ' MB/s'),
+          h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), Array.isArray(queueData?.[0]?.result) ? queueData[0].result.length : 0)
+        ) : h('div',{className:'media-stat'},'...')
+      );
+    }
+
     // ═══ PANEL RENDERER ═══
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key }, child);
@@ -1103,6 +1210,10 @@
         case 'nowplaying': return wrap(key, h(NowPlayingPanel, {key, config}));
         case 'system': return wrap(key, h(SystemPanel, {key, config}));
         case 'media': return wrap(key, h(MediaPanel, {key, config, openSettings}));
+        case 'sonarr': return wrap(key, h(SonarrPanel, {key, config, openSettings}));
+        case 'radarr': return wrap(key, h(RadarrPanel, {key, config, openSettings}));
+        case 'overseerr': return wrap(key, h(OverseerrPanel, {key, config, openSettings}));
+        case 'nzbget': return wrap(key, h(NZBGetPanel, {key, config, openSettings}));
         case 'uptimekuma': return wrap(key, h(UptimeKumaPanel, {key, config, openSettings}));
         case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
         case 'links': return wrap(key, h(LinksPanel, {key, config}));
