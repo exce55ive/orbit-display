@@ -698,16 +698,16 @@
     // ═══ UPTIME KUMA PANEL ═══
     function UptimeKumaPanel({ config, openSettings }) {
       const [monitors, setMonitors] = useState([]);
+      const [apiError, setApiError] = useState('');
       const uCfg = config?.integrations?.uptimekuma;
       const configured = uCfg?.url && uCfg?.apiKey;
       useEffect(() => {
-        const [apiError, setApiError] = useState('');
-      if (!configured) return;
+        if (!configured) return;
         async function poll() {
           try {
             const r = await window.orbit.apiGet(uCfg.url + '/api/v1/monitors', { 'Authorization': 'Bearer ' + uCfg.apiKey });
             if (typeof r === 'string' && r.includes('<html')) {
-              setApiError('REST API not enabled — enable it in Uptime Kuma → Settings → API Keys');
+              setApiError('REST API unavailable — upgrade Uptime Kuma to v1.23+ and create an API key in Settings');
               return;
             }
             if (r && !r.error) {
