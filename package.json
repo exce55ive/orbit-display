@@ -58,9 +58,16 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "exce55ive",
+      "repo": "orbit-display",
+      "releaseType": "release"
     }
   },
   "dependencies": {
+    "electron-updater": "^6.8.3",
     "node-fetch": "^3.3.0",
     "systeminformation": "^5.22.0"
   },

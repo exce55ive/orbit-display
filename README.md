@@ -28,5 +28,13 @@ npm install
 npm start
 ```
 
+## ⚠️ Windows SmartScreen Warning
+
+This app is not yet code-signed. Windows may show a SmartScreen warning when running the installer.
+
+To proceed: click **"More info"** → **"Run anyway"**.
+
+Code signing will be added in a future release.
+
 ## License
 Commercial software. See LICENSE.md.

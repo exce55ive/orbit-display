@@ -1,6 +1,34 @@
 const { app, BrowserWindow, screen, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// ─── AUTO-UPDATER CONFIG ──────────────────────────────────────────────────────
+autoUpdater.logger = log;
+autoUpdater.logger.transports.file.level = 'info';
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
+
+const isDev = !app.isPackaged;
+
+autoUpdater.on('update-available', (info) => {
+  log.info('Update available:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-available', info.version);
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  log.info('Update downloaded:', info.version);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-downloaded', info.version);
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  log.error('Update error:', err.message);
+});
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 let config;
@@ -136,6 +164,11 @@ app.whenReady().then(() => {
     // First run — show picker
     showPicker();
   }
+
+  // Check for updates in production (not in dev)
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
 });
 
 app.on('window-all-closed', () => { app.quit(); });
@@ -200,7 +233,9 @@ ipcMain.handle('ha-call-service', async (_e, { domain, service, data }) => {
 // (fetch-axiom and fetch-axiom-agents removed — Orbit does not connect to Axiom's private backend)
 
 // ─── UPDATE ──────────────────────────────────────────────────────────────────
-// TODO: implement electron-updater for Orbit (check-update and do-update removed — will be replaced with proper electron-updater flow)
+ipcMain.handle('install-update', () => {
+  autoUpdater.quitAndInstall(false, true);
+});
 
 // Config endpoint — expose config to renderer
 ipcMain.handle('get-config', () => config);

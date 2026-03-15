@@ -20,9 +20,10 @@ contextBridge.exposeInMainWorld('xeneon', {
   haGetState: (entityId) => ipcRenderer.invoke('ha-get-state', entityId),
   haCallService: (domain, service, data) => ipcRenderer.invoke('ha-call-service', { domain, service, data }),
 
-  // Updates
-  checkUpdate: () => ipcRenderer.invoke('check-update'),
-  doUpdate: (uncPath) => ipcRenderer.invoke('do-update', uncPath),
+  // Updates (electron-updater)
+  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, version) => cb(version)),
+  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_e, version) => cb(version)),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
 
   // Config
   getConfig: () => ipcRenderer.invoke('get-config'),
