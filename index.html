@@ -34,8 +34,9 @@
     .weather-current { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 6px; }
     .weather-icon { font-size: 32px; }
     .weather-temp { font-size: 36px; font-weight: 700; color: var(--text-bright); }
-    .weather-desc { font-size: 12px; color: var(--text); margin-bottom: 4px; }
-    .weather-summary { font-size: 11px; color: var(--dim); font-style: italic; margin-bottom: 12px; max-width: 100%; padding: 0 8px; }
+    .weather-desc { font-size: 14px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
+    .weather-summary { font-size: 12px; color: var(--dim); margin-bottom: 10px; max-width: 100%; padding: 0 4px; line-height: 1.5; }
+    .weather-detail { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--dim); margin-bottom: 10px; padding: 0 2px; }
     .weather-extra { font-size: 11px; color: var(--dim); margin-bottom: 12px; display: flex; gap: 12px; justify-content: center; }
     .weather-strip { display: flex; gap: 4px; width: 100%; padding: 0 4px; overflow-x: auto; justify-content: center; }
     .weather-day { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; padding: 4px 5px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); min-width: 48px; flex-shrink: 0; }
@@ -101,13 +102,15 @@
     .np-meta { font-size: 10px; color: var(--dim); margin-top: 4px; }
     .np-streams-count { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
     .sys-stats { width: 100%; display: flex; flex-direction: column; gap: 10px; padding: 0 8px; }
-    .sys-row { display: flex; align-items: center; gap: 10px; }
-    .sys-label { width: 34px; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text); flex-shrink: 0; text-align: left; }
+    .sys-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .sys-label { width: 44px; font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text); flex-shrink: 0; text-align: left; }
+    .sys-row-cog { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 10px; padding: 0 2px; opacity: 0.6; line-height: 1; }
+    .sys-row-cog:hover { opacity: 1; color: var(--accent); }
     .sys-bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-    .sys-info { font-size: 10px; color: var(--text); text-align: left; min-height: 14px; }
+    .sys-info { font-size: 12px; color: var(--text); text-align: left; min-height: 16px; }
     .sys-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
     .sys-bar-fill { height: 100%; border-radius: 3px; transition: width .5s; }
-    .sys-value { width: 44px; font-size: 16px; font-weight: 700; font-family: var(--font); text-align: right; flex-shrink: 0; }
+    .sys-value { width: 48px; font-size: 20px; font-weight: 700; font-family: var(--font); text-align: right; flex-shrink: 0; }
     .sys-c-green { color: var(--green); } .sys-b-green { background: var(--green); }
     .sys-c-amber { color: var(--amber); } .sys-b-amber { background: var(--amber); }
     .sys-c-red { color: var(--red); } .sys-b-red { background: var(--red); }
@@ -141,8 +144,8 @@
     .monitor-uptime { font-size: 10px; color: var(--dim); }
     .spotify-connect { padding: 10px 20px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 2px solid var(--green); border-radius: 20px; background: rgba(80,250,123,0.08); color: var(--green); cursor: pointer; transition: all .2s; }
     .spotify-connect:hover { background: rgba(80,250,123,0.15); }
-    .spotify-track { font-size: 16px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
-    .spotify-artist { font-size: 12px; color: var(--text); margin-bottom: 12px; }
+    .spotify-track { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 4px; }
+    .spotify-artist { font-size: 14px; color: var(--text); margin-bottom: 12px; }
     .spotify-controls { display: flex; gap: 16px; }
     .spotify-btn { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; transition: color .2s; }
     .spotify-btn:hover { color: var(--accent); }
@@ -375,14 +378,21 @@
             h('span', {className:'weather-temp'}, cur.temp_C + '°')
           ),
           h('div', {className:'weather-desc'}, cur.weatherDesc?.[0]?.value || ''),
-          h('div', {className:'weather-extra'},
-            h('span', null, 'UV: ', cur.uvIndex || '—'),
-            h('span', null, '💧 ', (forecast[0]?.hourly?.[0]?.chanceofrain || '0') + '%')
+          h('div', {className:'weather-detail'},
+            h('span', null, '🌡 Feels ', cur.FeelsLikeC + '°C'),
+            h('span', null, '💧 ', cur.humidity + '% humidity'),
+            h('span', null, '💨 ', cur.windspeedKmph + ' km/h ' + cur.winddir16Point),
+            h('span', null, '☀️ UV ', cur.uvIndex),
+            forecast[0] && h('span', null, '🌧 ', (forecast[0]?.hourly?.[4]?.chanceofrain || '0') + '% rain')
           ),
-          h('div', {className:'weather-summary'}, 'Currently ' + cur.temp_C + '°C and ' + (cur.weatherDesc?.[0]?.value || '').toLowerCase() + '.')
+          h('div', {className:'weather-summary'},
+            'Currently ' + cur.temp_C + '°C and ' + (cur.weatherDesc?.[0]?.value || '').toLowerCase() +
+            '. Feels like ' + cur.FeelsLikeC + '°C. ' +
+            (forecast[0] ? 'High ' + forecast[0].maxtempC + '°, low ' + forecast[0].mintempC + '°.' : '')
+          )
         ),
         forecast.length > 0 && h('div', {className:'weather-strip'},
-          forecast.slice(0,7).map((day,i) => {
+          forecast.slice(0,5).map((day,i) => {
             const d = new Date(day.date);
             return h('div', {key:i, className:'weather-day'},
               h('span', {className:'weather-day-name'}, i===0?'Today':DAYS[d.getDay()]),
@@ -562,10 +572,23 @@
       const cpuSensors = slow?.cpu?.sensors || [];
       const gpuList = slow?.gpu?.list || [];
       const diskUsage = slow?.disk?.usage;
-      function sysRow(label, info, usage) {
+      const [showCpuPicker, setShowCpuPicker] = useState(false);
+      const [showGpuPicker, setShowGpuPicker] = useState(false);
+
+      // Auto-select first Radeon or GeForce GPU
+      useEffect(() => {
+        if (!gpuList.length) return;
+        const pref = gpuList.findIndex(g => /radeon|geforce|rx\s|rtx\s|gtx\s/i.test(g.model));
+        if (pref >= 0 && pref !== gpuIdx) setGpuIdx(pref);
+      }, [gpuList.length]);
+
+      function sysRow(label, info, usage, onCog) {
         const c = getStatColor(usage);
         return h('div', {className:'sys-row'},
-          h('div', {className:'sys-label'}, label),
+          h('div', {style:{display:'flex',alignItems:'center',gap:'2px',width:'52px',flexShrink:0}},
+            h('div', {className:'sys-label', style:{width:'auto'}}, label),
+            onCog && h('button', {className:'sys-row-cog', onClick:onCog}, '⚙')
+          ),
           h('div', {className:'sys-bar-wrap'},
             h('div', {className:'sys-info'}, info),
             h('div', {className:'sys-bar'}, h('div', {className:'sys-bar-fill sys-b-'+c, style:{width:usage+'%'}}))
@@ -576,25 +599,31 @@
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, h('span',null,'SYSTEM '), h('button', {className:'sys-gear-btn', onClick:()=>setShowPicker(!showPicker)}, '⚙')),
         showPicker && h('div', {className:'sys-picker-panel'},
-          cpuSensors.length > 0 && h('div', {className:'sys-picker-row'},
-            h('span', {className:'sys-picker-label'}, 'CPU Sensor'),
-            h('select', {className:'sys-picker-select', value:cpuSensorIdx, onChange:e=>setCpuSensorIdx(parseInt(e.target.value))},
-              cpuSensors.map((s,i) => h('option', {key:i, value:i}, s.name + (s.value != null ? ' ('+s.value+'°C)' : '')))
-            )
-          ),
-          gpuList.length > 0 && h('div', {className:'sys-picker-row'},
-            h('span', {className:'sys-picker-label'}, 'GPU'),
-            h('select', {className:'sys-picker-select', value:gpuIdx, onChange:e=>setGpuIdx(parseInt(e.target.value))},
-              gpuList.map((g,i) => h('option', {key:i, value:i}, g.model))
-            )
-          ),
           h('label', {className:'sys-picker-toggle'},
             h('input', {type:'checkbox', checked:showDisk, onChange:e=>setShowDisk(e.target.checked)}), 'Show Disk'
           )
         ),
+        showCpuPicker && cpuSensors.length > 0 && h('div', {className:'sys-picker-panel'},
+          h('div', {className:'sys-picker-row'},
+            h('span', {className:'sys-picker-label'}, 'CPU Sensor'),
+            h('select', {className:'sys-picker-select', value:cpuSensorIdx, onChange:e=>{setCpuSensorIdx(parseInt(e.target.value));setShowCpuPicker(false);}},
+              cpuSensors.map((s,i) => h('option', {key:i, value:i}, s.name + (s.value != null ? ' ('+s.value+'°C)' : '')))
+            )
+          )
+        ),
+        showGpuPicker && gpuList.length > 0 && h('div', {className:'sys-picker-panel'},
+          h('div', {className:'sys-picker-row'},
+            h('span', {className:'sys-picker-label'}, 'GPU'),
+            h('select', {className:'sys-picker-select', value:gpuIdx, onChange:e=>{setGpuIdx(parseInt(e.target.value));setShowGpuPicker(false);}},
+              gpuList.map((g,i) => h('option', {key:i, value:i}, g.model))
+            )
+          )
+        ),
         h('div', {className:'sys-stats'},
-          sysRow('CPU', cpuBrand + (cpuTemp != null ? ' · '+Math.round(cpuTemp)+'°C' : ''), cpuUsage),
-          sysRow('GPU', gpuModel + (gpuTemp != null ? ' · '+Math.round(gpuTemp)+'°C' : ''), gpuUsage),
+          sysRow('CPU', cpuBrand + (cpuTemp != null ? ' · '+Math.round(cpuTemp)+'°C' : ''), cpuUsage,
+            cpuSensors.length > 1 ? ()=>{ setShowCpuPicker(p=>!p); setShowGpuPicker(false); setShowPicker(false); } : null),
+          sysRow('GPU', gpuModel + (gpuTemp != null ? ' · '+Math.round(gpuTemp)+'°C' : ''), gpuUsage,
+            gpuList.length > 1 ? ()=>{ setShowGpuPicker(p=>!p); setShowCpuPicker(false); setShowPicker(false); } : null),
           sysRow('RAM', ramUsed+'GB / '+ramTotal+'GB', ramUsage),
           showDisk && diskUsage != null && sysRow('DISK', slow?.disk?.mount || '', diskUsage),
           h('div', {className:'net-row'},
@@ -913,9 +942,13 @@
               sessions.map((s,i) => {
                 const item = s.NowPlayingItem || {};
                 const isEp = item.Type === 'Episode';
-                const title = isEp ? item.Name : (item.Name || 'Unknown');
+                // Show series name as headline, episode as subtitle (reversed from before)
+                const title = isEp ? (item.SeriesName || item.Name || 'Unknown') : (item.Name || 'Unknown');
+                const epCode = isEp && item.ParentIndexNumber != null
+                  ? 'S'+String(item.ParentIndexNumber).padStart(2,'0')+'E'+String(item.IndexNumber||0).padStart(2,'0')
+                  : '';
                 const sub = isEp
-                  ? (item.SeriesName || '') + (item.ParentIndexNumber != null ? ' · S'+String(item.ParentIndexNumber).padStart(2,'0')+'E'+String(item.IndexNumber||0).padStart(2,'0') : '')
+                  ? (epCode ? epCode + (item.Name ? ' · ' + item.Name : '') : item.Name || '')
                   : (item.ProductionYear ? String(item.ProductionYear) : '');
                 const pos = s.PlayState?.PositionTicks || 0;
                 const dur = item.RunTimeTicks || 0;
@@ -928,8 +961,8 @@
                   : (item.Width ? item.Width+'p' : '');
                 const codec = s.TranscodingInfo?.VideoCodec || item.MediaStreams?.find(m=>m.Type==='Video')?.Codec || '';
                 return h('div', {key:i, className:'np-session'},
-                  h('div', {className:'np-title'}, title),
-                  sub && h('div', {className:'np-subtitle'}, sub),
+                  h('div', {className:'np-title', style:{fontSize:'15px'}}, title),
+                  sub && h('div', {className:'np-subtitle', style:{fontSize:'13px'}}, sub),
                   h('div', {className:'np-progress-wrap'},
                     h('div', {className:'np-progress-bar'},
                       h('div', {className:'np-progress-fill', style:{width:prog+'%'}}))),
@@ -1200,80 +1233,206 @@
     }
 
     // ═══ INDIVIDUAL MEDIA PANELS ═══
-    function ArrPanel({ label, cfg, settingsId, icon, apiBase, apiKey, type }) {
-      const configured = cfg?.url && cfg?.apiKey;
+
+    function SonarrPanel({ config, openSettings }) {
+      const sCfg = config?.integrations?.sonarr;
+      const configured = sCfg?.url && sCfg?.apiKey;
+      const [seriesCount, setSeriesCount] = useState(null);
       const [queue, setQueue] = useState([]);
-      const [missing, setMissing] = useState(null);
-      const [history, setHistory] = useState([]);
-      const [disk, setDisk] = useState([]);
+      const [todayImports, setTodayImports] = useState([]);
+      const [calendar, setCalendar] = useState([]);
+
       useEffect(() => {
         if (!configured) return;
-        const h2 = {'X-Api-Key': cfg.apiKey};
+        const hdr = {'X-Api-Key': sCfg.apiKey};
         async function poll() {
           try {
-            const [q, m, hist, d] = await Promise.all([
-              window.orbit.apiGet(cfg.url+'/api/v3/queue?pageSize=5', h2),
-              window.orbit.apiGet(cfg.url+'/api/v3/wanted/missing?pageSize=1', h2),
-              window.orbit.apiGet(cfg.url+'/api/v3/history?pageSize=5&sortKey=date&sortDir=desc', h2),
-              window.orbit.apiGet(cfg.url+'/api/v3/diskspace', h2)
+            const todayStr = new Date().toISOString().split('T')[0];
+            const futureStr = new Date(Date.now()+4*86400000).toISOString().split('T')[0];
+            const [series, hist, cal, q] = await Promise.all([
+              window.orbit.apiGet(sCfg.url+'/api/v3/series', hdr),
+              window.orbit.apiGet(sCfg.url+'/api/v3/history?pageSize=40&sortKey=date&sortDir=desc', hdr),
+              window.orbit.apiGet(sCfg.url+'/api/v3/calendar?start='+todayStr+'&end='+futureStr+'&unmonitored=false', hdr),
+              window.orbit.apiGet(sCfg.url+'/api/v3/queue?pageSize=5', hdr)
             ]);
-            if (Array.isArray(q?.records)) setQueue(q.records);
-            if (!m?.error) setMissing(m?.totalRecords ?? m?.total ?? 0);
-            if (Array.isArray(hist?.records)) setHistory(hist.records.filter(r=>r.eventType==='grabbed'||r.eventType==='downloadFolderImported').slice(0,4));
-            if (Array.isArray(d)) setDisk(d.slice(0,1));
+            if (Array.isArray(series)) setSeriesCount(series.length);
+            if (Array.isArray(hist?.records)) {
+              const imports = hist.records.filter(r => {
+                if (r.eventType !== 'downloadFolderImported') return false;
+                return new Date(r.date).toISOString().startsWith(todayStr);
+              });
+              setTodayImports(imports.slice(0,5));
+            }
+            if (Array.isArray(cal)) setCalendar(cal.slice(0,6));
+            if (Array.isArray(q?.records)) setQueue(q.records.slice(0,3));
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
-      }, [cfg?.url, cfg?.apiKey]);
+      }, [sCfg?.url, sCfg?.apiKey]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},label+' ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt(settingsId)},'⚙')),
-        h('div',{className:'panel-unconfigured-icon'},icon),
+        h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'📺'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
 
-      const diskFree = disk[0] ? Math.round(disk[0].freeSpace/1e9) : null;
-      const diskTotal = disk[0] ? Math.round(disk[0].totalSpace/1e9) : null;
+      function dayLabel(dateStr) {
+        const diff = Math.round((new Date(dateStr) - new Date(new Date().toDateString())) / 86400000);
+        if (diff <= 0) return 'Today'; if (diff === 1) return 'Tomorrow'; return '+'+diff+'d';
+      }
+
       return h('div',{className:'panel'},
-        h('div',{className:'panel-label'},label+' ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt(settingsId)},'⚙')),
-        // Stats row
-        h('div',{style:{display:'flex',gap:'16px',marginBottom:'12px',fontSize:'12px'}},
-          h('div', null, h('div',{style:{color:'var(--dim)',fontSize:'10px',marginBottom:'2px'}},'QUEUE'), h('div',{style:{fontWeight:'700',fontSize:'18px',color:'var(--accent)'}}, queue.length || '0')),
-          h('div', null, h('div',{style:{color:'var(--dim)',fontSize:'10px',marginBottom:'2px'}},'MISSING'), h('div',{style:{fontWeight:'700',fontSize:'18px',color: missing > 0 ? 'var(--red, #ff5555)' : 'var(--text)'}}, missing != null ? missing : '…')),
-          diskFree != null && h('div', null, h('div',{style:{color:'var(--dim)',fontSize:'10px',marginBottom:'2px'}},'FREE'), h('div',{style:{fontWeight:'700',fontSize:'18px'}}, diskFree+'GB'))
+        h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
+        // Stats
+        h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
+          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'26px',fontWeight:'700',color:'var(--accent)'}}, seriesCount??'…')),
+          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'26px',fontWeight:'700'}}, queue.length))
         ),
-        // Active queue items
-        queue.length > 0 && h('div', {style:{marginBottom:'10px'}},
-          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'4px'}},'DOWNLOADING'),
-          queue.slice(0,3).map((item,i) => {
+        // Active downloads
+        queue.length > 0 && h('div',{style:{marginBottom:'12px'}},
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADING'),
+          queue.map((item,i)=>{
             const pct = item.size > 0 ? Math.round((1-(item.sizeLeft/item.size))*100) : 0;
-            const name = (item.title||'').replace(/\.(mkv|mp4|avi|nzb)$/i,'').slice(0,34);
-            return h('div',{key:i,style:{marginBottom:'6px'}},
-              h('div',{style:{fontSize:'10px',color:'var(--text)',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
+            const title = (item.series?.title || item.title || '').slice(0,36);
+            return h('div',{key:i,style:{marginBottom:'8px'}},
+              h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, title),
               h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
-              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginTop:'1px'}}, pct+'% · '+(item.status||'').replace('downloading','↓ downloading'))
+              h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'%')
             );
           })
         ),
-        // Recent activity
-        history.length > 0 && h('div', null,
-          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'4px'}},'RECENT'),
-          history.slice(0,3).map((item,i) => {
-            const name = (item.sourceTitle||item.title||'').replace(/\.(mkv|mp4|avi|nzb)$/i,'').slice(0,34);
-            const isImport = item.eventType === 'downloadFolderImported';
-            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}},
-              h('span',{style:{fontSize:'10px',color: isImport ? 'var(--green, #50fa7b)' : 'var(--accent)'}}, isImport?'✓':'↓'),
-              h('div',{style:{fontSize:'10px',color:'var(--dim)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name)
+        // Downloaded today
+        todayImports.length > 0 && h('div',{style:{marginBottom:'12px'}},
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADED TODAY'),
+          todayImports.map((r,i)=>{
+            const series = r.series?.title || r.seriesTitle || '';
+            const ep = r.episode ? 'S'+String(r.episode.seasonNumber||0).padStart(2,'0')+'E'+String(r.episode.episodeNumber||0).padStart(2,'0') : '';
+            const epTitle = r.episode?.title || '';
+            const label = series + (ep ? ' — '+ep+(epTitle?' · '+epTitle:'') : '');
+            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'4px'}},
+              h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0}},'✓'),
+              h('div',{style:{fontSize:'12px',color:'var(--text)',lineHeight:'1.4'}}, label)
+            );
+          })
+        ),
+        // Upcoming calendar
+        calendar.length > 0 && h('div',null,
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'UPCOMING'),
+          calendar.map((ep,i)=>{
+            const series = ep.series?.title || ep.seriesTitle || '';
+            const code = 'S'+String(ep.seasonNumber||0).padStart(2,'0')+'E'+String(ep.episodeNumber||0).padStart(2,'0');
+            const day = dayLabel(ep.airDate||ep.airDateUtc);
+            return h('div',{key:i,style:{display:'flex',gap:'8px',alignItems:'baseline',marginBottom:'4px'}},
+              h('span',{style:{fontSize:'10px',color:'var(--accent)',flexShrink:0,minWidth:'58px'}},(ep.hasFile?'✓ ':'')+(day)),
+              h('div',{style:{fontSize:'12px',color:'var(--dim)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, series+' · '+code)
             );
           })
         )
       );
     }
 
-    function SonarrPanel({ config, openSettings }) {
-      return h(ArrPanel, { label:'SONARR', cfg:config?.integrations?.sonarr, settingsId:'settings-sonarr', icon:'📺', type:'sonarr' });
-    }
     function RadarrPanel({ config, openSettings }) {
-      return h(ArrPanel, { label:'RADARR', cfg:config?.integrations?.radarr, settingsId:'settings-radarr', icon:'🎬', type:'radarr' });
+      const rCfg = config?.integrations?.radarr;
+      const configured = rCfg?.url && rCfg?.apiKey;
+      const [movieCount, setMovieCount] = useState(null);
+      const [queue, setQueue] = useState([]);
+      const [todayImports, setTodayImports] = useState([]);
+      const [upcoming, setUpcoming] = useState([]);
+
+      useEffect(() => {
+        if (!configured) return;
+        const hdr = {'X-Api-Key': rCfg.apiKey};
+        async function poll() {
+          try {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const futureStr = new Date(Date.now()+90*86400000).toISOString().split('T')[0];
+            const [movies, hist, cal, q] = await Promise.all([
+              window.orbit.apiGet(rCfg.url+'/api/v3/movie', hdr),
+              window.orbit.apiGet(rCfg.url+'/api/v3/history?pageSize=40&sortKey=date&sortDir=desc', hdr),
+              window.orbit.apiGet(rCfg.url+'/api/v3/calendar?start='+todayStr+'&end='+futureStr+'&unmonitored=false', hdr),
+              window.orbit.apiGet(rCfg.url+'/api/v3/queue?pageSize=5', hdr)
+            ]);
+            if (Array.isArray(movies)) setMovieCount(movies.length);
+            if (Array.isArray(hist?.records)) {
+              const imports = hist.records.filter(r => {
+                if (r.eventType !== 'downloadFolderImported') return false;
+                return new Date(r.date).toISOString().startsWith(todayStr);
+              });
+              setTodayImports(imports.slice(0,5));
+            }
+            if (Array.isArray(cal)) {
+              // Classify and sort by closest date
+              const now = Date.now();
+              const classified = cal.map(m => {
+                const cinema = m.inCinemas ? new Date(m.inCinemas) : null;
+                const digital = m.digitalRelease ? new Date(m.digitalRelease) : null;
+                const physical = m.physicalRelease ? new Date(m.physicalRelease) : null;
+                // Earliest future release
+                const dates = [cinema, digital, physical].filter(d => d && d.getTime() > now-86400000);
+                const earliest = dates.sort((a,b)=>a-b)[0];
+                const type = earliest === cinema ? '🎭 CINEMA' : '💾 DOWNLOAD';
+                const daysAway = earliest ? Math.ceil((earliest-now)/86400000) : 999;
+                return { title:m.title, year:m.year, type, daysAway, earliest, hasFile:m.hasFile };
+              }).filter(m => !m.hasFile && m.daysAway < 90).sort((a,b)=>a.daysAway-b.daysAway);
+              setUpcoming(classified.slice(0,5));
+            }
+            if (Array.isArray(q?.records)) setQueue(q.records.slice(0,3));
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [rCfg?.url, rCfg?.apiKey]);
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'🎬'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
+
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
+        // Stats
+        h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
+          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'26px',fontWeight:'700',color:'var(--accent)'}}, movieCount??'…')),
+          h('div',null, h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'26px',fontWeight:'700'}}, queue.length))
+        ),
+        // Active downloads
+        queue.length > 0 && h('div',{style:{marginBottom:'12px'}},
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADING'),
+          queue.map((item,i)=>{
+            const pct = item.size > 0 ? Math.round((1-(item.sizeLeft/item.size))*100) : 0;
+            const title = (item.movie?.title || item.title || '').slice(0,36);
+            return h('div',{key:i,style:{marginBottom:'8px'}},
+              h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, title),
+              h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
+              h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'%')
+            );
+          })
+        ),
+        // Downloaded today
+        todayImports.length > 0 && h('div',{style:{marginBottom:'12px'}},
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'DOWNLOADED TODAY'),
+          todayImports.map((r,i)=>{
+            const title = r.movie?.title || r.movieTitle || r.sourceTitle?.replace(/\.(mkv|mp4|nzb)$/i,'') || '?';
+            const year = r.movie?.year ? ' ('+r.movie.year+')' : '';
+            return h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'flex-start',marginBottom:'4px'}},
+              h('span',{style:{color:'#50fa7b',fontSize:'11px',flexShrink:0}},'✓'),
+              h('div',{style:{fontSize:'12px',color:'var(--text)'}}, title+year)
+            );
+          })
+        ),
+        // Upcoming
+        upcoming.length > 0 && h('div',null,
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'5px',letterSpacing:'1px'}},'UPCOMING'),
+          upcoming.map((m,i)=>{
+            const when = m.daysAway <= 0 ? 'Today' : m.daysAway === 1 ? 'Tomorrow' : 'in '+m.daysAway+'d';
+            return h('div',{key:i,style:{display:'flex',gap:'8px',alignItems:'baseline',marginBottom:'5px'}},
+              h('span',{style:{fontSize:'10px',color:m.type.includes('CINEMA')?'#ffb86c':'var(--accent)',flexShrink:0,minWidth:'58px'}}, m.type),
+              h('div',{style:{flex:1,minWidth:0}},
+                h('div',{style:{fontSize:'12px',color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, m.title+(m.year?' ('+m.year+')':'')),
+                h('div',{style:{fontSize:'10px',color:'var(--dim)'}}, when)
+              )
+            );
+          })
+        )
+      );
     }
 
     function OverseerrPanel({ config, openSettings }) {
@@ -1288,10 +1447,10 @@
           try {
             const [c, r] = await Promise.all([
               window.orbit.apiGet(oCfg.url+'/api/v1/request/count', headers),
-              window.orbit.apiGet(oCfg.url+'/api/v1/request?take=6&skip=0&sort=added', headers)
+              window.orbit.apiGet(oCfg.url+'/api/v1/request?take=8&skip=0&sort=added', headers)
             ]);
             if (!c?.error) setCounts(c);
-            if (Array.isArray(r?.results)) setRecent(r.results.slice(0,6));
+            if (Array.isArray(r?.results)) setRecent(r.results.slice(0,8));
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
@@ -1304,23 +1463,23 @@
       const statusColor = {1:'#ffb86c',2:'var(--accent)',3:'#ff5555',4:'#8be9fd',5:'#50fa7b'};
       return h('div',{className:'panel'},
         h('div',{className:'panel-label'},'OVERSEERR ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
-        counts && h('div',{style:{display:'flex',gap:'12px',marginBottom:'12px',flexWrap:'wrap'}},
+        counts && h('div',{style:{display:'flex',gap:'16px',marginBottom:'16px',flexWrap:'wrap'}},
           [['TOTAL',counts.total,'var(--text)'],['PENDING',counts.pending,'#ffb86c'],['PROCESSING',counts.processing,'var(--accent)'],['AVAILABLE',counts.available,'#50fa7b']]
             .map(([l,v,c])=>h('div',{key:l},
-              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginBottom:'1px'}},l),
-              h('div',{style:{fontSize:'16px',fontWeight:'700',color:c}},v??'…')
+              h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'3px',letterSpacing:'1px'}},l),
+              h('div',{style:{fontSize:'28px',fontWeight:'700',color:c}},v??'…')
             ))
         ),
         recent.length > 0 && h('div', null,
-          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'6px'}},'RECENT REQUESTS'),
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}},'RECENT REQUESTS'),
           recent.map((req,i)=>{
             const isMovie = req.type==='movie';
             const user = req.requestedBy?.displayName||req.requestedBy?.plexUsername||'?';
             const st = req.status||1;
-            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'5px'}},
-              h('span',{style:{fontSize:'9px',color: isMovie?'#bd93f9':'var(--accent)',flexShrink:0}}, isMovie?'🎬':'📺'),
-              h('div',{style:{flex:1,fontSize:'10px',color:'var(--dim)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, user),
-              h('span',{style:{fontSize:'9px',color:statusColor[st]||'var(--dim)',flexShrink:0}}, statusLabel[st]||'?')
+            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',padding:'4px 0',borderBottom:'1px solid var(--border)'}},
+              h('span',{style:{fontSize:'13px',color:isMovie?'#bd93f9':'var(--accent)',flexShrink:0}}, isMovie?'🎬':'📺'),
+              h('div',{style:{flex:1,fontSize:'13px',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, user),
+              h('span',{style:{fontSize:'11px',color:statusColor[st]||'var(--dim)',flexShrink:0,fontWeight:'600'}}, statusLabel[st]||'?')
             );
           })
         )
@@ -1356,29 +1515,30 @@
       const paused = status?.DownloadPaused;
       return h('div',{className:'panel'},
         h('div',{className:'panel-label'},'NZBGET ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
-        h('div',{style:{display:'flex',gap:'16px',marginBottom:'12px'}},
+        h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div', null,
-            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'2px'}},'SPEED'),
-            h('div',{style:{fontSize:'22px',fontWeight:'700',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
+            h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),
+            h('div',{style:{fontSize:'28px',fontWeight:'700',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
           ),
           remMB > 0 && h('div', null,
-            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'2px'}},'REMAINING'),
-            h('div',{style:{fontSize:'16px',fontWeight:'700'}}, remMB > 1024 ? (remMB/1024).toFixed(1)+' GB' : remMB+' MB')
+            h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'REMAINING'),
+            h('div',{style:{fontSize:'22px',fontWeight:'700'}}, remMB > 1024 ? (remMB/1024).toFixed(1)+' GB' : remMB+' MB')
           )
         ),
         groups.length > 0 && h('div', null,
-          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'6px'}},'QUEUE'),
+          h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}},'QUEUE'),
           groups.map((g,i)=>{
             const pct = g.FileSizeMB > 0 ? Math.round((1-(g.RemainingSizeMB/g.FileSizeMB))*100) : 0;
-            const name = (g.NZBNicename||g.NZBFilename||'Unknown').slice(0,34);
-            return h('div',{key:i,style:{marginBottom:'7px'}},
-              h('div',{style:{fontSize:'10px',color:'var(--text)',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
+            const name = (g.NZBNicename||g.NZBFilename||'Unknown').slice(0,38);
+            const remStr = g.RemainingSizeMB > 1024 ? (g.RemainingSizeMB/1024).toFixed(1)+' GB' : g.RemainingSizeMB+' MB';
+            return h('div',{key:i,style:{marginBottom:'10px'}},
+              h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
               h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
-              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginTop:'1px'}}, pct+'% · '+g.RemainingSizeMB+'MB left')
+              h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'% · '+remStr+' left')
             );
           })
         ),
-        !status && h('div',{className:'media-stat'},'...')
+        !status && h('div',{style:{fontSize:'13px',color:'var(--dim)',textAlign:'center',padding:'20px'}},'Connecting...')
       );
     }
 
