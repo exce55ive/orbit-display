@@ -315,12 +315,15 @@
     // ═══ OPEN SETTINGS AT SECTION HELPER ═══
     // Used by panel cog buttons to open settings and scroll to a specific integration section
     let _openSettingsRef = null;
+    let _switchTabRef = null;
     function openSettingsAt(sectionId) {
       if (_openSettingsRef) _openSettingsRef();
+      // Switch to pages tab (where integrations live) then scroll
+      if (_switchTabRef) _switchTabRef('pages');
       setTimeout(() => {
         const el = document.getElementById(sectionId);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 80);
+      }, 100);
     }
 
     // ═══ CLOCK PANEL ═══
@@ -874,7 +877,8 @@
 
     // ═══ SETTINGS OVERLAY ═══
     function SettingsOverlay({ config, onClose, onSave }) {
-      const [tab, setTab] = useState('integrations');
+      const [tab, setTab] = useState('pages');
+      _switchTabRef = setTab; // allow openSettingsAt to switch tabs
       const [cfg, setCfg] = useState(JSON.parse(JSON.stringify(config || DEFAULT_CONFIG)));
       const [saved, setSaved] = useState(false);
       const [expanded, setExpanded] = useState({});
@@ -924,11 +928,10 @@
             )
           ),
 
-          // ── PAGES TAB ──
-          tab === 'pages' && h(PagesTab, { cfg, setCfg }),
-
-          // ── INTEGRATION CONFIG SECTIONS (hidden, scrolled to via panel cog buttons) ──
-          h('div', {id:'settings-integrations-anchor', style:{marginTop:'16px'}},
+          // ── PAGES TAB (includes integration config sections as scroll targets) ──
+          tab === 'pages' && h('div', null,
+            h(PagesTab, { cfg, setCfg }),
+            h('div', {id:'settings-integrations-anchor', style:{marginTop:'16px'}},
             h('div', {id:'settings-weather'}, integrationSection('weather', 'Weather', '🌤️', [{field:'city',label:'CITY',placeholder:'Perth'}])),
             h('div', {id:'settings-tautulli'}, integrationSection('tautulli', 'Tautulli', '🎬', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-plex'}, integrationSection('plex', 'Plex', '▶️', [{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}])),
@@ -948,7 +951,7 @@
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
             h('button', {className:'settings-save', onClick:save}, 'SAVE'),
             saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
-          ),
+          )), // close integrations-anchor + pages tab wrapper
 
           // ── THEME TAB ──
           tab === 'theme' && h('div', null,
