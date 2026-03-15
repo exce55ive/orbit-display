@@ -185,6 +185,33 @@
     .settings-textarea { width: 100%; padding: 8px 12px; font-size: 11px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; resize: vertical; min-height: 60px; }
     .settings-textarea:focus { border-color: var(--accent); }
     .settings-label { font-size: 11px; color: var(--dim); margin-bottom: 4px; letter-spacing: 1px; }
+    /* HA Entity Browser */
+    .ha-browser-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+    .ha-browser-modal { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; width: min(560px, 95vw); max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
+    .ha-browser-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .ha-browser-title { font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--text-bright); }
+    .ha-browser-search { box-sizing: border-box; width: calc(100% - 32px); margin: 12px 16px 0; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font); font-size: 13px; padding: 10px 12px; outline: none; flex-shrink: 0; }
+    .ha-browser-search:focus { border-color: var(--accent); }
+    .ha-browser-domains { display: flex; gap: 6px; padding: 10px 16px 4px; flex-wrap: wrap; flex-shrink: 0; }
+    .ha-domain-pill { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--dim); font-size: 10px; font-family: var(--font); padding: 4px 10px; border-radius: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .ha-domain-pill:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+    .ha-domain-pill.active { border-color: var(--accent); color: var(--accent); background: rgba(0,217,255,0.08); }
+    .ha-browser-count { font-size: 10px; color: var(--dim); padding: 2px 16px 6px; flex-shrink: 0; }
+    .ha-browser-list { flex: 1; overflow-y: auto; padding: 4px 8px; }
+    .ha-browser-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: background 0.1s; }
+    .ha-browser-item:hover { background: rgba(255,255,255,0.04); }
+    .ha-browser-item.selected { background: rgba(0,217,255,0.08); }
+    .ha-browser-check { width: 16px; height: 16px; border: 1px solid var(--border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent); flex-shrink: 0; }
+    .ha-browser-item.selected .ha-browser-check { border-color: var(--accent); background: rgba(0,217,255,0.15); }
+    .ha-browser-entity-info { flex: 1; min-width: 0; }
+    .ha-browser-entity-name { font-size: 12px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ha-browser-entity-id { font-size: 10px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ha-browser-entity-state { font-size: 10px; color: var(--dim); flex-shrink: 0; max-width: 72px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ha-browser-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-shrink: 0; }
+    .ha-browser-add-btn { flex: 1; padding: 10px; background: var(--accent); border: none; border-radius: 6px; color: #000; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 1px; cursor: pointer; transition: opacity 0.15s; }
+    .ha-browser-add-btn:disabled { background: rgba(255,255,255,0.08); color: var(--dim); cursor: default; }
+    .ha-browse-btn { background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: var(--text); font-family: var(--font); font-size: 11px; padding: 7px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+    .ha-browse-btn:hover { border-color: var(--accent); color: var(--accent); }
     .settings-save { padding: 10px 20px; background: var(--accent); color: var(--bg); font-family: var(--font); font-weight: 700; font-size: 12px; letter-spacing: 2px; border: none; border-radius: 6px; cursor: pointer; margin-top: 8px; transition: opacity .2s; }
     .settings-save:hover { opacity: 0.9; }
     .settings-saved-msg { font-size: 11px; color: var(--green); margin-top: 4px; }
@@ -1158,74 +1185,133 @@
         return lights.map(e => typeof e === 'string' ? {entityId:e, name:''} : e);
       }
 
+      // ─── HA ENTITY BROWSER MODAL ────────────────────────────────────────────
+      const DOMAIN_ICONS = {light:'💡',switch:'🔌',sensor:'📊',binary_sensor:'🔲',climate:'🌡️',
+        media_player:'📺',camera:'📷',cover:'🚪',fan:'💨',vacuum:'🤖',script:'📝',
+        automation:'⚙️',scene:'🎬',input_boolean:'🔘',input_select:'📋',person:'👤',
+        device_tracker:'📍',sun:'☀️',weather:'🌤️',number:'🔢',select:'📋',button:'🔲'};
+
+      function HAEntityBrowser({ haUrl, haToken, onClose, onAdd }) {
+        const [search, setSearch] = useState('');
+        const [domain, setDomain] = useState('all');
+        const [allEntities, setAllEntities] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const [error, setError] = useState(null);
+        const [selected, setSelected] = useState(new Set());
+        const [domains, setDomains] = useState([]);
+
+        useEffect(() => {
+          if (!haUrl || !haToken) { setError('Configure HA URL and token first'); setLoading(false); return; }
+          window.orbit.apiGet(haUrl + '/api/states', {'Authorization': 'Bearer ' + haToken})
+            .then(data => {
+              if (!Array.isArray(data)) { setError('HA returned unexpected response — check URL and token'); setLoading(false); return; }
+              const sorted = [...data].sort((a,b) => a.entity_id.localeCompare(b.entity_id));
+              setAllEntities(sorted);
+              const d = new Set(sorted.map(e => e.entity_id.split('.')[0]));
+              setDomains(['all', ...Array.from(d).sort()]);
+              setLoading(false);
+            })
+            .catch(e => { setError('Failed to reach HA: ' + e.message); setLoading(false); });
+        }, [haUrl, haToken]);
+
+        const filtered = allEntities.filter(e => {
+          if (domain !== 'all' && e.entity_id.split('.')[0] !== domain) return false;
+          if (!search) return true;
+          const q = search.toLowerCase();
+          return e.entity_id.includes(q) || (e.attributes?.friendly_name||'').toLowerCase().includes(q);
+        });
+
+        function toggle(entityId) {
+          setSelected(prev => { const n = new Set(prev); n.has(entityId) ? n.delete(entityId) : n.add(entityId); return n; });
+        }
+        function addSelected() {
+          const toAdd = Array.from(selected).map(entityId => {
+            const e = allEntities.find(x => x.entity_id === entityId);
+            return { entityId, name: e?.attributes?.friendly_name || '' };
+          });
+          onAdd(toAdd);
+          onClose();
+        }
+
+        return h('div', {className:'ha-browser-overlay', onClick:e=>{if(e.target===e.currentTarget)onClose();}},
+          h('div', {className:'ha-browser-modal'},
+            h('div', {className:'ha-browser-header'},
+              h('div', {className:'ha-browser-title'}, '🏠 BROWSE ENTITIES'),
+              h('button', {className:'settings-close', onClick:onClose}, '✕')
+            ),
+            loading
+              ? h('div', {style:{textAlign:'center',padding:'48px',color:'var(--dim)'}}, '⏳ Loading entities…')
+              : error
+                ? h('div', {style:{textAlign:'center',padding:'48px',color:'#ff5555',fontSize:'12px'}}, error)
+                : h(React.Fragment, null,
+                    h('input', {className:'ha-browser-search', placeholder:'Search by name or entity ID…',
+                      value:search, onChange:e=>setSearch(e.target.value), autoFocus:true}),
+                    h('div', {className:'ha-browser-domains'},
+                      domains.map(d => h('button', {key:d, className:'ha-domain-pill'+(domain===d?' active':''), onClick:()=>setDomain(d)},
+                        d === 'all' ? 'All ('+allEntities.length+')' : (DOMAIN_ICONS[d]||'·') + ' ' + d
+                      ))
+                    ),
+                    h('div', {className:'ha-browser-count'}, filtered.length + ' entities' + (selected.size ? ' · ' + selected.size + ' selected' : '')),
+                    h('div', {className:'ha-browser-list'},
+                      filtered.slice(0, 300).map(e => {
+                        const isSel = selected.has(e.entity_id);
+                        const name = e.attributes?.friendly_name;
+                        const dom = e.entity_id.split('.')[0];
+                        return h('div', {key:e.entity_id, className:'ha-browser-item'+(isSel?' selected':''), onClick:()=>toggle(e.entity_id)},
+                          h('div', {className:'ha-browser-check'}, isSel ? '✓' : ''),
+                          h('span', {style:{fontSize:'14px',flexShrink:0}}, DOMAIN_ICONS[dom] || '·'),
+                          h('div', {className:'ha-browser-entity-info'},
+                            name && h('div', {className:'ha-browser-entity-name'}, name),
+                            h('div', {className:'ha-browser-entity-id'}, e.entity_id)
+                          ),
+                          h('div', {className:'ha-browser-entity-state'}, e.state)
+                        );
+                      })
+                    ),
+                    h('div', {className:'ha-browser-footer'},
+                      h('button', {className:'ha-browser-add-btn', disabled:selected.size===0, onClick:addSelected},
+                        selected.size > 0 ? '+ Add ' + selected.size + ' entit' + (selected.size===1?'y':'ies') : 'Select entities above'
+                      )
+                    )
+                  )
+          )
+        );
+      }
+
+      // ─── HA ENTITIES EDITOR ─────────────────────────────────────────────────
       function HAEntitiesEditor({ integrationKey }) {
         const raw = cfg.integrations?.[integrationKey]?.lights;
         const [entities, setEntities] = useState(normalizeEntities(raw));
-        const [newEntityId, setNewEntityId] = useState('');
-        const [newEntityName, setNewEntityName] = useState('');
+        const [showBrowser, setShowBrowser] = useState(false);
+        const haUrl = cfg.integrations?.homeassistant?.url || '';
+        const haToken = cfg.integrations?.homeassistant?.token || '';
 
-        function commit(next) {
-          setEntities(next);
-          updateIntegration(integrationKey, 'lights', next);
-        }
-        function addEntity() {
-          const ids = newEntityId.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean);
-          if (!ids.length) return;
-          const added = ids.map((id,i) => ({entityId:id, name: ids.length===1 ? newEntityName : ''}));
-          commit([...entities, ...added]);
-          setNewEntityId(''); setNewEntityName('');
-        }
+        function commit(next) { setEntities(next); updateIntegration(integrationKey, 'lights', next); }
         function removeEntity(i) { const n=[...entities]; n.splice(i,1); commit(n); }
         function updateName(i, name) { const n=[...entities]; n[i]={...n[i],name}; commit(n); }
         function updateId(i, entityId) { const n=[...entities]; n[i]={...n[i],entityId}; commit(n); }
+        function onBrowserAdd(toAdd) {
+          const existing = new Set(entities.map(e => e.entityId));
+          const fresh = toAdd.filter(e => !existing.has(e.entityId));
+          commit([...entities, ...fresh]);
+        }
 
         return h('div', null,
-          h('div', {className:'settings-label'}, 'LIGHT ENTITIES'),
-          // Existing entities
+          showBrowser && h(HAEntityBrowser, {haUrl, haToken, onClose:()=>setShowBrowser(false), onAdd:onBrowserAdd}),
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}},
+            h('div', {className:'settings-label', style:{marginBottom:0}}, 'LIGHT ENTITIES'),
+            h('button', {className:'ha-browse-btn', onClick:()=>setShowBrowser(true)}, '🔍 Browse HA')
+          ),
           entities.length > 0 && h('div', {style:{marginBottom:'8px'}},
             entities.map((e,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'4px'}},
-              h('input', {
-                className:'settings-input',
-                style:{flex:'2',fontSize:'11px'},
-                value:e.entityId,
-                placeholder:'light.entity_id',
-                onChange:ev=>updateId(i,ev.target.value)
-              }),
-              h('input', {
-                className:'settings-input',
-                style:{flex:'1',fontSize:'11px'},
-                value:e.name||'',
-                placeholder:'Display name',
-                onChange:ev=>updateName(i,ev.target.value)
-              }),
-              h('button', {
-                onClick:()=>removeEntity(i),
-                style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'14px',padding:'0 4px',flexShrink:0}
-              }, '×')
+              h('input', {className:'settings-input', style:{flex:'2',fontSize:'11px'}, value:e.entityId, placeholder:'light.entity_id', onChange:ev=>updateId(i,ev.target.value)}),
+              h('input', {className:'settings-input', style:{flex:'1',fontSize:'11px'}, value:e.name||'', placeholder:'Display name', onChange:ev=>updateName(i,ev.target.value)}),
+              h('button', {onClick:()=>removeEntity(i), style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'16px',padding:'0 4px',flexShrink:0}}, '×')
             ))
           ),
-          // Add new
-          h('div', {style:{display:'flex',gap:'6px',alignItems:'center',marginTop:'4px'}},
-            h('textarea', {
-              className:'settings-textarea',
-              style:{flex:'2',minHeight:'38px',fontSize:'11px',resize:'vertical'},
-              value:newEntityId,
-              placeholder:'light.entity_id\n(one per line or comma-separated)',
-              onChange:e=>setNewEntityId(e.target.value)
-            }),
-            h('input', {
-              className:'settings-input',
-              style:{flex:'1',fontSize:'11px'},
-              value:newEntityName,
-              placeholder:'Name (optional)',
-              onChange:e=>setNewEntityName(e.target.value)
-            }),
-            h('button', {
-              onClick:addEntity,
-              style:{background:'var(--accent)',border:'none',color:'#000',cursor:'pointer',fontSize:'11px',borderRadius:'4px',padding:'6px 10px',fontWeight:'700',flexShrink:0,whiteSpace:'nowrap'}
-            }, '+ Add')
-          ),
-          h('div', {style:{fontSize:'9px',color:'var(--dim)',marginTop:'3px'}}, 'Paste multiple entity IDs one per line. Give each a friendly display name.')
+          entities.length === 0 && h('div', {style:{fontSize:'11px',color:'var(--dim)',padding:'10px',textAlign:'center',border:'1px dashed var(--border)',borderRadius:'6px',marginBottom:'8px'}},
+            'No entities added. Click Browse HA to search and add.'
+          )
         );
       }
 
