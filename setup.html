@@ -107,7 +107,14 @@
 
     .selected-panels-order { margin-top: 8px; }
     .selected-panels-order-title { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
-    .selected-panel-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 6px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; }
+    .selected-panel-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 8px 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; cursor: grab; user-select: none; transition: background .15s; }
+    .selected-panel-item:active { cursor: grabbing; }
+    .selected-panel-item.drag-over { border-color: var(--accent); background: rgba(0,217,255,0.08); }
+    .selected-panel-item.dragging { opacity: 0.4; }
+    .drag-handle { color: var(--dim); font-size: 14px; flex-shrink: 0; cursor: grab; }
+    .page-item-rename-btn { font-size: 11px; color: var(--dim); background: none; border: none; cursor: pointer; opacity: 0; padding: 0 4px; transition: opacity .2s; }
+    .page-item:hover .page-item-rename-btn { opacity: 1; }
+    .page-item-rename-btn:hover { color: var(--accent); }
     .selected-panel-num { color: var(--accent); font-weight: 700; font-size: 11px; min-width: 18px; }
   </style>
 </head>
@@ -362,7 +369,8 @@
           ? `<span class="page-item-delete" onclick="event.stopPropagation(); deletePage(${i})" title="Delete page">×</span>`
           : '';
         return `<div class="page-item${sel}" onclick="selectPage(${i})">
-          <span class="page-item-name" ondblclick="event.stopPropagation(); startRenamePage(${i})">${escHtml(pg.name)}</span>
+          <span class="page-item-name">${escHtml(pg.name)}</span>
+          <button class="page-item-rename-btn" onclick="event.stopPropagation(); startRenamePage(${i})" title="Rename page">✏️</button>
           ${deleteBtn}
         </div>`;
       }).join('');
@@ -382,20 +390,25 @@
         </div>`;
       }).join('');
 
-      // Selected panels order list
+      // Selected panels order list (drag-to-reorder)
       let orderListHtml = '';
       if (selectedTypes.length > 0) {
         const items = page.panels.map((p, i) => {
           const pt = PANEL_TYPES.find(t => t.type === p.type);
-          return `<div class="selected-panel-item">
-            <span class="selected-panel-num">${i + 1}</span>
-            <span>${pt ? pt.icon : ''} ${pt ? pt.name : p.type}</span>
+          return `<div class="selected-panel-item" draggable="true" data-panel-index="${i}">
+            <span class="drag-handle">⠿</span>
+            <span class="selected-panel-num" style="color:var(--dim);font-size:10px;min-width:14px">${i + 1}</span>
+            <span style="flex:1">${pt ? pt.icon : ''} ${pt ? pt.name : p.type}</span>
+            <span style="display:flex;gap:4px">
+              <button onclick="movePanelUp(${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0 2px" ${i===0?'disabled':''}>↑</button>
+              <button onclick="movePanelDown(${i})" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:12px;padding:0 2px" ${i===page.panels.length-1?'disabled':''}>↓</button>
+            </span>
           </div>`;
         }).join('');
         orderListHtml = `
           <div class="selected-panels-order">
-            <div class="selected-panels-order-title">Panel Order</div>
-            ${items}
+            <div class="selected-panels-order-title">Panel Order <span style="font-size:9px;color:var(--dim);font-weight:400;margin-left:6px">drag or use ↑↓</span></div>
+            <div id="panel-order-list">${items}</div>
           </div>`;
       }
 
@@ -422,6 +435,8 @@
           </div>
         </div>
       `;
+      // Init drag-and-drop after DOM is ready
+      setTimeout(initPanelOrderDrag, 0);
     }
 
     function escHtml(str) {
@@ -482,6 +497,50 @@
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { input.blur(); }
         if (e.key === 'Escape') { input.value = currentName; input.blur(); }
+      });
+    }
+
+    function movePanelUp(i) {
+      const page = pagesState[selectedPageIndex];
+      if (i <= 0) return;
+      [page.panels[i], page.panels[i-1]] = [page.panels[i-1], page.panels[i]];
+      renderPagesStep(document.getElementById('step-container'));
+    }
+
+    function movePanelDown(i) {
+      const page = pagesState[selectedPageIndex];
+      if (i >= page.panels.length - 1) return;
+      [page.panels[i], page.panels[i+1]] = [page.panels[i+1], page.panels[i]];
+      renderPagesStep(document.getElementById('step-container'));
+    }
+
+    function initPanelOrderDrag() {
+      const list = document.getElementById('panel-order-list');
+      if (!list) return;
+      let dragIdx = null;
+      list.querySelectorAll('.selected-panel-item').forEach(item => {
+        item.addEventListener('dragstart', e => {
+          dragIdx = parseInt(item.dataset.panelIndex);
+          item.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        item.addEventListener('dragend', () => item.classList.remove('dragging'));
+        item.addEventListener('dragover', e => {
+          e.preventDefault();
+          item.classList.add('drag-over');
+        });
+        item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+        item.addEventListener('drop', e => {
+          e.preventDefault();
+          item.classList.remove('drag-over');
+          const dropIdx = parseInt(item.dataset.panelIndex);
+          if (dragIdx === null || dragIdx === dropIdx) return;
+          const page = pagesState[selectedPageIndex];
+          const moved = page.panels.splice(dragIdx, 1)[0];
+          page.panels.splice(dropIdx, 0, moved);
+          dragIdx = null;
+          renderPagesStep(document.getElementById('step-container'));
+        });
       });
     }
 

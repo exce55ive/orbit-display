@@ -1059,6 +1059,49 @@
             h('button', {className:'page-edit-btn', onClick: function() { startEdit(i, page.name); }}, '✏')
           );
         }),
+        // Panel order reordering within each page
+        (cfg.pages||[]).length > 0 && h('div', {style:{marginTop:'16px'}},
+          h('div', {className:'settings-section'}, 'PANEL ORDER'),
+          h('div', {style:{fontSize:'10px',color:'var(--dim)',marginBottom:'8px'}}, 'Click a page above, then reorder its panels here'),
+          (cfg.pages||[]).map(function(page, pageIdx) {
+            if (!page.panels || page.panels.length === 0) return null;
+            return h('div', {key:page.id||pageIdx, style:{marginBottom:'12px'}},
+              h('div', {style:{fontSize:'10px',color:'var(--accent)',marginBottom:'5px',letterSpacing:'1px'}}, (page.name||'Page '+(pageIdx+1)).toUpperCase()),
+              page.panels.map(function(panel, pi) {
+                const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',uptimekuma:'🔔',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡'};
+                const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',uptimekuma:'Uptime Kuma',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant'};
+                return h('div', {key:pi, style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',padding:'5px 8px',background:'rgba(255,255,255,0.02)',border:'1px solid var(--border)',borderRadius:'4px'}},
+                  h('span', {style:{color:'var(--dim)',fontSize:'12px',minWidth:'18px'}},(pi+1)+'.'),
+                  h('span', null, (ICONS[panel.type]||'▪')+' '+(NAMES[panel.type]||panel.type)),
+                  h('div', {style:{marginLeft:'auto',display:'flex',gap:'4px'}},
+                    h('button', {
+                      onClick: function() {
+                        if (pi <= 0) return;
+                        var ps = cfg.pages[pageIdx].panels.slice();
+                        var tmp = ps[pi]; ps[pi] = ps[pi-1]; ps[pi-1] = tmp;
+                        cfg.pages[pageIdx].panels = ps;
+                        setCfg({...cfg});
+                      },
+                      disabled: pi === 0,
+                      style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===0?0.3:1}
+                    }, '↑'),
+                    h('button', {
+                      onClick: function() {
+                        if (pi >= page.panels.length - 1) return;
+                        var ps = cfg.pages[pageIdx].panels.slice();
+                        var tmp = ps[pi]; ps[pi] = ps[pi+1]; ps[pi+1] = tmp;
+                        cfg.pages[pageIdx].panels = ps;
+                        setCfg({...cfg});
+                      },
+                      disabled: pi === page.panels.length - 1,
+                      style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===page.panels.length-1?0.3:1}
+                    }, '↓')
+                  )
+                );
+              })
+            );
+          })
+        ),
         h('button', {
           className: 'reconfigure-pages',
           onClick: function() {
