@@ -28,10 +28,6 @@ contextBridge.exposeInMainWorld('orbit', {
   signalrgbSetEnabled: (enabled) => ipcRenderer.invoke('signalrgb-set-enabled', enabled),
   spotifyAuthStart: () => ipcRenderer.invoke('spotify-auth-start'),
   spotifyRefreshToken: () => ipcRenderer.invoke('spotify-refresh-token'),
-  gmailAuthStart: () => ipcRenderer.invoke('gmail-auth-start'),
-  gmailRefreshToken: () => ipcRenderer.invoke('gmail-refresh-token'),
-  outlookAuthStart: () => ipcRenderer.invoke('outlook-auth-start'),
-  outlookRefreshToken: () => ipcRenderer.invoke('outlook-refresh-token'),
   discordAuthStart: () => ipcRenderer.invoke('discord-auth-start'),
 
   // Generic API proxy

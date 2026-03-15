@@ -199,8 +199,6 @@
       { type: 'uptimekuma', icon: '🔔', name: 'Uptime Kuma' },
       { type: 'spotify',    icon: '🎵', name: 'Spotify' },
       { type: 'jellyfin',   icon: '🎞', name: 'Jellyfin' },
-      { type: 'gmail',      icon: '📧', name: 'Gmail' },
-      { type: 'outlook',    icon: '📬', name: 'Outlook' },
       { type: 'discord',    icon: '💬', name: 'Discord' }
     ];
     const MAX_PANELS = 6;
@@ -308,13 +306,8 @@
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="spotify-secret" value="${esc(config.integrations.spotify.clientSecret)}"></div>
                 <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
               `)}
-              ${integrationCard('gmail', 'Gmail', '📧', `
-                <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="gmail-id" value="${esc(config.integrations.gmail?.clientId || '')}"></div>
-                <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="gmail-secret" value="${esc(config.integrations.gmail?.clientSecret || '')}"></div>
                 <div class="integration-hint">Create OAuth app at console.cloud.google.com — redirect URI: http://127.0.0.1:8891/callback</div>
               `)}
-              ${integrationCard('outlook', 'Outlook', '📬', `
-                <div class="field-group"><div class="field-label">Client ID (Azure App)</div><input class="field-input" id="outlook-id" value="${esc(config.integrations.outlook?.clientId || '')}"></div>
                 <div class="integration-hint">Register app at portal.azure.com — public client PKCE, redirect URI: http://127.0.0.1:8892/callback</div>
               `)}
               ${integrationCard('discord', 'Discord', '💬', `
@@ -643,14 +636,7 @@
       config.integrations.spotify.clientId = getVal('spotify-id');
       config.integrations.spotify.clientSecret = getVal('spotify-secret');
 
-      if (!config.integrations.gmail) config.integrations.gmail = {};
-      config.integrations.gmail.enabled = isEnabled('gmail');
-      config.integrations.gmail.clientId = getVal('gmail-id');
-      config.integrations.gmail.clientSecret = getVal('gmail-secret');
 
-      if (!config.integrations.outlook) config.integrations.outlook = {};
-      config.integrations.outlook.enabled = isEnabled('outlook');
-      config.integrations.outlook.clientId = getVal('outlook-id');
 
       if (!config.integrations.discord) config.integrations.discord = {};
       config.integrations.discord.enabled = isEnabled('discord');
