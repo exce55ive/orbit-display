@@ -350,6 +350,24 @@ ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
   finally { clearTimeout(timer); }
 });
 
+ipcMain.handle('api-put', async (_e, { url, body, headers }) => {
+  const fetch = await getFetch();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+      body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+      signal: controller.signal
+    });
+    if (res.status === 204) return { ok: true };
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return { ok: true }; }
+  } catch (e) { return { error: e.message }; }
+  finally { clearTimeout(timer); }
+});
+
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
 ipcMain.handle('fetch-signalrgb', async () => {
   const cfg = loadOrbitConfig();

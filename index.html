@@ -748,56 +748,121 @@
       const [connecting, setConnecting] = useState(false);
       const [connectErr, setConnectErr] = useState('');
       const [playback, setPlayback] = useState(null);
+      const [queue, setQueue] = useState([]);
+      const [busy, setBusy] = useState(false);
+
+      async function getToken() {
+        const freshCfg = await window.orbit.loadConfig();
+        const sp = freshCfg?.integrations?.spotify;
+        let token = sp?.accessToken;
+        if (!token) return null;
+        if (sp?.tokenExpiry && Date.now() > sp.tokenExpiry - 60000) {
+          const r = await window.orbit.spotifyRefreshToken();
+          if (r.accessToken) token = r.accessToken;
+        }
+        return token;
+      }
 
       useEffect(() => {
         if (!authorized) return;
         async function poll() {
           try {
-            // Always read token fresh from disk so we pick up the just-saved token
-            const freshCfg = await window.orbit.loadConfig();
-            const freshSpotify = freshCfg?.integrations?.spotify;
-            let token = freshSpotify?.accessToken;
+            const token = await getToken();
             if (!token) return;
-            if (freshSpotify?.tokenExpiry && Date.now() > freshSpotify.tokenExpiry - 60000) {
-              const r = await window.orbit.spotifyRefreshToken();
-              if (r.accessToken) token = r.accessToken;
-            }
-            const r = await window.orbit.apiGet('https://api.spotify.com/v1/me/player/currently-playing', { Authorization: 'Bearer ' + token });
-            if (r && r.item) setPlayback(r);
-            else setPlayback(null);
+            const [pb, q] = await Promise.all([
+              window.orbit.apiGet('https://api.spotify.com/v1/me/player/currently-playing', { Authorization: 'Bearer '+token }),
+              window.orbit.apiGet('https://api.spotify.com/v1/me/player/queue', { Authorization: 'Bearer '+token })
+            ]);
+            if (pb && pb.item) setPlayback(pb); else setPlayback(null);
+            if (q && Array.isArray(q.queue)) setQueue(q.queue.slice(0,3));
           } catch {}
         }
         poll(); const t = setInterval(poll, 5000); return () => clearInterval(t);
       }, [authorized]);
 
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎵'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      async function control(method, endpoint) {
+        if (busy) return;
+        setBusy(true);
+        try {
+          const token = await getToken();
+          if (!token) return;
+          const url = 'https://api.spotify.com/v1/me/player/'+endpoint;
+          if (method === 'POST') await window.orbit.apiPost(url, {}, { Authorization: 'Bearer '+token });
+          else await window.orbit.apiPut(url, {}, { Authorization: 'Bearer '+token });
+          // optimistic update — actual state comes from next poll
+          if (endpoint === 'pause') setPlayback(p => p ? {...p, is_playing:false} : p);
+          if (endpoint === 'play') setPlayback(p => p ? {...p, is_playing:true} : p);
+        } catch {} finally { setBusy(false); }
+      }
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'🎵'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
       if (!authorized) {
         return h('div', {className:'panel'},
-          h('div', {className:'panel-label'}, 'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')),
+          h('div', {className:'panel-label'}, 'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
           h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '🎵'),
-          connectErr && h('div', {style:{fontSize:'10px',color:'var(--red)',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
+          connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
           h('button', {className:'spotify-connect', disabled:connecting, onClick: async () => {
             setConnecting(true); setConnectErr('');
             const r = await window.orbit.spotifyAuthStart();
             setConnecting(false);
-            if (r.error) { setConnectErr(r.error); }
-            else { setAuthorized(true); } // token saved to disk — flip authorized immediately
+            if (r.error) setConnectErr(r.error);
+            else setAuthorized(true);
           }}, connecting ? 'Connecting...' : 'Connect Spotify')
         );
       }
 
       const track = playback?.item;
       const isPlaying = playback?.is_playing;
+      const art = track?.album?.images?.[1]?.url || track?.album?.images?.[0]?.url;
+      const prog = (track && playback?.progress_ms && track.duration_ms)
+        ? Math.round((playback.progress_ms / track.duration_ms) * 100) : 0;
+      const remSec = track ? Math.max(0, Math.round((track.duration_ms - (playback?.progress_ms||0)) / 1000)) : 0;
+
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')),
+        h('div', {className:'panel-label'}, 'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
         track ? h(React.Fragment, null,
-          h('div', {className:'spotify-track'}, track.name),
-          h('div', {className:'spotify-artist'}, track.artists?.map(a=>a.name).join(', ')),
-          h('div', {className:'source-badge', style:{margin:'8px 0'}}, isPlaying ? '▶ PLAYING' : '⏸ PAUSED')
+          // Album art + track info row
+          h('div', {style:{display:'flex',gap:'10px',alignItems:'center',marginBottom:'10px'}},
+            art && h('img', {src:art, style:{width:'52px',height:'52px',borderRadius:'4px',flexShrink:0,objectFit:'cover'}}),
+            h('div', {style:{flex:1,minWidth:0}},
+              h('div', {className:'spotify-track', style:{marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.name),
+              h('div', {className:'spotify-artist', style:{whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.artists?.map(a=>a.name).join(', ')),
+              track.album?.name && h('div', {style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, track.album.name)
+            )
+          ),
+          // Progress bar
+          h('div', {className:'np-progress-bar', style:{marginBottom:'4px'}},
+            h('div', {className:'np-progress-fill', style:{width:prog+'%'}})),
+          h('div', {style:{display:'flex',justifyContent:'space-between',fontSize:'9px',color:'var(--dim)',marginBottom:'10px'}},
+            h('span', null, formatDuration(Math.round((playback?.progress_ms||0)/1000))),
+            h('span', null, '-'+formatDuration(remSec))
+          ),
+          // Controls
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',gap:'16px',marginBottom:'10px'}},
+            h('button', {onClick:()=>control('POST','previous'), disabled:busy, style:{background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'16px',opacity:busy?0.4:1,padding:'4px'}}, '⏮'),
+            h('button', {onClick:()=>control('PUT', isPlaying?'pause':'play'), disabled:busy, style:{background:'var(--accent)',border:'none',color:'#000',cursor:'pointer',fontSize:'14px',borderRadius:'50%',width:'32px',height:'32px',fontWeight:'700',opacity:busy?0.4:1}}, isPlaying ? '⏸' : '▶'),
+            h('button', {onClick:()=>control('POST','next'), disabled:busy, style:{background:'none',border:'none',color:'var(--text)',cursor:'pointer',fontSize:'16px',opacity:busy?0.4:1,padding:'4px'}}, '⏭'),
+            h('button', {onClick:()=>window.orbit.openExternal('https://open.spotify.com'), style:{background:'none',border:'1px solid var(--border)',color:'var(--dim)',cursor:'pointer',fontSize:'9px',borderRadius:'3px',padding:'3px 6px',marginLeft:'8px'}}, 'OPEN')
+          ),
+          // Up next
+          queue.length > 0 && h('div', null,
+            h('div', {style:{fontSize:'9px',color:'var(--dim)',marginBottom:'5px'}}, 'UP NEXT'),
+            queue.map((t2,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}},
+              t2.album?.images?.[2]?.url && h('img',{src:t2.album.images[2].url,style:{width:'20px',height:'20px',borderRadius:'2px',flexShrink:0}}),
+              h('div',{style:{flex:1,minWidth:0}},
+                h('div',{style:{fontSize:'10px',color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},t2.name),
+                h('div',{style:{fontSize:'9px',color:'var(--dim)'}},t2.artists?.map(a=>a.name).join(', '))
+              )
+            ))
+          )
         ) : h('div', {className:'np-empty'},
           h('div', {className:'np-empty-icon'}, '🎵'),
-          h('div', {className:'np-empty-text'}, 'NOTHING PLAYING')
+          h('div', {className:'np-empty-text'}, 'NOTHING PLAYING'),
+          h('button', {onClick:()=>window.orbit.openExternal('https://open.spotify.com'), style:{marginTop:'8px',background:'none',border:'1px solid var(--border)',color:'var(--dim)',cursor:'pointer',fontSize:'10px',borderRadius:'3px',padding:'4px 10px'}}, 'Open Spotify')
         )
       );
     }

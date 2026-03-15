@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld('orbit', {
   // Generic API proxy
   apiGet: (url, headers) => ipcRenderer.invoke('api-get', { url, headers }),
   apiPost: (url, body, headers) => ipcRenderer.invoke('api-post', { url, body, headers }),
+  apiPut: (url, body, headers) => ipcRenderer.invoke('api-put', { url, body, headers }),
 
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
