@@ -69,6 +69,40 @@
 
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* Pages Builder */
+    .pages-builder { display: grid; grid-template-columns: 220px 1fr; gap: 24px; }
+    .page-list-col { display: flex; flex-direction: column; gap: 6px; }
+    .page-list-title { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; }
+    .page-item { display: flex; align-items: center; gap: 8px; font-family: var(--font); font-size: 13px; padding: 10px 14px; border-radius: 6px; cursor: pointer; background: transparent; border: 1px solid transparent; color: var(--text); transition: all .2s; position: relative; }
+    .page-item:hover { background: rgba(255,255,255,0.03); }
+    .page-item.selected { background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.3); color: var(--accent); }
+    .page-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .page-item-name-input { flex: 1; font-family: var(--font); font-size: 13px; background: rgba(255,255,255,0.06); border: 1px solid var(--accent); border-radius: 4px; color: var(--text-bright); padding: 2px 6px; outline: none; }
+    .page-item-delete { font-size: 14px; color: var(--dim); cursor: pointer; opacity: 0; transition: opacity .2s; padding: 0 4px; }
+    .page-item:hover .page-item-delete { opacity: 1; }
+    .page-item-delete:hover { color: var(--red); }
+    .page-add-btn { font-family: var(--font); font-size: 12px; color: var(--dim); background: transparent; border: 1px dashed var(--border); border-radius: 6px; padding: 8px 14px; cursor: pointer; transition: all .2s; margin-top: 4px; }
+    .page-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .panels-col { display: flex; flex-direction: column; gap: 16px; }
+    .panels-title { font-size: 13px; font-weight: 600; color: var(--text-bright); }
+    .panels-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .panel-card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all .2s; user-select: none; }
+    .panel-card:hover { border-color: rgba(255,255,255,0.15); }
+    .panel-card.selected { border-color: var(--accent); background: rgba(0,217,255,0.06); }
+    .panel-card.disabled { opacity: 0.4; cursor: not-allowed; }
+    .panel-card-icon { font-size: 18px; flex-shrink: 0; }
+    .panel-card-name { font-size: 12px; color: var(--text); }
+    .panel-card.selected .panel-card-name { color: var(--accent); }
+    .panel-card-check { margin-left: auto; font-size: 14px; color: var(--accent); opacity: 0; transition: opacity .2s; }
+    .panel-card.selected .panel-card-check { opacity: 1; }
+    .max-hint { font-size: 11px; color: var(--amber); margin-top: 4px; }
+
+    .selected-panels-order { margin-top: 8px; }
+    .selected-panels-order-title { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
+    .selected-panel-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); padding: 6px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; }
+    .selected-panel-num { color: var(--accent); font-weight: 700; font-size: 11px; min-width: 18px; }
   </style>
 </head>
 <body>
@@ -84,6 +118,7 @@
     const STEPS = [
       { id: 'welcome', label: 'Welcome' },
       { id: 'integrations', label: 'Integrations' },
+      { id: 'pages', label: 'Pages' },
       { id: 'complete', label: 'Complete' }
     ];
     let currentStep = 0;
@@ -103,6 +138,27 @@
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
     };
+
+    // Available panel types
+    const PANEL_TYPES = [
+      { type: 'clock',      icon: '🕐', name: 'Clock & Weather' },
+      { type: 'nowplaying', icon: '▶',  name: 'Now Playing (Plex/Tautulli)' },
+      { type: 'lights',     icon: '💡', name: 'Lights (Home Assistant)' },
+      { type: 'signalrgb',  icon: '⚡', name: 'SignalRGB' },
+      { type: 'system',     icon: '💻', name: 'System Monitor' },
+      { type: 'links',      icon: '🔗', name: 'Quick Links' },
+      { type: 'sonarr',     icon: '📺', name: 'Sonarr' },
+      { type: 'radarr',     icon: '🎬', name: 'Radarr' },
+      { type: 'overseerr',  icon: '🎭', name: 'Overseerr' },
+      { type: 'nzbget',     icon: '⬇',  name: 'NZBGet' },
+      { type: 'uptimekuma', icon: '🔔', name: 'Uptime Kuma' }
+    ];
+    const MAX_PANELS = 6;
+
+    // Pages builder state — deep clone from config.pages
+    let pagesState = JSON.parse(JSON.stringify(config.pages));
+    let selectedPageIndex = 0;
+    let pageCounter = pagesState.length; // for generating new page IDs
 
     function renderProgress() {
       const el = document.getElementById('progress');
@@ -185,6 +241,8 @@
           </div>
         `;
       } else if (currentStep === 2) {
+        renderPagesStep(container);
+      } else if (currentStep === 3) {
         container.innerHTML = `
           <div class="step visible">
             <div class="complete-content">
@@ -202,6 +260,170 @@
           </div>
         `;
       }
+    }
+
+    /* ── Pages Builder Step ── */
+    function renderPagesStep(container) {
+      const page = pagesState[selectedPageIndex];
+      const selectedTypes = page.panels.map(p => p.type);
+      const atMax = selectedTypes.length >= MAX_PANELS;
+
+      // Page list HTML
+      let pageListHtml = pagesState.map((pg, i) => {
+        const sel = i === selectedPageIndex ? ' selected' : '';
+        const canDelete = pagesState.length > 1;
+        const deleteBtn = canDelete
+          ? `<span class="page-item-delete" onclick="event.stopPropagation(); deletePage(${i})" title="Delete page">×</span>`
+          : '';
+        return `<div class="page-item${sel}" onclick="selectPage(${i})">
+          <span class="page-item-name" ondblclick="event.stopPropagation(); startRenamePage(${i})">${escHtml(pg.name)}</span>
+          ${deleteBtn}
+        </div>`;
+      }).join('');
+
+      // Panel cards HTML
+      let panelCardsHtml = PANEL_TYPES.map(pt => {
+        const isSelected = selectedTypes.includes(pt.type);
+        const isDisabled = !isSelected && atMax;
+        let cls = 'panel-card';
+        if (isSelected) cls += ' selected';
+        if (isDisabled) cls += ' disabled';
+        const onclick = isDisabled ? '' : `onclick="togglePanel('${pt.type}')"`;
+        return `<div class="${cls}" ${onclick}>
+          <span class="panel-card-icon">${pt.icon}</span>
+          <span class="panel-card-name">${pt.name}</span>
+          <span class="panel-card-check">✓</span>
+        </div>`;
+      }).join('');
+
+      // Selected panels order list
+      let orderListHtml = '';
+      if (selectedTypes.length > 0) {
+        const items = page.panels.map((p, i) => {
+          const pt = PANEL_TYPES.find(t => t.type === p.type);
+          return `<div class="selected-panel-item">
+            <span class="selected-panel-num">${i + 1}</span>
+            <span>${pt ? pt.icon : ''} ${pt ? pt.name : p.type}</span>
+          </div>`;
+        }).join('');
+        orderListHtml = `
+          <div class="selected-panels-order">
+            <div class="selected-panels-order-title">Panel Order</div>
+            ${items}
+          </div>`;
+      }
+
+      container.innerHTML = `
+        <div class="step visible">
+          <div class="pages-builder">
+            <div class="page-list-col">
+              <div class="page-list-title">Pages</div>
+              ${pageListHtml}
+              <button class="page-add-btn" onclick="addPage()">+ Add Page</button>
+            </div>
+            <div class="panels-col">
+              <div class="panels-title">Panels on ${escHtml(page.name)}</div>
+              <div class="panels-grid">
+                ${panelCardsHtml}
+              </div>
+              ${atMax ? '<div class="max-hint">Max 6 panels per page</div>' : ''}
+              ${orderListHtml}
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="prevStep()">BACK</button>
+            <button class="btn btn-primary" onclick="savePagesAndNext()">NEXT</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function escHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    function selectPage(index) {
+      selectedPageIndex = index;
+      renderPagesStep(document.getElementById('step-container'));
+    }
+
+    function addPage() {
+      pageCounter++;
+      const newId = 'page' + pageCounter;
+      const newName = 'Page ' + pageCounter;
+      pagesState.push({ id: newId, name: newName, panels: [] });
+      selectedPageIndex = pagesState.length - 1;
+      renderPagesStep(document.getElementById('step-container'));
+    }
+
+    function deletePage(index) {
+      if (pagesState.length <= 1) return;
+      pagesState.splice(index, 1);
+      if (selectedPageIndex >= pagesState.length) {
+        selectedPageIndex = pagesState.length - 1;
+      } else if (selectedPageIndex > index) {
+        selectedPageIndex--;
+      } else if (selectedPageIndex === index) {
+        selectedPageIndex = Math.min(index, pagesState.length - 1);
+      }
+      renderPagesStep(document.getElementById('step-container'));
+    }
+
+    function startRenamePage(index) {
+      const container = document.getElementById('step-container');
+      const pageItems = container.querySelectorAll('.page-item');
+      const item = pageItems[index];
+      const nameSpan = item.querySelector('.page-item-name');
+      const currentName = pagesState[index].name;
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'page-item-name-input';
+      input.value = currentName;
+      nameSpan.replaceWith(input);
+      input.focus();
+      input.select();
+
+      function finishRename() {
+        const newName = input.value.trim() || currentName;
+        pagesState[index].name = newName;
+        renderPagesStep(document.getElementById('step-container'));
+      }
+
+      input.addEventListener('blur', finishRename);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { input.blur(); }
+        if (e.key === 'Escape') { input.value = currentName; input.blur(); }
+      });
+    }
+
+    function togglePanel(type) {
+      const page = pagesState[selectedPageIndex];
+      const idx = page.panels.findIndex(p => p.type === type);
+      if (idx !== -1) {
+        // Remove panel
+        page.panels.splice(idx, 1);
+        // Re-assign col values
+        page.panels.forEach((p, i) => { p.col = i + 1; });
+      } else {
+        if (page.panels.length >= MAX_PANELS) return;
+        // Add panel at next position
+        page.panels.push({ type: type, col: page.panels.length + 1, width: 1 });
+      }
+      renderPagesStep(document.getElementById('step-container'));
+    }
+
+    function savePagesAndNext() {
+      // Write pagesState back to config
+      config.pages = pagesState.map(pg => ({
+        id: pg.id,
+        name: pg.name,
+        panels: pg.panels.map((p, i) => ({ type: p.type, col: i + 1, width: 1 }))
+      }));
+      window.orbit.saveConfig(config);
+      nextStep();
     }
 
     function nextStep() { currentStep++; renderProgress(); renderStep(); }
