@@ -1135,79 +1135,130 @@
     }
 
     // ═══ INDIVIDUAL MEDIA PANELS ═══
-    function SonarrPanel({ config, openSettings }) {
-      const sCfg = config?.integrations?.sonarr;
-      const configured = sCfg?.url && sCfg?.apiKey;
-      const [queue, setQueue] = useState(null);
+    function ArrPanel({ label, cfg, settingsId, icon, apiBase, apiKey, type }) {
+      const configured = cfg?.url && cfg?.apiKey;
+      const [queue, setQueue] = useState([]);
       const [missing, setMissing] = useState(null);
+      const [history, setHistory] = useState([]);
+      const [disk, setDisk] = useState([]);
       useEffect(() => {
         if (!configured) return;
+        const h2 = {'X-Api-Key': cfg.apiKey};
         async function poll() {
           try {
-            const [q, m] = await Promise.all([
-              window.orbit.apiGet(sCfg.url+'/api/v3/queue', {'X-Api-Key':sCfg.apiKey}),
-              window.orbit.apiGet(sCfg.url+'/api/v3/wanted/missing?pageSize=1', {'X-Api-Key':sCfg.apiKey})
+            const [q, m, hist, d] = await Promise.all([
+              window.orbit.apiGet(cfg.url+'/api/v3/queue?pageSize=5', h2),
+              window.orbit.apiGet(cfg.url+'/api/v3/wanted/missing?pageSize=1', h2),
+              window.orbit.apiGet(cfg.url+'/api/v3/history?pageSize=5&sortKey=date&sortDir=desc', h2),
+              window.orbit.apiGet(cfg.url+'/api/v3/diskspace', h2)
             ]);
-            if (!q?.error) setQueue(q);
+            if (Array.isArray(q?.records)) setQueue(q.records);
             if (!m?.error) setMissing(m?.totalRecords ?? m?.total ?? 0);
+            if (Array.isArray(hist?.records)) setHistory(hist.records.filter(r=>r.eventType==='grabbed'||r.eventType==='downloadFolderImported').slice(0,4));
+            if (Array.isArray(d)) setDisk(d.slice(0,1));
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
-      }, [sCfg?.url, sCfg?.apiKey]);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'📺'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+      }, [cfg?.url, cfg?.apiKey]);
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},label+' ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt(settingsId)},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},icon),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
+
+      const diskFree = disk[0] ? Math.round(disk[0].freeSpace/1e9) : null;
+      const diskTotal = disk[0] ? Math.round(disk[0].totalSpace/1e9) : null;
       return h('div',{className:'panel'},
-        h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
-        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), queue?.totalRecords ?? queue?.records?.length ?? '...'),
-        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Missing: '), missing != null ? missing : '...')
+        h('div',{className:'panel-label'},label+' ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt(settingsId)},'⚙')),
+        // Stats row
+        h('div',{style:{display:'flex',gap:'16px',marginBottom:'12px',fontSize:'12px'}},
+          h('div', null, h('div',{style:{color:'var(--dim)',fontSize:'10px',marginBottom:'2px'}},'QUEUE'), h('div',{style:{fontWeight:'700',fontSize:'18px',color:'var(--accent)'}}, queue.length || '0')),
+          h('div', null, h('div',{style:{color:'var(--dim)',fontSize:'10px',marginBottom:'2px'}},'MISSING'), h('div',{style:{fontWeight:'700',fontSize:'18px',color: missing > 0 ? 'var(--red, #ff5555)' : 'var(--text)'}}, missing != null ? missing : '…')),
+          diskFree != null && h('div', null, h('div',{style:{color:'var(--dim)',fontSize:'10px',marginBottom:'2px'}},'FREE'), h('div',{style:{fontWeight:'700',fontSize:'18px'}}, diskFree+'GB'))
+        ),
+        // Active queue items
+        queue.length > 0 && h('div', {style:{marginBottom:'10px'}},
+          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'4px'}},'DOWNLOADING'),
+          queue.slice(0,3).map((item,i) => {
+            const pct = item.size > 0 ? Math.round((1-(item.sizeLeft/item.size))*100) : 0;
+            const name = (item.title||'').replace(/\.(mkv|mp4|avi|nzb)$/i,'').slice(0,34);
+            return h('div',{key:i,style:{marginBottom:'6px'}},
+              h('div',{style:{fontSize:'10px',color:'var(--text)',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
+              h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
+              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginTop:'1px'}}, pct+'% · '+(item.status||'').replace('downloading','↓ downloading'))
+            );
+          })
+        ),
+        // Recent activity
+        history.length > 0 && h('div', null,
+          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'4px'}},'RECENT'),
+          history.slice(0,3).map((item,i) => {
+            const name = (item.sourceTitle||item.title||'').replace(/\.(mkv|mp4|avi|nzb)$/i,'').slice(0,34);
+            const isImport = item.eventType === 'downloadFolderImported';
+            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}},
+              h('span',{style:{fontSize:'10px',color: isImport ? 'var(--green, #50fa7b)' : 'var(--accent)'}}, isImport?'✓':'↓'),
+              h('div',{style:{fontSize:'10px',color:'var(--dim)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name)
+            );
+          })
+        )
       );
     }
 
+    function SonarrPanel({ config, openSettings }) {
+      return h(ArrPanel, { label:'SONARR', cfg:config?.integrations?.sonarr, settingsId:'settings-sonarr', icon:'📺', type:'sonarr' });
+    }
     function RadarrPanel({ config, openSettings }) {
-      const rCfg = config?.integrations?.radarr;
-      const configured = rCfg?.url && rCfg?.apiKey;
-      const [queue, setQueue] = useState(null);
-      const [missing, setMissing] = useState(null);
-      useEffect(() => {
-        if (!configured) return;
-        async function poll() {
-          try {
-            const [q, m] = await Promise.all([
-              window.orbit.apiGet(rCfg.url+'/api/v3/queue', {'X-Api-Key':rCfg.apiKey}),
-              window.orbit.apiGet(rCfg.url+'/api/v3/wanted/missing?pageSize=1', {'X-Api-Key':rCfg.apiKey})
-            ]);
-            if (!q?.error) setQueue(q);
-            if (!m?.error) setMissing(m?.totalRecords ?? m?.total ?? 0);
-          } catch {}
-        }
-        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
-      }, [rCfg?.url, rCfg?.apiKey]);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
-      return h('div',{className:'panel'},
-        h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
-        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), queue?.totalRecords ?? queue?.records?.length ?? '...'),
-        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Missing: '), missing != null ? missing : '...')
-      );
+      return h(ArrPanel, { label:'RADARR', cfg:config?.integrations?.radarr, settingsId:'settings-radarr', icon:'🎬', type:'radarr' });
     }
 
     function OverseerrPanel({ config, openSettings }) {
       const oCfg = config?.integrations?.overseerr;
       const configured = oCfg?.url && oCfg?.apiKey;
-      const [data, setData] = useState(null);
+      const [counts, setCounts] = useState(null);
+      const [recent, setRecent] = useState([]);
       useEffect(() => {
         if (!configured) return;
+        const headers = {'X-Api-Key': oCfg.apiKey};
         async function poll() {
           try {
-            const r = await window.orbit.apiGet(oCfg.url+'/api/v1/request?take=100&skip=0&sort=added', {'X-Api-Key':oCfg.apiKey});
-            if (!r?.error) setData(r);
+            const [c, r] = await Promise.all([
+              window.orbit.apiGet(oCfg.url+'/api/v1/request/count', headers),
+              window.orbit.apiGet(oCfg.url+'/api/v1/request?take=6&skip=0&sort=added', headers)
+            ]);
+            if (!c?.error) setCounts(c);
+            if (Array.isArray(r?.results)) setRecent(r.results.slice(0,6));
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
       }, [oCfg?.url, oCfg?.apiKey]);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'OVERSEERR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'🎭'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
-      return h('div',{className:'panel'},
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'OVERSEERR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
-        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Pending: '), data?.results?.filter(r=>r.status===1).length ?? '...'),
-        h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Approved: '), data?.results?.filter(r=>r.status===2).length ?? '...')
+        h('div',{className:'panel-unconfigured-icon'},'🎭'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
+      const statusLabel = {1:'PENDING',2:'APPROVED',3:'DECLINED',4:'PARTIAL',5:'AVAILABLE'};
+      const statusColor = {1:'#ffb86c',2:'var(--accent)',3:'#ff5555',4:'#8be9fd',5:'#50fa7b'};
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'OVERSEERR ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
+        counts && h('div',{style:{display:'flex',gap:'12px',marginBottom:'12px',flexWrap:'wrap'}},
+          [['TOTAL',counts.total,'var(--text)'],['PENDING',counts.pending,'#ffb86c'],['PROCESSING',counts.processing,'var(--accent)'],['AVAILABLE',counts.available,'#50fa7b']]
+            .map(([l,v,c])=>h('div',{key:l},
+              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginBottom:'1px'}},l),
+              h('div',{style:{fontSize:'16px',fontWeight:'700',color:c}},v??'…')
+            ))
+        ),
+        recent.length > 0 && h('div', null,
+          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'6px'}},'RECENT REQUESTS'),
+          recent.map((req,i)=>{
+            const isMovie = req.type==='movie';
+            const user = req.requestedBy?.displayName||req.requestedBy?.plexUsername||'?';
+            const st = req.status||1;
+            return h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'5px'}},
+              h('span',{style:{fontSize:'9px',color: isMovie?'#bd93f9':'var(--accent)',flexShrink:0}}, isMovie?'🎬':'📺'),
+              h('div',{style:{flex:1,fontSize:'10px',color:'var(--dim)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, user),
+              h('span',{style:{fontSize:'9px',color:statusColor[st]||'var(--dim)',flexShrink:0}}, statusLabel[st]||'?')
+            );
+          })
+        )
       );
     }
 
@@ -1215,29 +1266,54 @@
       const nCfg = config?.integrations?.nzbget;
       const configured = nCfg?.url && nCfg?.username;
       const [status, setStatus] = useState(null);
-      const [queueData, setQueueData] = useState(null);
+      const [groups, setGroups] = useState([]);
       useEffect(() => {
         if (!configured) return;
         async function poll() {
           try {
             const auth = btoa(nCfg.username+':'+(nCfg.password||''));
-            const [s, q] = await Promise.all([
+            const [s, g] = await Promise.all([
               window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'status',id:1}]), {Authorization:'Basic '+auth}),
               window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'listgroups',id:2}]), {Authorization:'Basic '+auth})
             ]);
-            if (!s?.error) setStatus(s);
-            if (!q?.error) setQueueData(q);
+            if (Array.isArray(s) && s[0]?.result) setStatus(s[0].result);
+            if (Array.isArray(g) && Array.isArray(g[0]?.result)) setGroups(g[0].result.slice(0,4));
           } catch {}
         }
-        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+        poll(); const t = setInterval(poll, 10000); return () => clearInterval(t);
       }, [nCfg?.url, nCfg?.username]);
-      if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'NZBGET ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')), h('div',{className:'panel-unconfigured-icon'},'⬇'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
-      return h('div',{className:'panel'},
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'NZBGET ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
-        status ? h('div', null,
-          h('div',{className:'media-stat'}, '↓ ', ((status[0]?.result?.DownloadRate||0)/1024/1024).toFixed(1), ' MB/s'),
-          h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), Array.isArray(queueData?.[0]?.result) ? queueData[0].result.length : 0)
-        ) : h('div',{className:'media-stat'},'...')
+        h('div',{className:'panel-unconfigured-icon'},'⬇'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
+      const rateMBs = status ? (status.DownloadRate/1024/1024).toFixed(2) : '0.00';
+      const remMB = status ? status.RemainingSizeMB : 0;
+      const paused = status?.DownloadPaused;
+      return h('div',{className:'panel'},
+        h('div',{className:'panel-label'},'NZBGET ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
+        h('div',{style:{display:'flex',gap:'16px',marginBottom:'12px'}},
+          h('div', null,
+            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'2px'}},'SPEED'),
+            h('div',{style:{fontSize:'22px',fontWeight:'700',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
+          ),
+          remMB > 0 && h('div', null,
+            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'2px'}},'REMAINING'),
+            h('div',{style:{fontSize:'16px',fontWeight:'700'}}, remMB > 1024 ? (remMB/1024).toFixed(1)+' GB' : remMB+' MB')
+          )
+        ),
+        groups.length > 0 && h('div', null,
+          h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'6px'}},'QUEUE'),
+          groups.map((g,i)=>{
+            const pct = g.FileSizeMB > 0 ? Math.round((1-(g.RemainingSizeMB/g.FileSizeMB))*100) : 0;
+            const name = (g.NZBNicename||g.NZBFilename||'Unknown').slice(0,34);
+            return h('div',{key:i,style:{marginBottom:'7px'}},
+              h('div',{style:{fontSize:'10px',color:'var(--text)',marginBottom:'2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
+              h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
+              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginTop:'1px'}}, pct+'% · '+g.RemainingSizeMB+'MB left')
+            );
+          })
+        ),
+        !status && h('div',{className:'media-stat'},'...')
       );
     }
 
