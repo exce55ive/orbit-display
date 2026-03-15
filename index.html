@@ -781,7 +781,7 @@
     function LinksPanel({ config }) {
       const links = config?.links || DEFAULT_CONFIG.links;
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'LINKS'),
+        h('div', {className:'panel-label'}, 'LINKS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-links')}, '⚙')),
         links.map((lnk,i) => h('div', {key:i, className:'link-item', onClick:()=>window.orbit.openExternal(lnk.url)},
           h('span', {className:'link-icon'}, lnk.icon || '🔗'),
           h('span', {className:'link-label'}, lnk.label)
@@ -979,6 +979,28 @@
             h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-links'},
+              h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
+              (cfg.links||[]).map((lnk,i) =>
+                h('div', {key:i, style:{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}},
+                  h('input', {className:'field-input', style:{width:'44px'}, placeholder:'🔗', value:lnk.icon||'', onChange:e=>{
+                    const l=[...(cfg.links||[])]; l[i]={...l[i],icon:e.target.value}; setCfg(c=>({...c,links:l}));
+                  }}),
+                  h('input', {className:'field-input', style:{flex:1}, placeholder:'Label', value:lnk.label||'', onChange:e=>{
+                    const l=[...(cfg.links||[])]; l[i]={...l[i],label:e.target.value}; setCfg(c=>({...c,links:l}));
+                  }}),
+                  h('input', {className:'field-input', style:{flex:2}, placeholder:'https://...', value:lnk.url||'', onChange:e=>{
+                    const l=[...(cfg.links||[])]; l[i]={...l[i],url:e.target.value}; setCfg(c=>({...c,links:l}));
+                  }}),
+                  h('button', {className:'page-delete-btn', onClick:()=>{
+                    const l=(cfg.links||[]).filter((_,idx)=>idx!==i); setCfg(c=>({...c,links:l}));
+                  }}, '✕')
+                )
+              ),
+              h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginBottom:'8px'}, onClick:()=>{
+                const l=[...(cfg.links||[]),{icon:'🔗',label:'New Link',url:'https://'}]; setCfg(c=>({...c,links:l}));
+              }}, '+ ADD LINK')
+            ),
             h('button', {className:'settings-save', onClick:save}, 'SAVE'),
             saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
           )), // close integrations-anchor + pages tab wrapper
