@@ -227,6 +227,18 @@
     .offline-msg { font-size: 11px; color: var(--dim); font-style: italic; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
     .pulse { animation: pulse 2s ease-in-out infinite; }
+    .page-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; cursor: default; }
+    .page-row:hover { border-color: rgba(0,217,255,0.3); }
+    .page-row.drag-over { border-color: var(--accent); background: rgba(0,217,255,0.06); }
+    .page-drag-handle { color: var(--dim); cursor: grab; font-size: 14px; user-select: none; }
+    .page-drag-handle:active { cursor: grabbing; }
+    .page-name-display { flex: 1; font-size: 12px; color: var(--text); }
+    .page-rename-input { flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--accent); color: var(--text-bright); font-size: 12px; font-family: var(--font); outline: none; padding: 0; }
+    .page-edit-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 11px; padding: 0 2px; }
+    .page-edit-btn:hover { color: var(--accent); }
+    .page-panels-info { font-size: 10px; color: var(--dim); margin-top: 2px; }
+    .reconfigure-pages { background: transparent; border: 1px solid var(--border); color: var(--dim); border-radius: 6px; padding: 6px 12px; font-size: 11px; font-family: var(--font); cursor: pointer; letter-spacing: 1px; margin-top: 8px; }
+    .reconfigure-pages:hover { border-color: var(--accent); color: var(--accent); }
   </style>
 </head>
 <body>
@@ -582,8 +594,11 @@
     function MediaPanel({ config, openSettings }) {
       const [overseerr, setOverseerr] = useState(null);
       const [sonarr, setSonarr] = useState(null);
+      const [sonarrMissing, setSonarrMissing] = useState(null);
       const [radarr, setRadarr] = useState(null);
+      const [radarrMissing, setRadarrMissing] = useState(null);
       const [nzbget, setNzbget] = useState(null);
+      const [nzbgetQueue, setNzbgetQueue] = useState(null);
       const oCfg = config?.integrations?.overseerr;
       const sCfg = config?.integrations?.sonarr;
       const rCfg = config?.integrations?.radarr;
@@ -591,19 +606,37 @@
       useEffect(() => {
         async function poll() {
           if (oCfg?.url && oCfg?.apiKey) {
-            try { const r = await window.orbit.apiGet(oCfg.url+'/api/v1/request?take=10&skip=0&sort=added', {'X-Api-Key':oCfg.apiKey}); if (!r.error) setOverseerr(r); } catch {}
+            try { const r = await window.orbit.apiGet(oCfg.url+'/api/v1/request?take=100&skip=0&sort=added', {'X-Api-Key':oCfg.apiKey}); if (!r.error) setOverseerr(r); } catch {}
           }
           if (sCfg?.url && sCfg?.apiKey) {
-            try { const r = await window.orbit.apiGet(sCfg.url+'/api/v3/queue', {'X-Api-Key':sCfg.apiKey}); if (!r.error) setSonarr(r); } catch {}
+            try {
+              const [queueResp, missingResp] = await Promise.all([
+                window.orbit.apiGet(sCfg.url+'/api/v3/queue', {'X-Api-Key':sCfg.apiKey}),
+                window.orbit.apiGet(sCfg.url+'/api/v3/wanted/missing?pageSize=1', {'X-Api-Key':sCfg.apiKey})
+              ]);
+              if (!queueResp?.error) setSonarr(queueResp);
+              if (!missingResp?.error) setSonarrMissing(missingResp?.totalRecords ?? missingResp?.total ?? 0);
+            } catch {}
           }
           if (rCfg?.url && rCfg?.apiKey) {
-            try { const r = await window.orbit.apiGet(rCfg.url+'/api/v3/queue', {'X-Api-Key':rCfg.apiKey}); if (!r.error) setRadarr(r); } catch {}
+            try {
+              const [queueResp, missingResp] = await Promise.all([
+                window.orbit.apiGet(rCfg.url+'/api/v3/queue', {'X-Api-Key':rCfg.apiKey}),
+                window.orbit.apiGet(rCfg.url+'/api/v3/wanted/missing?pageSize=1', {'X-Api-Key':rCfg.apiKey})
+              ]);
+              if (!queueResp?.error) setRadarr(queueResp);
+              if (!missingResp?.error) setRadarrMissing(missingResp?.totalRecords ?? missingResp?.total ?? 0);
+            } catch {}
           }
           if (nCfg?.url && nCfg?.username) {
             try {
               const auth = btoa(nCfg.username+':'+(nCfg.password||''));
-              const r = await window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'status',id:1}]), {Authorization:'Basic '+auth});
-              if (!r.error) setNzbget(r);
+              const [statusResp, queueResp] = await Promise.all([
+                window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'status',id:1}]), {Authorization:'Basic '+auth}),
+                window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'listgroups',id:2}]), {Authorization:'Basic '+auth})
+              ]);
+              if (!statusResp?.error) setNzbget(statusResp);
+              if (!queueResp?.error) setNzbgetQueue(queueResp);
             } catch {}
           }
         }
@@ -617,17 +650,29 @@
       }
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'MEDIA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-sonarr')}, '⚙')),
-        section('Overseerr', oCfg?.url && oCfg?.apiKey,
-          h('div',{className:'media-stat'}, 'Pending: ', overseerr?.results?.filter(r=>r.status===1).length ?? '...')
-        ),
         section('Sonarr', sCfg?.url && sCfg?.apiKey,
-          h('div',{className:'media-stat'}, 'Queue: ', sonarr?.totalRecords ?? sonarr?.records?.length ?? '...')
+          h('div', null,
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), sonarr?.totalRecords ?? sonarr?.records?.length ?? '...'),
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Missing: '), sonarrMissing != null ? sonarrMissing : '...')
+          )
         ),
         section('Radarr', rCfg?.url && rCfg?.apiKey,
-          h('div',{className:'media-stat'}, 'Queue: ', radarr?.totalRecords ?? radarr?.records?.length ?? '...')
+          h('div', null,
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), radarr?.totalRecords ?? radarr?.records?.length ?? '...'),
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Missing: '), radarrMissing != null ? radarrMissing : '...')
+          )
+        ),
+        section('Overseerr', oCfg?.url && oCfg?.apiKey,
+          h('div', null,
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Pending: '), overseerr?.results?.filter(r=>r.status===1).length ?? '...'),
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Approved: '), overseerr?.results?.filter(r=>r.status===2).length ?? '...')
+          )
         ),
         section('NZBGet', nCfg?.url && nCfg?.username,
-          nzbget ? h('div',{className:'media-stat'}, 'Speed: ', formatBytes((nzbget[0]?.result?.DownloadRate||0))) : h('div',{className:'media-stat'},'Loading...')
+          nzbget ? h('div', null,
+            h('div',{className:'media-stat'}, '↓ ', ((nzbget[0]?.result?.DownloadRate||0) / 1024 / 1024).toFixed(1), ' MB/s'),
+            h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), Array.isArray(nzbgetQueue?.[0]?.result) ? nzbgetQueue[0].result.length : 0)
+          ) : h('div',{className:'media-stat'},'Loading...')
         )
       );
     }
@@ -641,9 +686,18 @@
         if (!configured) return;
         async function poll() {
           try {
-            const r = await window.orbit.apiGet(uCfg.url+'/api/v1/monitor', {'Authorization':'Bearer '+uCfg.apiKey});
-            if (r && !r.error && Array.isArray(r)) setMonitors(r);
-            else if (r?.monitors) setMonitors(r.monitors);
+            // Try REST API (Uptime Kuma 1.23+)
+            const r = await window.orbit.apiGet(uCfg.url + '/api/v1/monitors', { 'Authorization': 'Bearer ' + uCfg.apiKey });
+            if (r && !r.error) {
+              // monitorList is an object keyed by ID
+              if (r.monitorList) {
+                setMonitors(Object.values(r.monitorList));
+              } else if (Array.isArray(r)) {
+                setMonitors(r);
+              } else if (r.monitors) {
+                setMonitors(Array.isArray(r.monitors) ? r.monitors : Object.values(r.monitors));
+              }
+            }
           } catch {}
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
@@ -654,7 +708,8 @@
         h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'UPTIME KUMA'),
         monitors.length === 0 ? h('div',{className:'offline-msg'},'No monitors found') :
         monitors.map((m,i) => {
-          const status = m.active !== false ? (m.status === 1 ? 'up' : m.status === 0 ? 'down' : 'pending') : 'pending';
+          const latestStatus = m.heartBeatList?.[m.heartBeatList.length - 1]?.status ?? m.heartbeat?.status;
+          const status = !m.active ? 'pending' : latestStatus === 1 ? 'up' : latestStatus === 0 ? 'down' : 'pending';
           return h('div', {key:i, className:'monitor-item'},
             h('div', {className:'monitor-dot '+status}),
             h('div', {className:'monitor-name'}, m.name || m.url || 'Monitor '+(i+1)),
@@ -732,6 +787,95 @@
       );
     }
 
+    // ═══ PAGES TAB (Settings) ═══
+    function PagesTab({ cfg, setCfg }) {
+      const [editingIndex, setEditingIndex] = useState(-1);
+      const [editingValue, setEditingValue] = useState('');
+      const [dragOverIndex, setDragOverIndex] = useState(-1);
+
+      function startEdit(i, name) {
+        setEditingIndex(i);
+        setEditingValue(name || 'Page '+(i+1));
+      }
+      function saveName(i) {
+        if (editingValue.trim()) {
+          cfg.pages[i].name = editingValue.trim();
+          setCfg({...cfg});
+        }
+        setEditingIndex(-1);
+        setEditingValue('');
+      }
+      function cancelEdit() {
+        setEditingIndex(-1);
+        setEditingValue('');
+      }
+
+      return h('div', null,
+        h('div', {className:'settings-section'}, 'PAGES'),
+        (cfg.pages||[]).map(function(page, i) {
+          return h('div', {
+            key: page.id || i,
+            className: 'page-row' + (dragOverIndex === i ? ' drag-over' : ''),
+            draggable: true,
+            onDragStart: function(e) {
+              e.dataTransfer.setData('text/plain', String(i));
+              e.dataTransfer.effectAllowed = 'move';
+            },
+            onDragOver: function(e) {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setDragOverIndex(i);
+            },
+            onDragLeave: function() {
+              setDragOverIndex(-1);
+            },
+            onDrop: function(e) {
+              e.preventDefault();
+              setDragOverIndex(-1);
+              var from = Number(e.dataTransfer.getData('text/plain'));
+              var to = i;
+              if (from === to || isNaN(from)) return;
+              var pages = cfg.pages.slice();
+              var moved = pages.splice(from, 1)[0];
+              pages.splice(to, 0, moved);
+              cfg.pages = pages;
+              setCfg({...cfg});
+            },
+            onDragEnd: function() {
+              setDragOverIndex(-1);
+            }
+          },
+            h('span', {className:'page-drag-handle'}, '⠿'),
+            editingIndex === i
+              ? h('input', {
+                  className: 'page-rename-input',
+                  value: editingValue,
+                  autoFocus: true,
+                  onChange: function(e) { setEditingValue(e.target.value); },
+                  onBlur: function() { saveName(i); },
+                  onKeyDown: function(e) {
+                    if (e.key === 'Enter') saveName(i);
+                    if (e.key === 'Escape') cancelEdit();
+                  }
+                })
+              : h('div', {style:{flex:1}},
+                  h('span', {className:'page-name-display'}, page.name || 'Page '+(i+1)),
+                  h('div', {className:'page-panels-info'}, (page.panels||[]).map(function(p){return p.type;}).join(', '))
+                ),
+            h('button', {className:'page-edit-btn', onClick: function() { startEdit(i, page.name); }}, '✏')
+          );
+        }),
+        h('button', {
+          className: 'reconfigure-pages',
+          onClick: function() {
+            if (window.orbit && typeof window.orbit.openSetup === 'function') {
+              window.orbit.openSetup();
+            }
+          }
+        }, '↺ Reconfigure Pages')
+      );
+    }
+
     // ═══ SETTINGS OVERLAY ═══
     function SettingsOverlay({ config, onClose, onSave }) {
       const [tab, setTab] = useState('integrations');
@@ -785,13 +929,7 @@
           ),
 
           // ── PAGES TAB ──
-          tab === 'pages' && h('div', null,
-            h('div', {className:'settings-section'}, 'PAGES'),
-            (cfg.pages||[]).map((page,i) => h('div', {key:i, style:{padding:'8px 12px',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'6px',marginBottom:'6px'}},
-              h('div', {style:{fontSize:'12px',fontWeight:600,color:'var(--text-bright)',marginBottom:'4px'}}, page.name || 'Page '+(i+1)),
-              h('div', {style:{fontSize:'10px',color:'var(--dim)'}}, (page.panels||[]).map(p=>p.type).join(', '))
-            ))
-          ),
+          tab === 'pages' && h(PagesTab, { cfg, setCfg }),
 
           // ── INTEGRATION CONFIG SECTIONS (hidden, scrolled to via panel cog buttons) ──
           h('div', {id:'settings-integrations-anchor', style:{marginTop:'16px'}},
