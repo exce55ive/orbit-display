@@ -25,7 +25,7 @@
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
-    .panel { height: 100vh; padding: 20px 16px 60px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .panel { height: calc(100vh - 52px); padding: 20px 16px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
     .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
     .source-badge { display: inline-block; padding: 2px 8px; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; border-radius: 10px; background: rgba(0,217,255,0.1); color: var(--accent); border: 1px solid rgba(0,217,255,0.2); text-transform: uppercase; }
@@ -87,7 +87,7 @@
     .np-empty-text { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); }
     .np-offline { color: var(--amber); font-size: 13px; letter-spacing: 1px; }
     .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 110px); padding: 0 2px; }
-    .panel-top { justify-content: flex-start !important; padding-top: 48px !important; padding-bottom: 60px !important; align-items: stretch !important; }
+    .panel-top { justify-content: flex-start !important; padding-top: 48px !important; padding-bottom: 16px !important; align-items: stretch !important; overflow-y: auto !important; }
     .np-session-list::-webkit-scrollbar { width: 3px; }
     .np-session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .np-session { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; text-align: left; }
@@ -158,16 +158,17 @@
     .jf-title { font-size: 13px; font-weight: 700; color: var(--text-bright); }
     .jf-user { font-size: 10px; color: var(--dim); }
     /* nav arrows removed — swipe + keyboard only */
-    .page-dots { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 50; pointer-events: auto; background: rgba(0,0,0,0.35); padding: 8px 14px; border-radius: 20px; backdrop-filter: blur(4px); }
+    .page-dots { display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: auto; }
     .page-dots-row { display: flex; gap: 12px; align-items: center; }
     .page-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.2s; cursor: pointer; border: none; padding: 0; display: block; }
     .page-dot:hover { background: rgba(255,255,255,0.45); }
     .page-dot.active { background: var(--accent); width: 12px; height: 12px; box-shadow: 0 0 6px var(--accent); }
     .page-name-label { font-size: 11px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
     .page-name-label { font-size: 9px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
-    .settings-gear { position: fixed; top: 12px; right: 48px; background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 16px; cursor: pointer; z-index: 60; transition: color .2s, opacity .2s; font-family: var(--font); opacity: 0; }
-    body:hover .settings-gear { opacity: 1; }
-    .settings-gear:hover { color: rgba(255,255,255,0.7); }
+    .settings-gear { display: none; }
+    .panel-cog-btn { display: none !important; }
+    .sys-gear-btn { display: none !important; }
+    
     .settings-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; justify-content: flex-end; }
     .settings-panel { width: 420px; height: 100vh; overflow-y: auto; background: #0d1520; border-left: 1px solid var(--border); padding: 24px; display: flex; flex-direction: column; gap: 16px; }
     .settings-panel::-webkit-scrollbar { width: 4px; }
@@ -185,6 +186,14 @@
     .settings-textarea { width: 100%; padding: 8px 12px; font-size: 11px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; resize: vertical; min-height: 60px; }
     .settings-textarea:focus { border-color: var(--accent); }
     .settings-label { font-size: 11px; color: var(--dim); margin-bottom: 4px; letter-spacing: 1px; }
+    /* ── Bottom Bar ──────────────────────────────────────────────────────── */
+    .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 52px; background: rgba(6,10,16,0.94); border-top: 1px solid var(--border); backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .bottom-bar-left { position: absolute; left: 16px; display: flex; align-items: center; gap: 8px; }
+    .bottom-bar-right { position: absolute; right: 16px; display: flex; align-items: center; gap: 8px; }
+    .bottom-gear { background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: rgba(255,255,255,0.3); font-size: 14px; cursor: pointer; padding: 6px 10px; font-family: var(--font); transition: all 0.2s; line-height: 1; }
+    .bottom-gear:hover { border-color: rgba(255,255,255,0.3); color: var(--text); }
+    .bottom-update-btn { background: rgba(80,250,123,0.1); border: 1px solid rgba(80,250,123,0.35); border-radius: 6px; color: var(--green); font-size: 11px; cursor: pointer; padding: 5px 10px; font-family: var(--font); font-weight: 700; letter-spacing: 0.5px; transition: all 0.2s; white-space: nowrap; }
+    .bottom-update-btn:hover { background: rgba(80,250,123,0.2); }
     /* HA Entity Browser */
     .ha-browser-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 2000; display: flex; align-items: center; justify-content: center; }
     .ha-browser-modal { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; width: min(560px, 95vw); max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.6); }
@@ -226,7 +235,7 @@
     .settings-update-btn { padding: 8px 16px; font-size: 11px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; transition: all .2s; }
     .settings-update-btn:hover { background: rgba(0,217,255,0.1); }
     .settings-changelog { font-size: 11px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
-    .update-pill { position: fixed; top: 12px; right: 84px; width: 28px; height: 28px; border-radius: 50%; background: rgba(80,250,123,0.15); border: 1px solid rgba(80,250,123,0.4); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--green); z-index: 60; transition: opacity .2s; }
+    .update-pill { display: none; }
     .update-pill:hover { opacity: 1; background: rgba(80,250,123,0.25); }
     .update-confirm-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(6,10,16,0.9); }
     .update-confirm-modal { width: 340px; padding: 24px; background: #0d1520; border: 1px solid var(--border); border-radius: 12px; text-align: center; }
@@ -1961,6 +1970,69 @@
     }
 
     // ═══ MAIN APP ═══
+    // ── BOTTOM BAR — bumper strip with settings, page dots, update badge ──
+    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings }) {
+      const [update, setUpdate] = useState(null);
+      const [showConfirm, setShowConfirm] = useState(false);
+      const [downloading, setDownloading] = useState(false);
+      const [progress, setProgress] = useState(0);
+      const [downloaded, setDownloaded] = useState(false);
+
+      useEffect(() => {
+        window.orbit.getPendingUpdate().then(u => { if (u) setUpdate(u); });
+        window.orbit.onUpdateAvailable(info => setUpdate(info));
+        window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
+        window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
+        window.orbit.onUpdateError(() => setDownloading(false));
+      }, []);
+
+      const hasUpdate = update || downloaded;
+
+      return h(React.Fragment, null,
+        // The bar
+        h('div', {className:'bottom-bar'},
+          // Left — settings gear
+          h('div', {className:'bottom-bar-left'},
+            h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙')
+          ),
+
+          // Centre — page dots + name (only if multiple pages)
+          pages.length > 1 && h('div', {className:'page-dots'},
+            h('div', {className:'page-dots-row'},
+              pages.map((pg,i) => h('button', {key:i, className:'page-dot'+(i===currentPage?' active':''),
+                onClick:()=>setCurrentPage(i), title:pg.name||'Page '+(i+1)}))
+            ),
+            h('div', {className:'page-name-label'}, page?.name || '')
+          ),
+
+          // Right — update badge when available
+          h('div', {className:'bottom-bar-right'},
+            downloaded && h('button', {className:'bottom-update-btn', onClick:()=>window.orbit.installUpdate(), title:'Restart to install update'}, '⟳ RESTART'),
+            !downloaded && update && h('button', {className:'bottom-update-btn', onClick:()=>setShowConfirm(true), title:'Update available'},
+              downloading ? progress+'%' : '↓ UPDATE'
+            )
+          )
+        ),
+
+        // Update confirm modal (unchanged logic)
+        showConfirm && h('div', {className:'update-confirm-overlay', onClick:e=>{if(e.target===e.currentTarget&&!downloading)setShowConfirm(false)}},
+          h('div', {className:'update-confirm-modal'},
+            h('div', {className:'update-confirm-title'}, 'Update Available'),
+            h('div', {className:'update-confirm-version'}, 'v'+(update?.version||'?')),
+            downloading
+              ? h(React.Fragment, null,
+                  h('div', {className:'update-progress-bar'}, h('div', {className:'update-progress-fill', style:{width:progress+'%'}})),
+                  h('div', {className:'update-status-text'}, 'Downloading... '+progress+'%')
+                )
+              : h('div', {className:'update-confirm-btns'},
+                  h('button', {className:'update-confirm-btn primary', onClick:()=>{setDownloading(true);window.orbit.downloadUpdate();}}, 'Download'),
+                  h('button', {className:'update-confirm-btn cancel', onClick:()=>setShowConfirm(false)}, 'Later')
+                )
+          )
+        )
+      );
+    }
+
     function App() {
       const [config, setConfig] = useState(null);
       const [currentPage, setCurrentPage] = useState(0);
@@ -2058,22 +2130,11 @@
       return h(SignalRGBContext.Provider, {value: {isOn: signalIsOn}},
         h('div', {id:'app'}, ...renderedPanels),
 
-        // Page dots (swipe / keyboard only — no arrows)
-        pages.length > 1 && h('div', {className:'page-dots'},
-          h('div', {className:'page-dots-row'},
-            pages.map((pg,i) => h('button', {key:i, className:'page-dot'+(i===currentPage?' active':''), onClick:()=>setCurrentPage(i), title:pg.name||'Page '+(i+1)}))
-          ),
-          h('div', {className:'page-name-label'}, page?.name || '')
-        ),
+        // ── Bottom bar — hard bumper with settings + dots + update ──────────
+        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings}),
 
-        // Settings gear
-        h('button', {className:'settings-gear', onClick:openSettings}, '⚙'),
-
-        // Quit button
+        // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
-
-        // Update pill
-        h(UpdatePill, null),
 
         // Settings overlay
         showSettings && h(SettingsOverlay, {config, onClose:()=>setShowSettings(false), onSave:c=>{setConfig(c); if(c.theme?.accentColor) document.documentElement.style.setProperty('--accent',c.theme.accentColor);}})
