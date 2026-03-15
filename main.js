@@ -479,3 +479,92 @@ ipcMain.handle('install-update', () => {
 });
 
 ipcMain.handle('get-pending-update', () => pendingUpdate);
+
+// ─── IPC: SPOTIFY OAUTH ───────────────────────────────────────────────────────
+ipcMain.handle('spotify-auth-start', async () => {
+  const cfg = loadOrbitConfig();
+  const clientId = cfg?.integrations?.spotify?.clientId;
+  if (!clientId) return { error: 'No client ID configured' };
+
+  const http = require('http');
+  const { shell } = require('electron');
+
+  return new Promise((resolve) => {
+    const redirectUri = 'http://localhost:8888/callback';
+    const scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing';
+    const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+    // Temp server to catch the callback
+    const server = http.createServer(async (req, res) => {
+      if (!req.url.startsWith('/callback')) return;
+      const code = new URL(req.url, 'http://localhost:8888').searchParams.get('code');
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end('<html><body style="font-family:monospace;background:#060a10;color:#00d9ff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><h2>Spotify connected. You can close this tab.</h2></body></html>');
+      server.close();
+
+      if (!code) { resolve({ error: 'No code received' }); return; }
+
+      // Exchange code for tokens
+      const fetch = await getFetch();
+      const clientSecret = cfg?.integrations?.spotify?.clientSecret;
+      const params = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri });
+      try {
+        const r = await fetch('https://accounts.spotify.com/api/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+          },
+          body: params.toString()
+        });
+        const tokens = await r.json();
+        if (tokens.access_token) {
+          // Save tokens to config
+          const currentCfg = loadOrbitConfig();
+          currentCfg.integrations.spotify.accessToken = tokens.access_token;
+          currentCfg.integrations.spotify.refreshToken = tokens.refresh_token;
+          currentCfg.integrations.spotify.tokenExpiry = Date.now() + (tokens.expires_in * 1000);
+          saveOrbitConfig(currentCfg);
+          resolve({ ok: true });
+        } else {
+          resolve({ error: tokens.error_description || 'Token exchange failed' });
+        }
+      } catch (e) {
+        resolve({ error: e.message });
+      }
+    });
+
+    server.listen(8888, '127.0.0.1', () => {
+      shell.openExternal(authUrl);
+    });
+
+    // Timeout after 5 minutes
+    setTimeout(() => { try { server.close(); } catch {} resolve({ error: 'Auth timeout' }); }, 300000);
+  });
+});
+
+ipcMain.handle('spotify-refresh-token', async () => {
+  const cfg = loadOrbitConfig();
+  const { clientId, clientSecret, refreshToken } = cfg?.integrations?.spotify || {};
+  if (!refreshToken) return { error: 'No refresh token' };
+  const fetch = await getFetch();
+  const params = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken });
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+      },
+      body: params.toString()
+    });
+    const tokens = await r.json();
+    if (tokens.access_token) {
+      cfg.integrations.spotify.accessToken = tokens.access_token;
+      cfg.integrations.spotify.tokenExpiry = Date.now() + (tokens.expires_in * 1000);
+      saveOrbitConfig(cfg);
+      return { ok: true, accessToken: tokens.access_token };
+    }
+    return { error: tokens.error_description || 'Refresh failed' };
+  } catch (e) { return { error: e.message }; }
+});

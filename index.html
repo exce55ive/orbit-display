@@ -722,27 +722,57 @@
     function SpotifyPanel({ config, openSettings }) {
       const sCfg = config?.integrations?.spotify;
       const configured = sCfg?.clientId && sCfg?.clientSecret;
-      // TODO: Full OAuth implementation — this is a UI shell
-      const [authorized] = useState(false);
+      const authorized = !!(sCfg?.accessToken);
+      const [connecting, setConnecting] = useState(false);
+      const [connectErr, setConnectErr] = useState('');
+      const [playback, setPlayback] = useState(null);
+
+      useEffect(() => {
+        if (!authorized) return;
+        async function poll() {
+          try {
+            // Auto-refresh token if expired
+            let token = sCfg.accessToken;
+            if (sCfg.tokenExpiry && Date.now() > sCfg.tokenExpiry - 60000) {
+              const r = await window.orbit.spotifyRefreshToken();
+              if (r.accessToken) token = r.accessToken;
+            }
+            const r = await window.orbit.apiGet('https://api.spotify.com/v1/me/player/currently-playing', { Authorization: 'Bearer ' + token });
+            if (r && r.item) setPlayback(r);
+            else setPlayback(null);
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 5000); return () => clearInterval(t);
+      }, [authorized, sCfg?.accessToken]);
+
       if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎵'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+
       if (!authorized) {
         return h('div', {className:'panel'},
           h('div', {className:'panel-label'}, 'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')),
           h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '🎵'),
-          h('button', {className:'spotify-connect', onClick:() => {
-            const url = 'https://accounts.spotify.com/authorize?client_id='+sCfg.clientId+'&response_type=code&scope=user-read-playback-state+user-modify-playback-state&redirect_uri=http://localhost:8888/callback';
-            window.orbit.openExternal(url);
-          }}, 'Connect Spotify')
+          connectErr && h('div', {style:{fontSize:'10px',color:'var(--red)',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
+          h('button', {className:'spotify-connect', disabled:connecting, onClick: async () => {
+            setConnecting(true); setConnectErr('');
+            const r = await window.orbit.spotifyAuthStart();
+            setConnecting(false);
+            if (r.error) setConnectErr(r.error);
+            // On success, config will reload with the new token on next render
+          }}, connecting ? 'Connecting...' : 'Connect Spotify')
         );
       }
+
+      const track = playback?.item;
+      const isPlaying = playback?.is_playing;
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'SPOTIFY ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-spotify')}, '⚙')),
-        h('div', {className:'spotify-track'}, 'Track Name'),
-        h('div', {className:'spotify-artist'}, 'Artist'),
-        h('div', {className:'spotify-controls'},
-          h('button', {className:'spotify-btn'}, '⏮'),
-          h('button', {className:'spotify-btn'}, '⏯'),
-          h('button', {className:'spotify-btn'}, '⏭')
+        track ? h(React.Fragment, null,
+          h('div', {className:'spotify-track'}, track.name),
+          h('div', {className:'spotify-artist'}, track.artists?.map(a=>a.name).join(', ')),
+          h('div', {className:'source-badge', style:{margin:'8px 0'}}, isPlaying ? '▶ PLAYING' : '⏸ PAUSED')
+        ) : h('div', {className:'np-empty'},
+          h('div', {className:'np-empty-icon'}, '🎵'),
+          h('div', {className:'np-empty-text'}, 'NOTHING PLAYING')
         )
       );
     }

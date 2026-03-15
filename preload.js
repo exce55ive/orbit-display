@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('orbit', {
   fetchSignalRGB: () => ipcRenderer.invoke('fetch-signalrgb'),
   activateEffect: (id) => ipcRenderer.invoke('activate-effect', id),
   signalrgbSetEnabled: (enabled) => ipcRenderer.invoke('signalrgb-set-enabled', enabled),
+  spotifyAuthStart: () => ipcRenderer.invoke('spotify-auth-start'),
+  spotifyRefreshToken: () => ipcRenderer.invoke('spotify-refresh-token'),
 
   // Generic API proxy
   apiGet: (url, headers) => ipcRenderer.invoke('api-get', { url, headers }),
