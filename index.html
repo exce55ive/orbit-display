@@ -386,7 +386,7 @@
         setFavorites(next);
         if (config) window.orbit.saveConfig({...config, signalrgbFavorites: next});
       };
-      const filtered = search.trim() ? effectList.filter(e => e.toLowerCase().includes(search.toLowerCase())) : [];
+      const filtered = search.trim() ? effectList.filter(e => e.toLowerCase().includes(search.toLowerCase())) : effectList.slice(0, 50);
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'SIGNALRGB'),
         h('div', {className:'effect-name', style:{color:isOn?'var(--accent)':'var(--dim)'}}, effectName),
@@ -400,12 +400,16 @@
           favorites.map(f => h('span', {key:f, className:'fav-pill', onClick:()=>selectEffect(f)}, '⭐ '+f))
         ),
         h('input', {className:'effect-search', type:'text', placeholder:'Search effects...', value:search, onChange:e=>setSearch(e.target.value)}),
-        filtered.length > 0 && h('div', {className:'effect-list'},
-          filtered.map(eff => h('div', {key:eff, className:'effect-option'+(eff===effectName?' active':''), onClick:()=>selectEffect(eff)},
-            h('span', {className:'effect-star'+(favorites.includes(eff)?' starred':''), onClick:e=>{e.stopPropagation();toggleFav(eff)}}, '⭐'),
-            h('span', null, eff)
-          ))
-        )
+        filtered.length > 0
+          ? h('div', {className:'effect-list'},
+              filtered.map(eff => h('div', {key:eff, className:'effect-option'+(eff===effectName?' active':''), onClick:()=>selectEffect(eff)},
+                h('span', {className:'effect-star'+(favorites.includes(eff)?' starred':''), onClick:e=>{e.stopPropagation();toggleFav(eff)}}, '⭐'),
+                h('span', null, eff)
+              ))
+            )
+          : effectList.length === 0 && h('div', {style:{fontSize:'10px',color:'var(--dim)',padding:'6px 10px',fontStyle:'italic'}},
+              'No effects found — ensure SignalRGB is running'
+            )
       );
     }
 

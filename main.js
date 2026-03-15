@@ -335,8 +335,20 @@ ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
 });
 
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
-ipcMain.handle('fetch-signalrgb', async () =>
-  safeFetch(`${legacyConfig.signalrgb?.url || 'http://localhost:16034'}/api/v1/lighting`));
+ipcMain.handle('fetch-signalrgb', async () => {
+  const base = legacyConfig.signalrgb?.url || 'http://localhost:16034';
+  const [state, effectsList] = await Promise.all([
+    safeFetch(`${base}/api/v1/lighting`),
+    safeFetch(`${base}/api/v1/lighting/effects`).catch(() => ({ data: [] }))
+  ]);
+  // Merge effects list into state response
+  if (state && state.data) {
+    const rawEffects = effectsList?.data || [];
+    const names = rawEffects.map(e => typeof e === 'string' ? e : (e.name || e.id || String(e)));
+    if (names.length > 0) state.data.effects = names;
+  }
+  return state;
+});
 
 ipcMain.handle('activate-effect', async (_e, effectId) => {
   const fetch = await getFetch();
