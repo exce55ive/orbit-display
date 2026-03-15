@@ -242,27 +242,7 @@ ipcMain.handle('save-config', async (_e, config) => {
   return { ok: true };
 });
 
-ipcMain.handle('open-settings', async () => {
-  // Close any existing settings window first
-  BrowserWindow.getAllWindows().forEach(w => {
-    if (w !== mainWindow && w.getTitle && w.getTitle() === 'Orbit Settings') w.close();
-  });
-  const settingsWin = new BrowserWindow({
-    width: 520, height: 720,
-    minWidth: 440, minHeight: 500,
-    resizable: true, center: true,
-    title: 'Orbit Settings',
-    backgroundColor: '#060a10',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true, nodeIntegration: false
-    }
-  });
-  settingsWin.loadFile('settings.html');
-  settingsWin.removeMenu();
-  return { ok: true };
-});
+// open-settings removed — settings now live in setup.html
 
 ipcMain.handle('load-config', async () => {
   return loadOrbitConfig();
@@ -684,6 +664,33 @@ ipcMain.handle('start-signalr', (_e, { sonarrUrl, sonarrKey, radarrUrl, radarrKe
   return { ok: true };
 });
 
+
+// ─── IPC: UPTIME KUMA (Socket.IO) ───────────────────────────────────────────
+ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
+  try {
+    const { io } = require('socket.io-client');
+    return await new Promise((resolve) => {
+      const socket = io(url, { transports: ['websocket'], timeout: 10000, reconnection: false });
+      const timer = setTimeout(() => { socket.disconnect(); resolve({ error: 'Connection timeout' }); }, 12000);
+      socket.on('connect_error', (err) => { clearTimeout(timer); socket.disconnect(); resolve({ error: err.message }); });
+      socket.on('connect', () => {
+        socket.emit('login', { username, password }, (result) => {
+          if (!result?.ok) {
+            clearTimeout(timer);
+            socket.disconnect();
+            resolve({ error: 'Login failed: ' + (result?.reason || 'wrong credentials') });
+            return;
+          }
+          socket.emit('getMonitorList', (data) => {
+            clearTimeout(timer);
+            socket.disconnect();
+            resolve({ monitors: Object.values(data || {}) });
+          });
+        });
+      });
+    });
+  } catch (e) { return { error: e.message }; }
+});
 
 // ─── IPC: DISCORD OAUTH ────────────────────────────────────────────────────
 ipcMain.handle('discord-auth-start', async () => {

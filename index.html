@@ -370,7 +370,7 @@
         weather:{city:'Perth'}, tautulli:{url:'',apiKey:''}, plex:{url:'',token:''},
         homeassistant:{url:'',token:'',lights:[]},
         sonarr:{url:'',apiKey:''}, radarr:{url:'',apiKey:''}, overseerr:{url:'',apiKey:''},
-        nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',apiKey:''},
+        nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',username:'',password:''},
         spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''}
       },
       signalrgbFavorites: [],
@@ -384,12 +384,7 @@
     let _openSettingsRef = null;
     let _switchTabRef = null;
     function openSettingsAt(sectionId) {
-      // Open settings window; it will handle scrolling to section via hash
-      if (window.orbit && window.orbit.openSettings) window.orbit.openSettings();
-      setTimeout(() => {
-        const el = document.getElementById(sectionId);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      if (window.orbit && window.orbit.openSetup) window.orbit.openSetup();
     }
 
     // ═══ CLOCK PANEL ═══
@@ -456,19 +451,22 @@
       const [state, setState] = useState(null);
       const [search, setSearch] = useState('');
       const [favorites, setFavorites] = useState(config?.signalrgbFavorites || []);
+      const [error, setError] = useState(null);
       // Always use direct SignalRGB API — no HA dependency
       useEffect(() => {
         async function pollDirect() {
           try {
             const r = await window.orbit.fetchSignalRGB();
-            if (r && !r.error && r.data) {
+            if (r?.error) { setError(r.error); return; }
+            if (r && r.data) {
+              setError(null);
               const cur = r.data.currentEffect || r.data.effect;
               const effs = (r.data.effects||[]).map(e => typeof e === 'string' ? e : (e.name||e.id||String(e)));
               setState({ state: r.data.enabled !== false ? 'on' : 'off', attributes: {
                 brightness: Math.round((r.data.brightness||100)*2.55), effect: cur?.name||cur||'Unknown', effect_list: effs
               }});
             }
-          } catch {}
+          } catch { setError('Could not connect to SignalRGB'); }
         }
         pollDirect(); const t = setInterval(pollDirect, 5000); return () => clearInterval(t);
       }, []);
@@ -505,9 +503,11 @@
                 h('span', null, eff)
               ))
             )
-          : effectList.length === 0 && h('div', {style:{fontSize:'10px',color:'var(--dim)',padding:'6px 10px',fontStyle:'italic'}},
-              'No effects found — ensure SignalRGB is running'
-            )
+          : error
+            ? h('div', {style:{fontSize:'11px', color:'var(--amber)', textAlign:'center', padding:'12px'}}, error)
+            : effectList.length === 0 && h('div', {style:{fontSize:'10px',color:'var(--dim)',padding:'6px 10px',fontStyle:'italic'}},
+                'No effects found'
+              )
       );
     }
 
@@ -776,35 +776,20 @@
       const [monitors, setMonitors] = useState([]);
       const [apiError, setApiError] = useState('');
       const uCfg = config?.integrations?.uptimekuma;
-      const configured = uCfg?.url && uCfg?.apiKey;
+      const configured = uCfg?.url && uCfg?.username && uCfg?.password;
       useEffect(() => {
         if (!configured) return;
         async function poll() {
-          const baseUrl = uCfg.url.replace(/\/$/, '');
-          const endpoint = baseUrl + '/api/v1/monitors';
-          let r = null;
-          // Try Bearer token first (v1 style), then ?apikey= query param (v2 style)
-          try {
-            const res = await window.orbit.apiGet(endpoint, { 'Authorization': 'Bearer ' + uCfg.apiKey });
-            if (res && typeof res === 'object' && !res.error) r = res;
-          } catch {}
-          if (!r) {
-            try {
-              const res2 = await window.orbit.apiGet(endpoint + '?apikey=' + encodeURIComponent(uCfg.apiKey), {});
-              if (res2 && typeof res2 === 'object' && !res2.error) r = res2;
-            } catch {}
-          }
-          if (r) {
+          const r = await window.orbit.fetchUptimeKuma({ url: uCfg.url, username: uCfg.username, password: uCfg.password });
+          if (r?.error) {
+            setApiError(r.error);
+          } else if (r?.monitors) {
             setApiError('');
-            if (r.monitorList) setMonitors(Object.values(r.monitorList));
-            else if (Array.isArray(r)) setMonitors(r);
-            else if (r.monitors) setMonitors(Array.isArray(r.monitors) ? r.monitors : Object.values(r.monitors));
-          } else {
-            setApiError('Create a new API key in Uptime Kuma → Settings → API Keys, then paste it here');
+            setMonitors(r.monitors);
           }
         }
         poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
-      }, [configured, uCfg?.url, uCfg?.apiKey]);
+      }, [configured, uCfg?.url, uCfg?.username, uCfg?.password]);
       if (!configured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'UPTIME KUMA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-uptimekuma')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'📡'), h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'UPTIME KUMA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-uptimekuma')}, '⚙')),
@@ -1396,7 +1381,7 @@
             h('div', {id:'settings-radarr'}, integrationSection('radarr', 'Radarr', '🎥', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-overseerr'}, integrationSection('overseerr', 'Overseerr', '📋', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-nzbget'}, integrationSection('nzbget', 'NZBGet', '📦', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
-            h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'},{field:'favChannel1',label:'FAVOURITE CHANNEL 1'},{field:'favChannel2',label:'FAVOURITE CHANNEL 2'}])),
@@ -2027,7 +2012,7 @@
 
     // ═══ MAIN APP ═══
     // ── BOTTOM BAR — bumper strip with settings, page dots, update badge ──
-    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings }) {
+    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig }) {
       const [update, setUpdate] = useState(null);
       const [showConfirm, setShowConfirm] = useState(false);
       const [downloading, setDownloading] = useState(false);
@@ -2047,8 +2032,28 @@
       return h(React.Fragment, null,
         // The bar
         h('div', {className:'bottom-bar'},
-          // Left — settings gear
+          // Left — color swatches + settings gear
           h('div', {className:'bottom-bar-left'},
+            ...[{color:'#00d9ff',name:'Cyan'},{color:'#4488ff',name:'Blue'},{color:'#50fa7b',name:'Green'}].map(({color,name}) => {
+              const isActive = (config?.theme?.accentColor || '#00d9ff') === color;
+              return h('button', {
+                key: color,
+                title: name,
+                onClick: () => {
+                  const newCfg = {...(config||{}), theme:{...((config||{}).theme||{}), accentColor: color}};
+                  document.documentElement.style.setProperty('--accent', color);
+                  if (setConfig) setConfig(newCfg);
+                  window.orbit.saveConfig(newCfg);
+                },
+                style: {
+                  width: '16px', height: '16px', borderRadius: '50%', background: color,
+                  border: isActive ? '2px solid #fff' : '2px solid transparent',
+                  cursor: 'pointer', padding: 0, flexShrink: 0,
+                  boxShadow: isActive ? '0 0 0 1px rgba(0,0,0,0.5)' : 'none',
+                  outline: 'none', marginRight: '2px'
+                }
+              });
+            }),
             h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙')
           ),
 
@@ -2115,14 +2120,7 @@
             setConfig(DEFAULT_CONFIG);
           }
         });
-        // React to config saved from settings window
-        if (window.orbit.onConfigUpdated) {
-          const unsub = window.orbit.onConfigUpdated(cfg => {
-            setConfig(cfg);
-            if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor);
-          });
-          return unsub;
-        }
+        // config-updated listener removed (settings window removed)
       }, []);
 
       const pages = config?.pages || DEFAULT_CONFIG.pages;
@@ -2171,7 +2169,7 @@
 
       if (!config) return null;
 
-      const openSettings = () => window.orbit.openSettings();
+      const openSettings = () => window.orbit.openSetup();
       _openSettingsRef = openSettings;
 
       // Fill panels to 6 columns
@@ -2193,7 +2191,7 @@
         h('div', {id:'app'}, ...renderedPanels),
 
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
-        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings}),
+        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig}),
 
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),

@@ -146,7 +146,7 @@
         homeassistant:{enabled:false, url:'',token:'',lights:[],signalrgbEntity:''},
         signalrgb:{enabled:false, url:'http://localhost:16034'},
         sonarr:{enabled:false, url:'',apiKey:''}, radarr:{enabled:false, url:'',apiKey:''}, overseerr:{enabled:false, url:'',apiKey:''},
-        nzbget:{enabled:false, url:'',username:'',password:''}, uptimekuma:{enabled:false, url:'',apiKey:''},
+        nzbget:{enabled:false, url:'',username:'',password:''}, uptimekuma:{enabled:false, url:'',username:'',password:''},
         spotify:{enabled:false, clientId:'',clientSecret:''}, jellyfin:{enabled:false, url:'',apiKey:''}
       },
       signalrgbFavorites: [],
@@ -299,7 +299,8 @@
               `)}
               ${integrationCard('uptimekuma', 'Uptime Kuma', '🔔', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="uptime-url" placeholder="http://192.168.1.x:3001" value="${esc(config.integrations.uptimekuma.url)}"></div>
-                <div class="field-group"><div class="field-label">API Key (optional)</div><input class="field-input" id="uptime-key" value="${esc(config.integrations.uptimekuma.apiKey)}"></div>
+                <div class="field-group"><div class="field-label">Username</div><input class="field-input" id="uptime-user" value="${esc(config.integrations.uptimekuma.username)}"></div>
+                <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="uptime-pass" type="password" value="${esc(config.integrations.uptimekuma.password)}"></div>
               `)}
               ${integrationCard('spotify', 'Spotify', '🎵', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="spotify-id" value="${esc(config.integrations.spotify.clientId)}"></div>
@@ -313,6 +314,8 @@
               ${integrationCard('discord', 'Discord', '💬', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="discord-id" value="${esc(config.integrations.discord?.clientId || '')}"></div>
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="discord-secret" value="${esc(config.integrations.discord?.clientSecret || '')}"></div>
+                <div class="field-group"><div class="field-label">Favourite Channel 1</div><input class="field-input" id="discord-fav1" value="${esc(config.integrations.discord?.favChannel1 || '')}"></div>
+                <div class="field-group"><div class="field-label">Favourite Channel 2</div><input class="field-input" id="discord-fav2" value="${esc(config.integrations.discord?.favChannel2 || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
               `)}
             </div>
@@ -630,7 +633,8 @@
 
       config.integrations.uptimekuma.enabled = isEnabled('uptimekuma');
       config.integrations.uptimekuma.url = getVal('uptime-url');
-      config.integrations.uptimekuma.apiKey = getVal('uptime-key');
+      config.integrations.uptimekuma.username = getVal('uptime-user');
+      config.integrations.uptimekuma.password = getVal('uptime-pass');
 
       config.integrations.spotify.enabled = isEnabled('spotify');
       config.integrations.spotify.clientId = getVal('spotify-id');
@@ -642,6 +646,8 @@
       config.integrations.discord.enabled = isEnabled('discord');
       config.integrations.discord.clientId = getVal('discord-id');
       config.integrations.discord.clientSecret = getVal('discord-secret');
+      config.integrations.discord.favChannel1 = getVal('discord-fav1');
+      config.integrations.discord.favChannel2 = getVal('discord-fav2');
 
       window.orbit.saveConfig(config);
       nextStep();
