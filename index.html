@@ -455,9 +455,9 @@
       }, [haConfigured, lightEntities.join(',')]);
       const toggleLight = async (eid, on) => { await window.orbit.haCallService('light', on?'turn_off':'turn_on', {entity_id:eid}); };
       const setBrightness = async (eid, pct) => { await window.orbit.haCallService('light', 'turn_on', {entity_id:eid, brightness:Math.round((pct/100)*255)}); };
-      if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'LIGHTS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
+      if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'LIGHTS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
+        h('div', {className:'panel-label'}, 'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
         h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'HOME ASSISTANT'),
         lightEntities.map(eid => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
