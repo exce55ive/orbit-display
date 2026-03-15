@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=2560, height=720">
+  <title>Xeneon Edge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #060a10; --bg-card: #0a0f18; --border: #1a2a3a;
+      --cyan: #00d9ff; --green: #00ff9d; --amber: #ffc857; --red: #ff4757;
+      --purple: #bd93f9; --pink: #f472b6; --dim: #3a4a5a; --text: #c8d6e5;
+      --text-bright: #e8f0f8; --ambient: #00d9ff;
+      --font: 'JetBrains Mono', monospace;
+    }
+    html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
+    body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px); }
+    #ambient-glow { position: fixed; inset: 0; pointer-events: none; z-index: 0; transition: background 2s ease; }
+    #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
+    .zone { height: 100vh; padding: 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .zone:last-child { border-right: none; }
+    .zone-label { font-size: 16px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .zone-label .icon { font-size: 16px; }
+
+    /* ── ZONE 1: AXIOM ── */
+    .status-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .status-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px var(--green), 0 0 24px rgba(0,255,157,0.3); }
+    .status-dot.degraded { background: var(--red); box-shadow: 0 0 12px var(--red); }
+    .status-dot.unknown { background: var(--amber); box-shadow: 0 0 12px var(--amber); }
+    .status-title { font-size: 22px; font-weight: 700; color: var(--cyan); letter-spacing: 2px; }
+    .axiom-status { font-size: 36px; font-weight: 700; margin-bottom: 16px; }
+    .axiom-status.online { color: var(--green); }
+    .axiom-status.degraded { color: var(--red); }
+    .axiom-status.unknown { color: var(--amber); }
+    .axiom-cron-name { font-size: 16px; color: var(--dim); margin-bottom: 4px; }
+    .axiom-cron-time { font-size: 20px; color: var(--amber); font-weight: 600; margin-bottom: 16px; }
+    .axiom-version { font-size: 12px; color: var(--dim); margin-top: auto; }
+    @keyframes glow-pulse { 0%,100%{box-shadow:0 0 12px var(--green),0 0 24px rgba(0,255,157,0.3)} 50%{box-shadow:0 0 20px var(--green),0 0 40px rgba(0,255,157,0.4)} }
+    .status-dot:not(.degraded):not(.unknown) { animation: glow-pulse 3s ease-in-out infinite; }
+
+    /* ── ZONE 2: SIGNAL RGB (HA) ── */
+    .effect-name { font-size: 48px; font-weight: 700; margin-bottom: 6px; transition: color 2s ease; text-shadow: 0 0 30px currentColor; line-height: 1.1; max-width: 100%; word-wrap: break-word; }
+    .effect-label { font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 20px; }
+    .brightness-wrap { width: 100%; padding: 0 12px; margin-bottom: 16px; }
+    .brightness-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+    .brightness-fill { height: 100%; border-radius: 4px; transition: width .5s, background 2s; }
+    .brightness-label { font-size: 16px; font-weight: 600; }
+    .ha-toggle { padding: 8px 24px; font-size: 14px; font-weight: 700; letter-spacing: 1px; border: 2px solid var(--border); border-radius: 20px; background: transparent; color: var(--text); cursor: pointer; transition: all .2s; margin-bottom: 16px; font-family: var(--font); }
+    .ha-toggle:hover { border-color: var(--cyan); color: var(--cyan); }
+    .ha-toggle.on { border-color: var(--green); color: var(--green); background: rgba(0,255,157,0.08); }
+    .ha-toggle.off { border-color: var(--red); color: var(--red); background: rgba(255,71,87,0.08); }
+    .effect-select-wrap { width: 100%; padding: 0 8px; }
+    .effect-search { width: 100%; padding: 8px 12px; font-size: 13px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; color: var(--text); outline: none; margin-bottom: 4px; }
+    .effect-search:focus { border-color: var(--cyan); }
+    .effect-list-wrap { width: 100%; max-height: 220px; overflow-y: auto; }
+    .effect-list-wrap::-webkit-scrollbar { width: 4px; }
+    .effect-list-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .effect-option { padding: 6px 12px; font-size: 12px; cursor: pointer; border-radius: 4px; transition: background .15s; text-align: left; }
+    .effect-option:hover { background: rgba(255,255,255,0.06); }
+    .effect-option.active { background: rgba(0,217,255,0.12); color: var(--cyan); font-weight: 600; }
+
+    /* ── ZONE 3: LIGHTS ── */
+    .lights-zone { gap: 12px; }
+    .light-card { width: 100%; padding: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 10px; }
+    .light-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .light-name { font-size: 14px; font-weight: 600; flex: 1; text-align: left; }
+    .light-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--dim); transition: all .3s; }
+    .light-dot.on { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .light-toggle { padding: 4px 14px; font-size: 11px; font-weight: 700; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text); cursor: pointer; font-family: var(--font); transition: all .2s; }
+    .light-toggle:hover { border-color: var(--cyan); }
+    .light-toggle.on { border-color: var(--green); color: var(--green); }
+    .light-toggle.off { border-color: var(--dim); color: var(--dim); }
+    .light-brightness { width: 100%; margin: 4px 0; }
+    .light-brightness input { width: 100%; height: 4px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
+    .light-brightness input::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--cyan); cursor: pointer; }
+    .light-effect-select { width: 100%; padding: 5px 8px; font-size: 11px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; margin-top: 4px; }
+    .light-effect-select:focus { border-color: var(--cyan); }
+    .lights-polling { font-size: 11px; color: var(--dim); margin-top: auto; }
+
+    /* ── ZONE 4: CLOCK ── */
+    .clock-time { font-size: 64px; font-weight: 300; color: var(--text-bright); letter-spacing: 3px; line-height: 1; margin-bottom: 6px; text-shadow: 0 0 30px rgba(0,217,255,0.2); }
+    .clock-date { font-size: 16px; font-weight: 500; letter-spacing: 2px; color: var(--dim); margin-bottom: 30px; }
+    .weather-divider { width: 60%; height: 1px; background: var(--border); margin: 0 auto 24px; }
+    .weather-icon { font-size: 36px; margin-bottom: 8px; }
+    .weather-temp { font-size: 42px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
+    .weather-desc { font-size: 14px; color: var(--text); margin-bottom: 6px; }
+    .weather-hilo { font-size: 14px; color: var(--dim); }
+    .weather-hilo .hi { color: var(--amber); }
+    .weather-hilo .lo { color: var(--cyan); }
+
+    /* ── ZONE 5: NOW PLAYING ── */
+    .np-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .np-empty-icon { font-size: 48px; opacity: 0.15; }
+    .np-empty-text { font-size: 20px; letter-spacing: 3px; text-transform: uppercase; color: var(--dim); }
+    .np-title { font-size: 24px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; max-width: 100%; padding: 0 8px; }
+    .np-subtitle { font-size: 14px; color: var(--text); margin-bottom: 10px; }
+    .np-progress-wrap { width: 100%; padding: 0 16px; margin-bottom: 10px; }
+    .np-progress-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+    .np-progress-fill { height: 100%; background: var(--cyan); border-radius: 3px; transition: width 15s linear; }
+    .np-time-remaining { font-size: 13px; color: var(--dim); margin-bottom: 12px; }
+    .np-quality-badge { display: inline-block; padding: 3px 10px; font-size: 11px; font-weight: 700; letter-spacing: 1px; border-radius: 14px; background: rgba(0,217,255,0.12); color: var(--cyan); border: 1px solid rgba(0,217,255,0.2); margin-bottom: 10px; }
+    .np-user-player { font-size: 12px; color: var(--dim); }
+
+    /* ── ZONE 6: SYSTEM STATS ── */
+    .sys-stats { width: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 0 8px; }
+    .sys-row { display: flex; align-items: center; gap: 12px; height: 80px; }
+    .sys-label { width: 36px; font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text); flex-shrink: 0; text-align: left; }
+    .sys-bar-wrap { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .sys-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .sys-bar-fill { height: 100%; border-radius: 4px; transition: width .5s; }
+    .sys-temp { font-size: 13px; color: var(--dim); min-height: 16px; text-align: left; }
+    .sys-value { width: 50px; font-size: 18px; font-weight: 700; font-family: var(--font); text-align: right; flex-shrink: 0; }
+    .sys-c-green { color: var(--green); } .sys-b-green { background: var(--green); }
+    .sys-c-amber { color: var(--amber); } .sys-b-amber { background: var(--amber); }
+    .sys-c-red { color: var(--red); } .sys-b-red { background: var(--red); }
+    .net-row { display: flex; align-items: center; gap: 12px; height: 80px; }
+    .net-label { width: 36px; font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text); flex-shrink: 0; text-align: left; }
+    .net-speeds { flex: 1; display: flex; gap: 16px; justify-content: center; }
+    .net-speed { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .net-speed-label { font-size: 12px; color: var(--dim); }
+    .net-speed-value { font-size: 18px; font-weight: 700; }
+    .net-up { color: var(--green); } .net-down { color: var(--cyan); }
+    .net-detail { width: 50px; flex-shrink: 0; }
+
+    .offline-msg { font-size: 13px; color: var(--dim); font-style: italic; }
+    .error-text { color: var(--red); font-size: 13px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    /* ── QUIT + UPDATE CONTROLS ── */
+    .top-controls { position: fixed; top: 8px; right: 12px; z-index: 10000; display: flex; gap: 8px; align-items: center; opacity: 0; transition: opacity .3s; }
+    body:hover .top-controls { opacity: 1; }
+    .quit-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--dim); background: rgba(6,10,16,0.85); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all .2s; }
+    .quit-btn:hover { color: var(--red); border-color: var(--red); }
+
+    /* Update pill */
+    .update-pill { display: flex; align-items: center; gap: 6px; padding: 5px 14px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; color: var(--amber); background: rgba(255,200,87,0.08); border: 1px solid rgba(255,200,87,0.3); border-radius: 14px; cursor: pointer; transition: all .2s; }
+    .update-pill:hover { background: rgba(255,200,87,0.15); border-color: var(--amber); }
+    @keyframes pill-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    .update-pill { animation: pill-pulse 2s ease-in-out infinite; }
+
+    /* Update modal */
+    .update-overlay { position: fixed; inset: 0; z-index: 10001; display: flex; align-items: center; justify-content: center; background: rgba(6,10,16,0.9); }
+    .update-modal { width: 460px; padding: 32px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; text-align: center; }
+    .update-modal-title { font-size: 20px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; }
+    .update-modal-version { font-size: 14px; color: var(--amber); margin-bottom: 16px; }
+    .update-modal-notes { font-size: 13px; color: var(--text); margin-bottom: 24px; line-height: 1.5; text-align: left; padding: 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid var(--border); max-height: 200px; overflow-y: auto; }
+    .update-modal-btn { padding: 10px 32px; font-size: 14px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 2px solid var(--cyan); border-radius: 20px; background: rgba(0,217,255,0.08); color: var(--cyan); cursor: pointer; transition: all .2s; margin: 0 8px; }
+    .update-modal-btn:hover { background: rgba(0,217,255,0.2); }
+    .update-modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .update-modal-btn.cancel { border-color: var(--dim); color: var(--dim); background: transparent; }
+    .update-modal-btn.cancel:hover { border-color: var(--text); color: var(--text); }
+    .update-modal-status { font-size: 13px; margin-top: 16px; min-height: 20px; }
+    .update-modal-status.error { color: var(--red); }
+    .update-modal-status.ok { color: var(--green); }
+    .update-modal-status.progress { color: var(--amber); }
+
+    /* ── SIGNALRGB CONNECTING LABEL ── */
+    .connecting-label { font-size: 13px; color: var(--amber); letter-spacing: 1px; padding: 6px 0; animation: pulse 1.5s ease-in-out infinite; }
+
+    /* ── AXIOM ERROR DETAIL ── */
+    .axiom-error-detail { font-size: 11px; color: var(--red); opacity: 0.75; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; margin-top: 4px; word-break: break-all; line-height: 1.4; }
+
+    /* ── AXIOM AGENTS ── */
+    .axiom-agents { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; width: 100%; padding: 0 8px; }
+    .agent-pill { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--font); color: var(--text); line-height: 1.4; }
+    .agent-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .agent-dot.idle { background: var(--green); box-shadow: 0 0 4px var(--green); }
+    .agent-dot.active { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+    .agent-dot.error { background: var(--red); box-shadow: 0 0 4px var(--red); }
+    .agent-dot.unknown { background: var(--dim); }
+    .agent-name { color: var(--text); }
+    .agent-status-text { color: var(--dim); font-size: 10px; }
+    .axiom-tasks-badge { display: inline-block; margin-top: 8px; padding: 2px 10px; font-size: 11px; font-weight: 700; letter-spacing: 1px; border-radius: 14px; background: rgba(0,217,255,0.1); color: var(--cyan); border: 1px solid rgba(0,217,255,0.25); }
+
+    /* ── NANOLEAF / SIGNALRGB CONTROL ── */
+    .light-card.signalrgb-controlled { border-color: var(--amber); box-shadow: 0 0 10px rgba(255,200,87,0.2); }
+    .signalrgb-banner { font-size: 11px; font-weight: 700; color: var(--amber); background: rgba(255,200,87,0.12); border-radius: 4px; padding: 3px 8px; margin-bottom: 6px; letter-spacing: 1px; text-align: center; }
+    .light-brightness input:disabled { opacity: 0.35; cursor: not-allowed; }
+    .light-effect-select:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── MULTI-SESSION NOW PLAYING ── */
+    .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 72px); padding: 0 2px 4px; }
+    .np-session-list::-webkit-scrollbar { width: 3px; }
+    .np-session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .np-session-card { width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 8px; text-align: left; }
+    .np-session-card .np-title { font-size: 15px; margin-bottom: 3px; -webkit-line-clamp: 2; }
+    .np-session-card .np-subtitle { font-size: 12px; margin-bottom: 6px; }
+    .np-session-card .np-progress-wrap { padding: 0; margin-bottom: 5px; }
+    .np-session-card .np-time-remaining { font-size: 11px; margin-bottom: 5px; }
+    .np-session-card .np-quality-badge { font-size: 10px; padding: 2px 7px; margin-bottom: 5px; }
+    .np-session-card .np-user-player { font-size: 11px; }
+    .np-count-badge { font-size: 11px; font-weight: 700; color: var(--cyan); background: rgba(0,217,255,0.1); border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+
+    /* ── SYSTEM SENSOR PICKER ── */
+    .sys-gear-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 14px; padding: 2px 5px; transition: color .2s; font-family: var(--font); margin-left: 4px; }
+    .sys-gear-btn:hover { color: var(--text); }
+    .sys-picker-panel { width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .sys-picker-row { display: flex; align-items: center; gap: 8px; }
+    .sys-picker-label { font-size: 11px; color: var(--dim); width: 82px; flex-shrink: 0; }
+    .sys-picker-select { flex: 1; padding: 4px 6px; font-size: 11px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 4px; color: var(--text); outline: none; }
+    .sys-picker-select:focus { border-color: var(--cyan); }
+    .sys-picker-toggle { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text); cursor: pointer; }
+    .sys-picker-toggle input[type=checkbox] { cursor: pointer; accent-color: var(--cyan); }
+  </style>
+</head>
+<body>
+  <div id="ambient-glow"></div>
+  <div id="app"></div>
+  <div id="top-controls"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script>
+    const h = React.createElement;
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ── CONFIG DEFAULTS (overwritten once getConfig resolves) ──
+    window.xeneonConfig = {
+      polling: {
+        signalrgbSec: 10,
+        nanoleafSec: 15,
+        plexSec: 15,
+        axiomSec: 60,
+        sysinfeSec: 3,
+        updateCheckMin: 5,
+        signalrgbStartupRetries: 8,
+        signalrgbStartupBackoffSec: 2
+      }
+    };
+
+    // ── HELPERS ──
+    const EFFECT_COLORS = {
+      'matrix':'#00ff41','amber':'#ffc857','aqua':'#00d9ff','aurora':'#bd93f9',
+      'asteroid belt':'#ff6b35','avatar':'#00d4aa','fire':'#ff4757','ocean':'#0088cc',
+      'sunset':'#ff6b35','rainbow':'#ff69b4','white':'#e8e8e8','blue':'#4fa8e8',
+      'red':'#ff4757','green':'#00ff9d','purple':'#bd93f9','pink':'#f472b6',
+    };
+    function effectColor(name) {
+      if (!name) return '#00d9ff';
+      const n = name.toLowerCase();
+      for (const [k,v] of Object.entries(EFFECT_COLORS)) { if (n.includes(k)) return v; }
+      return '#00d9ff';
+    }
+    function getStatColor(pct) { return pct >= 80 ? 'red' : pct >= 60 ? 'amber' : 'green'; }
+    function formatBytes(b) {
+      if (b >= 1048576) return (b/1048576).toFixed(1)+' MB/s';
+      if (b >= 1024) return (b/1024).toFixed(0)+' KB/s';
+      return b+' B/s';
+    }
+    function formatDuration(s) {
+      if (!s || s < 0) return '0:00';
+      const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60);
+      if (h > 0) return h+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+      return m+':'+String(sec).padStart(2,'0');
+    }
+    function weatherIcon(code) {
+      const c = parseInt(code);
+      if (c===113) return '☀️';
+      if ([116,119].includes(c)) return '⛅';
+      if ([122,143].includes(c)) return '☁️';
+      if ([176,185,263,266,281,284,293,296,299,302,305,308,311,314,317,320,323,326,329,332,335,338,350,353,356,359,362,365,374,377].includes(c)) return '🌧️';
+      if ([389,392,395].includes(c)) return '⛈️';
+      if ([179,182,227,230,260,368,371].includes(c)) return '❄️';
+      return '🌤️';
+    }
+    function truncate(s, max) { return !s ? '' : s.length > max ? s.substring(0,max)+'...' : s; }
+    function haBrightPct(b) { return b != null ? Math.round((b/255)*100) : 0; }
+
+    // ── ZONE 1: AXIOM STATUS ──
+    const AGENT_EMOJIS = { 'Keel': '🔧', 'Forge': '💻', 'Probe': '🔬', 'Helm': '⚓', 'Bastion': '🛡️', 'Quill': '🪶' };
+    function AxiomZone() {
+      const [data, setData] = useState(null);
+      const [error, setError] = useState(false);
+      const [errorDetail, setErrorDetail] = useState('');
+      const [agentsData, setAgentsData] = useState(null);
+      const fetchData = useCallback(async () => {
+        try {
+          const r = await window.xeneon.fetchAxiom();
+          if (r && !r.error) {
+            setData(r); setError(false); setErrorDetail('');
+          } else {
+            setError(true);
+            setErrorDetail(r?.error || 'Network error');
+          }
+        } catch(e) { setError(true); setErrorDetail(e.message || 'Unknown error'); }
+      }, []);
+      const fetchAgents = useCallback(async () => {
+        try {
+          const r = await window.xeneon.fetchAxiomAgents();
+          if (r && !r.error) setAgentsData(r);
+        } catch {}
+      }, []);
+      useEffect(() => {
+        fetchData();
+        fetchAgents();
+        const ms = (window.xeneonConfig?.polling?.axiomSec ?? 60) * 1000;
+        const iv = setInterval(() => { fetchData(); fetchAgents(); }, ms);
+        return () => clearInterval(iv);
+      }, [fetchData, fetchAgents]);
+
+      let nextCronName = '—', nextCronTime = '', gatewayStatus = 'UNKNOWN', version = '', statusErrorDetail = '';
+      if (data) {
+        if (data.status) {
+          gatewayStatus = data.status.error ? 'OFFLINE' : (data.status.ok || data.status.gateway === 'ok') ? 'OK' : 'DEGRADED';
+          version = data.status.version || '';
+          if (data.status.error) statusErrorDetail = data.status.error;
+        }
+        const crons = data.crons?.crons || data.crons || [];
+        if (Array.isArray(crons)) {
+          const withNext = crons.filter(c=>c.nextRun).sort((a,b)=>new Date(a.nextRun)-new Date(b.nextRun));
+          if (withNext.length) {
+            const next = withNext[0], nt = new Date(next.nextRun);
+            nextCronName = next.name || next.id || 'cron';
+            nextCronTime = nt.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',timeZone:'Australia/Perth',hour12:false});
+          }
+        }
+      }
+      const sc = error ? 'unknown' : gatewayStatus === 'OK' ? 'online' : 'degraded';
+
+      // Agent pills
+      const agents = agentsData?.agents || [
+        { name: 'Keel', status: 'unknown' },
+        { name: 'Forge', status: 'unknown' },
+        { name: 'Probe', status: 'unknown' },
+      ];
+      const tasksToday = agentsData?.tasksToday ?? null;
+      function agentDotClass(s) {
+        if (!s || s === 'unknown') return 'agent-dot unknown';
+        if (s === 'active' || s === 'running') return 'agent-dot active';
+        if (s === 'error' || s === 'offline') return 'agent-dot error';
+        return 'agent-dot idle'; // idle, online, available
+      }
+      const dc = error ? 'status-dot unknown' : gatewayStatus === 'OK' ? 'status-dot' : 'status-dot degraded';
+      const showDetail = (error || gatewayStatus === 'DEGRADED' || gatewayStatus === 'OFFLINE') && (errorDetail || statusErrorDetail);
+      const detailText = statusErrorDetail || errorDetail;
+      return h('div',{className:'zone'},
+        h('div',{className:'zone-label'},h('span',{className:'icon'},'🧭'),'AXIOM OPS'),
+        h('div',{className:'status-header'},h('div',{className:dc}),h('div',{className:'status-title'},'AXIOM OPS')),
+        h('div',{className:'axiom-status '+sc},error?'UNREACHABLE':gatewayStatus),
+        showDetail ? h('div',{className:'axiom-error-detail',title:detailText},truncate(detailText,80)) : null,
+        h('div',{className:'axiom-cron-name'},nextCronName),
+        h('div',{className:'axiom-cron-time'},nextCronTime),
+        version ? h('div',{className:'axiom-version'},'v'+version) : null,
+        h('div',{className:'axiom-agents'},
+          agents.map(a => h('div',{key:a.name,className:'agent-pill'},
+            h('span',null,(AGENT_EMOJIS[a.name]||'•')+' '+a.name),
+            h('div',{className:agentDotClass(a.status)}),
+            h('span',{className:'agent-status-text'},a.status||'unknown')
+          )),
+          tasksToday !== null ? h('div',{className:'axiom-tasks-badge'},tasksToday+' tasks today') : null
+        )
+      );
+    }
+
+    // ── ZONE 2: SIGNAL RGB (HA) ──
+    function SignalZone({ onAmbientChange }) {
+      const [state, setState] = useState(null);
+      const [search, setSearch] = useState('');
+      const [localBright, setLocalBright] = useState(null);
+      const [connecting, setConnecting] = useState(true);
+      const entityId = 'light.signalrgb_01kjss19w6w4ggddqkrd76bgtd';
+
+      const fetchData = useCallback(async () => {
+        try {
+          const r = await window.xeneon.haGetState(entityId);
+          if (r && !r.error) {
+            setState(r);
+            const en = r.attributes?.effect;
+            if (en && onAmbientChange) onAmbientChange(effectColor(en));
+          }
+        } catch {}
+      }, [onAmbientChange]);
+
+      // Startup retry with backoff — retries while state is 'off'
+      useEffect(() => {
+        const maxRetries = window.xeneonConfig?.polling?.signalrgbStartupRetries ?? 8;
+        const backoffSec = window.xeneonConfig?.polling?.signalrgbStartupBackoffSec ?? 2;
+        const pollSec = window.xeneonConfig?.polling?.signalrgbSec ?? 10;
+        let cancelled = false;
+        let pollIv = null;
+
+        async function startupRetry() {
+          for (let i = 0; i <= maxRetries; i++) {
+            if (cancelled) return;
+            try {
+              const r = await window.xeneon.haGetState(entityId);
+              if (r && !r.error) {
+                setState(r);
+                const en = r.attributes?.effect;
+                if (en && onAmbientChange) onAmbientChange(effectColor(en));
+                if (r.state === 'on') break; // connected — stop retrying
+              }
+            } catch {}
+            if (i < maxRetries && !cancelled) {
+              await new Promise(res => setTimeout(res, backoffSec * 1000));
+            }
+          }
+          if (!cancelled) {
+            setConnecting(false);
+            pollIv = setInterval(fetchData, pollSec * 1000);
+          }
+        }
+        startupRetry();
+        return () => { cancelled = true; if (pollIv) clearInterval(pollIv); };
+      }, [fetchData, onAmbientChange]);
+
+      const isOn = state?.state === 'on';
+      const effectName = state?.attributes?.effect || '—';
+      const brightness = localBright ?? state?.attributes?.brightness ?? 0;
+      const effectList = state?.attributes?.effect_list || [];
+      const ambientColor = effectColor(effectName);
+
+      const filteredEffects = useMemo(() => {
+        if (!search) return effectList;
+        const s = search.toLowerCase();
+        return effectList.filter(e => e.toLowerCase().includes(s));
+      }, [effectList, search]);
+
+      const toggle = async () => {
+        const svc = isOn ? 'turn_off' : 'turn_on';
+        await window.xeneon.haCallService('light', svc, { entity_id: entityId });
+        setTimeout(fetchData, 500);
+      };
+      const setBrightness = async (val) => {
+        const bri = Math.round((val/100)*255);
+        setLocalBright(bri);
+        await window.xeneon.haCallService('light', 'turn_on', { entity_id: entityId, brightness: bri });
+        setTimeout(() => { setLocalBright(null); fetchData(); }, 500);
+      };
+      const setEffect = async (eff) => {
+        await window.xeneon.haCallService('light', 'turn_on', { entity_id: entityId, effect: eff });
+        setTimeout(fetchData, 500);
+      };
+
+      return h('div',{className:'zone'},
+        h('div',{className:'zone-label'},h('span',{className:'icon'},'⚡'),'SIGNAL RGB'),
+        connecting ? h('div',{className:'connecting-label'},'Connecting…') : null,
+        h('div',{className:'effect-name',style:{color:ambientColor}},effectName),
+        h('div',{className:'effect-label'},'ACTIVE EFFECT'),
+        h('button',{className:'ha-toggle '+(isOn?'on':'off'),onClick:toggle},isOn?'ON':'OFF'),
+        h('div',{className:'brightness-wrap'},
+          h('div',{className:'brightness-bar'},h('div',{className:'brightness-fill',style:{width:haBrightPct(brightness)+'%',background:ambientColor}})),
+          h('div',{className:'brightness-label'},haBrightPct(brightness)+'%')
+        ),
+        isOn && h('div',{className:'effect-select-wrap'},
+          h('input',{className:'effect-search',type:'text',placeholder:'Search effects…',value:search,onChange:e=>setSearch(e.target.value)}),
+          h('div',{className:'effect-list-wrap'},
+            filteredEffects.slice(0,30).map(eff =>
+              h('div',{key:eff,className:'effect-option'+(eff===effectName?' active':''),onClick:()=>setEffect(eff)},eff)
+            ),
+            filteredEffects.length > 30 && h('div',{className:'effect-option',style:{color:'var(--dim)',cursor:'default'}},'…'+(filteredEffects.length-30)+' more')
+          )
+        )
+      );
+    }
+
+    // ── ZONE 3: LIGHTS (Nanoleaf) ──
+    const NANOLEAF_ENTITIES = [
+      { id: 'light.shapes_1dbe', label: 'Shapes' },
+      { id: 'light.shapes_4ab2', label: 'Shapes 2' },
+      { id: 'light.skylight_fb67', label: 'Skylight' },
+    ];
+    const SIGNALRGB_ENTITY = 'light.signalrgb_01kjss19w6w4ggddqkrd76bgtd';
+
+    function LightCard({ entityId, label, signalrgbOn }) {
+      const [state, setState] = useState(null);
+      const [localBright, setLocalBright] = useState(null);
+      const fetchData = useCallback(async () => {
+        try {
+          const r = await window.xeneon.haGetState(entityId);
+          if (r && !r.error) setState(r);
+        } catch {}
+      }, [entityId]);
+      useEffect(() => {
+        fetchData();
+        const ms = (window.xeneonConfig?.polling?.nanoleafSec ?? 15) * 1000;
+        const iv = setInterval(fetchData, ms);
+        return () => clearInterval(iv);
+      }, [fetchData]);
+
+      const isOn = state?.state === 'on';
+      const brightness = localBright ?? state?.attributes?.brightness ?? 0;
+      const effectList = state?.attributes?.effect_list || [];
+      const currentEffect = state?.attributes?.effect || '';
+      const controlled = !!signalrgbOn; // externally controlled by SignalRGB
+
+      const toggle = async () => {
+        await window.xeneon.haCallService('light', isOn?'turn_off':'turn_on', { entity_id: entityId });
+        setTimeout(fetchData, 500);
+      };
+      const setBrightness = async (val) => {
+        if (controlled) return;
+        const bri = Math.round((val/100)*255);
+        setLocalBright(bri);
+        await window.xeneon.haCallService('light', 'turn_on', { entity_id: entityId, brightness: bri });
+        setTimeout(() => { setLocalBright(null); fetchData(); }, 500);
+      };
+      const setEffect = async (eff) => {
+        if (controlled) return;
+        await window.xeneon.haCallService('light', 'turn_on', { entity_id: entityId, effect: eff });
+        setTimeout(fetchData, 500);
+      };
+
+      return h('div',{className:'light-card'+(controlled?' signalrgb-controlled':'')},
+        controlled ? h('div',{className:'signalrgb-banner'},'⚡ Controlled by SignalRGB') : null,
+        h('div',{className:'light-header'},
+          h('div',{className:'light-name'},label),
+          h('div',{className:'light-dot'+(isOn?' on':'')}),
+          h('button',{className:'light-toggle '+(isOn?'on':'off'),onClick:toggle},isOn?'ON':'OFF')
+        ),
+        isOn && h('div',{className:'light-brightness'},
+          h('input',{type:'range',min:0,max:100,value:haBrightPct(brightness),disabled:controlled,onChange:e=>setBrightness(e.target.value)})
+        ),
+        isOn && effectList.length > 0 && h('select',{className:'light-effect-select',value:currentEffect,disabled:controlled,onChange:e=>setEffect(e.target.value)},
+          h('option',{value:''},'— No Effect —'),
+          effectList.map(eff => h('option',{key:eff,value:eff},eff))
+        )
+      );
+    }
+    function LightsZone() {
+      const [signalrgbOn, setSignalrgbOn] = useState(false);
+      const signalrgbConsecutive = useRef(0);
+      useEffect(() => {
+        async function checkSignalRGB() {
+          try {
+            const r = await window.xeneon.haGetState(SIGNALRGB_ENTITY);
+            if (r?.state === 'on') {
+              signalrgbConsecutive.current++;
+              if (signalrgbConsecutive.current >= 2) setSignalrgbOn(true);
+            } else {
+              signalrgbConsecutive.current = Math.max(0, signalrgbConsecutive.current - 1);
+              if (signalrgbConsecutive.current === 0) setSignalrgbOn(false);
+            }
+          } catch {}
+        }
+        checkSignalRGB();
+        const ms = (window.xeneonConfig?.polling?.nanoleafSec ?? 15) * 1000;
+        const iv = setInterval(checkSignalRGB, ms);
+        return () => clearInterval(iv);
+      }, []);
+      return h('div',{className:'zone lights-zone'},
+        h('div',{className:'zone-label'},h('span',{className:'icon'},'💡'),'LIGHTS'),
+        NANOLEAF_ENTITIES.map(ent => h(LightCard,{key:ent.id,entityId:ent.id,label:ent.label,signalrgbOn})),
+        h('div',{className:'lights-polling'},'Polling every '+(window.xeneonConfig?.polling?.nanoleafSec??15)+'s')
+      );
+    }
+
+    // ── ZONE 4: CLOCK + WEATHER ──
+    function ClockZone() {
+      const [time, setTime] = useState('');
+      const [date, setDate] = useState('');
+      const [weather, setWeather] = useState(null);
+      useEffect(() => {
+        function tick() {
+          const now = new Date();
+          setTime(now.toLocaleTimeString('en-AU',{timeZone:'Australia/Perth',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}));
+          const day = now.toLocaleDateString('en-AU',{timeZone:'Australia/Perth',weekday:'long'}).toUpperCase();
+          const d = now.toLocaleDateString('en-AU',{timeZone:'Australia/Perth',day:'numeric',month:'short',year:'numeric'}).toUpperCase();
+          setDate(day+' · '+d);
+        }
+        tick(); const iv = setInterval(tick, 1000); return () => clearInterval(iv);
+      }, []);
+      const fetchWeather = useCallback(async () => {
+        try {
+          const res = await fetch('https://wttr.in/Perth?format=j1');
+          const d = await res.json();
+          if (d?.current_condition) {
+            const cc = d.current_condition[0], today = d.weather?.[0];
+            setWeather({ temp: cc.temp_C, desc: cc.weatherDesc?.[0]?.value||'', code: cc.weatherCode, high: today?.maxtempC, low: today?.mintempC });
+          }
+        } catch {}
+      }, []);
+      useEffect(() => { fetchWeather(); const iv = setInterval(fetchWeather, 30*60*1000); return () => clearInterval(iv); }, [fetchWeather]);
+      return h('div',{className:'zone'},
+        h('div',{className:'zone-label'},h('span',{className:'icon'},'🕐'),'CLOCK'),
+        h('div',{className:'clock-time'},time),
+        h('div',{className:'clock-date'},date),
+        h('div',{className:'weather-divider'}),
+        weather ? h('div',null,
+          h('div',{className:'weather-icon'},weatherIcon(weather.code)),
+          h('div',{className:'weather-temp'},weather.temp+'°'),
+          h('div',{className:'weather-desc'},weather.desc),
+          weather.high!=null ? h('div',{className:'weather-hilo'},h('span',{className:'hi'},'▲ '+weather.high+'°'),'  ',h('span',{className:'lo'},'▼ '+weather.low+'°')) : null
+        ) : h('div',{className:'offline-msg'},'Loading weather...')
+      );
+    }
+
+    // ── ZONE 5: NOW PLAYING ──
+    function SessionCard({ session, multi }) {
+      const title = session.title || session.full_title || 'Unknown';
+      let subtitle = '';
+      if (session.media_type === 'episode') subtitle = (session.grandparent_title||'')+' — S'+(session.parent_media_index||'?')+'E'+(session.media_index||'?');
+      else if (session.year) subtitle = String(session.year);
+      const userPlayer = [session.friendly_name||session.user||'', session.player||''].filter(Boolean).join(' · ');
+      const progress = session.view_offset && session.duration ? (parseInt(session.view_offset)/parseInt(session.duration))*100 : 0;
+      const remaining = formatDuration((parseInt(session.duration||0)-parseInt(session.view_offset||0))/1000);
+      const quality = session.stream_video_full_resolution || session.video_full_resolution || '';
+      if (multi) {
+        return h('div',{className:'np-session-card'},
+          h('div',{className:'np-title'},title),
+          subtitle ? h('div',{className:'np-subtitle'},subtitle) : null,
+          h('div',{className:'np-progress-wrap'},h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:progress+'%'}}))),
+          h('div',{className:'np-time-remaining'},remaining+' remaining'),
+          h('div',{style:{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}},
+            quality ? h('div',{className:'np-quality-badge'},quality) : null,
+            userPlayer ? h('div',{className:'np-user-player'},userPlayer) : null
+          )
+        );
+      }
+      return h(React.Fragment, null,
+        h('div',{className:'np-title'},title),
+        subtitle ? h('div',{className:'np-subtitle'},subtitle) : null,
+        h('div',{className:'np-progress-wrap'},h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:progress+'%'}}))),
+        h('div',{className:'np-time-remaining'},remaining+' remaining'),
+        quality ? h('div',{className:'np-quality-badge'},quality) : null,
+        userPlayer ? h('div',{className:'np-user-player'},userPlayer) : null
+      );
+    }
+
+    function NowPlayingZone() {
+      const [activity, setActivity] = useState(null);
+      const [error, setError] = useState(null);
+      const intervalRef = useRef(null);
+
+      const scheduleNext = useCallback((hasSessions) => {
+        if (intervalRef.current) clearTimeout(intervalRef.current);
+        const activeSec = window.xeneonConfig?.polling?.plexActiveSec ?? 8;
+        const idleSec = window.xeneonConfig?.polling?.plexIdleSec ?? 30;
+        const delay = hasSessions ? activeSec * 1000 : idleSec * 1000;
+        intervalRef.current = setTimeout(() => { fetchData(); }, delay);
+      }, []);
+
+      const fetchData = useCallback(async () => {
+        try {
+          const r = await window.xeneon.fetchTautulli();
+          if (r?.error) { setError(r.error); setActivity(null); scheduleNext(false); }
+          else if (r?.response?.data) {
+            const data = r.response.data;
+            setActivity(data); setError(null);
+            scheduleNext((data?.sessions?.length || 0) > 0);
+          }
+          else { setActivity(null); setError(null); scheduleNext(false); }
+        } catch (e) { setError(e.message); scheduleNext(false); }
+      }, [scheduleNext]);
+
+      useEffect(() => {
+        fetchData();
+        return () => { if (intervalRef.current) clearTimeout(intervalRef.current); };
+      }, [fetchData]);
+
+      const sessions = activity?.sessions || [];
+      const count = sessions.length;
+
+      const countBadge = count > 0 ? h('span',{className:'np-count-badge'},count) : null;
+      const label = h('div',{className:'zone-label'},h('span',{className:'icon'},'🎬'),'NOW PLAYING',countBadge);
+
+      if (error) return h('div',{className:'zone'},label,h('div',{className:'np-empty'},h('div',{className:'np-empty-icon'},'▶'),h('div',{className:'error-text'},error)));
+      if (count === 0) return h('div',{className:'zone'},label,h('div',{className:'np-empty'},h('div',{className:'np-empty-icon'},'▶'),h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
+      if (count === 1) {
+        return h('div',{className:'zone'},label,h(SessionCard,{session:sessions[0],multi:false}));
+      }
+      // 2+ sessions — scrollable stacked cards
+      return h('div',{className:'zone',style:{justifyContent:'flex-start',paddingTop:'16px'}},
+        label,
+        h('div',{className:'np-session-list'},
+          sessions.map((s,i) => h(SessionCard,{key:i,session:s,multi:true}))
+        )
+      );
+    }
+
+    // ── ZONE 6: SYSTEM STATS ──
+    function SystemZone() {
+      const [fastStats, setFastStats] = useState(null);  // cpu%, ram%, net
+      const [slowStats, setSlowStats] = useState(null);  // temps, gpu model, brand, disk
+      const [cpuSensors, setCpuSensors] = useState([]);
+      const [gpuList, setGpuList] = useState([]);
+      const [cpuSensorIndex, setCpuSensorIndex] = useState(0);
+      const [gpuControllerIndex, setGpuControllerIndex] = useState(0);
+      const [showDisk, setShowDisk] = useState(false);
+      const [showPicker, setShowPicker] = useState(false);
+      const settingsLoaded = useRef(false);
+      // Expose current settings to polling callbacks via ref
+      const settingsRef = useRef({ cpuSensorIndex: 0, gpuControllerIndex: 0, showDisk: false });
+
+      // Load persisted settings once
+      useEffect(() => {
+        window.xeneon.loadSettings().then(s => {
+          if (s && s.system) {
+            if (s.system.cpuSensorIndex != null) { setCpuSensorIndex(s.system.cpuSensorIndex); settingsRef.current.cpuSensorIndex = s.system.cpuSensorIndex; }
+            if (s.system.gpuControllerIndex != null) { setGpuControllerIndex(s.system.gpuControllerIndex); settingsRef.current.gpuControllerIndex = s.system.gpuControllerIndex; }
+            if (s.system.showDisk != null) { setShowDisk(s.system.showDisk); settingsRef.current.showDisk = s.system.showDisk; }
+          }
+          settingsLoaded.current = true;
+        }).catch(() => { settingsLoaded.current = true; });
+      }, []);
+
+      // Persist settings whenever they change (after initial load)
+      const saveSystemSettings = useCallback((cpu, gpu, disk) => {
+        if (!settingsLoaded.current) return;
+        window.xeneon.saveSettings({ system: { cpuSensorIndex: cpu, gpuControllerIndex: gpu, showDisk: disk } }).catch(()=>{});
+      }, []);
+
+      // Fast poll — cpu%, ram%, net (every sysinfeSec, default 3s)
+      const fetchFast = useCallback(async () => {
+        try {
+          const r = await window.xeneon.getSysinfoFast();
+          if (r && !r.error) setFastStats(r);
+        } catch {}
+      }, []);
+
+      // Slow poll — temps, gpu model, disk (every 10s)
+      const fetchSlow = useCallback(async () => {
+        const { cpuSensorIndex: ci, gpuControllerIndex: gi, showDisk: sd } = settingsRef.current;
+        try {
+          const r = await window.xeneon.getSysinfoSlow({ cpuSensorIndex: ci, gpuControllerIndex: gi, showDisk: sd });
+          if (r && !r.error) {
+            setSlowStats(r);
+            if (r.cpu?.sensors && r.cpu.sensors.length > 0) setCpuSensors(r.cpu.sensors);
+            if (r.gpu?.list && r.gpu.list.length > 0) setGpuList(r.gpu.list);
+          }
+        } catch {}
+      }, []);
+
+      useEffect(() => {
+        fetchFast(); fetchSlow();
+        const fastMs = (window.xeneonConfig?.polling?.sysinfeSec ?? 3) * 1000;
+        const fastIv = setInterval(fetchFast, fastMs);
+        const slowIv = setInterval(fetchSlow, 10000);
+        return () => { clearInterval(fastIv); clearInterval(slowIv); };
+      }, [fetchFast, fetchSlow]);
+
+      // Merge fast + slow for rendering
+      const stats = (fastStats || slowStats) ? {
+        cpu: {
+          usage: fastStats?.cpu?.usage ?? 0,
+          speed: slowStats?.cpu?.speed ?? 0,
+          brand: slowStats?.cpu?.brand ?? 'CPU',
+          temp: slowStats?.cpu?.temp ?? null
+        },
+        gpu: {
+          usage: slowStats?.gpu?.usage ?? 0,
+          temp: slowStats?.gpu?.temp ?? null,
+          model: slowStats?.gpu?.model ?? 'GPU'
+        },
+        ram: fastStats?.ram ?? null,
+        net: fastStats?.net ?? null,
+        disk: slowStats?.disk ?? null
+      } : null;
+
+      // Refresh sensor picker using legacy getSysinfo (preserves full sensor list)
+      const refreshPicker = useCallback(async (ci, gi, sd) => {
+        try {
+          const r = await window.xeneon.getSysinfo({ cpuSensorIndex: ci, gpuControllerIndex: gi, showDisk: sd });
+          if (r && !r.error) {
+            if (r.cpuSensors && r.cpuSensors.length > 0) setCpuSensors(r.cpuSensors);
+            if (r.gpuList && r.gpuList.length > 0) setGpuList(r.gpuList);
+          }
+        } catch {}
+      }, []);
+
+      const handleCpuChange = (idx) => {
+        setCpuSensorIndex(idx); settingsRef.current.cpuSensorIndex = idx;
+        saveSystemSettings(idx, gpuControllerIndex, showDisk);
+        fetchSlow();
+      };
+      const handleGpuChange = (idx) => {
+        setGpuControllerIndex(idx); settingsRef.current.gpuControllerIndex = idx;
+        saveSystemSettings(cpuSensorIndex, idx, showDisk);
+        fetchSlow();
+      };
+      const handleDiskToggle = (val) => {
+        setShowDisk(val); settingsRef.current.showDisk = val;
+        saveSystemSettings(cpuSensorIndex, gpuControllerIndex, val);
+        fetchSlow();
+      };
+
+      if (!stats) return h('div',{className:'zone'},h('div',{className:'zone-label'},h('span',{className:'icon'},'💻'),'SYSTEM'),h('div',{className:'offline-msg pulse'},'Gathering system info…'));
+
+      function statRow(label, pct, temp, gpuModel) {
+        const c = getStatColor(pct);
+        const td = temp != null && temp > 0 ? Math.round(temp)+'°C' : '--°C';
+        const ts = temp != null && temp > 0 ? {} : {opacity:0.4};
+        return h('div',{className:'sys-row'},
+          h('div',{className:'sys-label'},label),
+          h('div',{className:'sys-bar-wrap'},
+            h('div',{className:'sys-bar'},h('div',{className:'sys-bar-fill sys-b-'+c,style:{width:pct+'%'}})),
+            h('div',{className:'sys-temp',style:ts},gpuModel ? truncate(gpuModel,18)+' · '+td : td)
+          ),
+          h('div',{className:'sys-value sys-c-'+c},Math.round(pct)+'%')
+        );
+      }
+
+      const pickerPanel = showPicker ? h('div',{className:'sys-picker-panel'},
+        cpuSensors.length > 0 && h('div',{className:'sys-picker-row'},
+          h('div',{className:'sys-picker-label'},'CPU Sensor'),
+          h('select',{className:'sys-picker-select',value:cpuSensorIndex,onChange:e=>handleCpuChange(Number(e.target.value))},
+            cpuSensors.map(s => h('option',{key:s.index,value:s.index},s.name+(s.value!=null?' ('+Math.round(s.value)+'°C)':'')))
+          )
+        ),
+        gpuList.length > 1 && h('div',{className:'sys-picker-row'},
+          h('div',{className:'sys-picker-label'},'GPU'),
+          h('select',{className:'sys-picker-select',value:gpuControllerIndex,onChange:e=>handleGpuChange(Number(e.target.value))},
+            gpuList.map(g => h('option',{key:g.index,value:g.index},g.model))
+          )
+        ),
+        h('div',{className:'sys-picker-row'},
+          h('label',{className:'sys-picker-toggle'},
+            h('input',{type:'checkbox',checked:showDisk,onChange:e=>handleDiskToggle(e.target.checked)}),
+            'Show Disk'
+          )
+        )
+      ) : null;
+
+      return h('div',{className:'zone'},
+        h('div',{className:'zone-label'},
+          h('span',{className:'icon'},'💻'),'SYSTEM',
+          h('button',{className:'sys-gear-btn',title:'Sensor settings',onClick:()=>{ setShowPicker(v=>{ if(!v) refreshPicker(cpuSensorIndex,gpuControllerIndex,showDisk); return !v; }); }},'⚙')
+        ),
+        h('div',{className:'sys-stats'},
+          pickerPanel,
+          statRow('CPU', stats.cpu.usage, stats.cpu.temp),
+          statRow('GPU', Math.round(stats.gpu.usage), stats.gpu.temp, stats.gpu.model),
+          statRow('RAM', stats.ram.usage, null),
+          h('div',{className:'net-row'},
+            h('div',{className:'net-label'},'NET'),
+            h('div',{className:'net-speeds'},
+              h('div',{className:'net-speed'},h('div',{className:'net-speed-label'},'↑ UP'),h('div',{className:'net-speed-value net-up'},formatBytes(stats.net.txSec||0))),
+              h('div',{className:'net-speed'},h('div',{className:'net-speed-label'},'↓ DOWN'),h('div',{className:'net-speed-value net-down'},formatBytes(stats.net.rxSec||0)))
+            ),
+            h('div',{className:'net-detail'})
+          ),
+          showDisk && stats.disk ? statRow('DISK', stats.disk.usage, null) : null
+        )
+      );
+    }
+
+    // ── UPDATE PILL + MODAL ──
+    function TopControls() {
+      const [updateInfo, setUpdateInfo] = useState(null);
+      const [showModal, setShowModal] = useState(false);
+      const [installing, setInstalling] = useState(false);
+      const [status, setStatus] = useState('');
+      const [statusClass, setStatusClass] = useState('');
+
+      // Check for updates (configurable interval, default 5 min)
+      const checkUpdate = useCallback(async () => {
+        try {
+          const r = await window.xeneon.checkUpdate();
+          if (r && r.hasUpdate) setUpdateInfo(r);
+          else setUpdateInfo(null);
+        } catch {}
+      }, []);
+      useEffect(() => {
+        checkUpdate();
+        const ms = (window.xeneonConfig?.polling?.updateCheckMin ?? 5) * 60 * 1000;
+        const iv = setInterval(checkUpdate, ms);
+        return () => clearInterval(iv);
+      }, [checkUpdate]);
+
+      const doInstall = useCallback(async () => {
+        if (!updateInfo) return;
+        setInstalling(true);
+        setStatus('Downloading…');
+        setStatusClass('progress');
+        try {
+          const res = await window.xeneon.doUpdate(updateInfo.downloadPath);
+          if (res.ok) {
+            setStatus('Updating… relaunching');
+            setStatusClass('ok');
+          } else {
+            setStatus('Error: ' + (res.error || 'Unknown'));
+            setStatusClass('error');
+            setInstalling(false);
+          }
+        } catch (e) {
+          setStatus('Error: ' + e.message);
+          setStatusClass('error');
+          setInstalling(false);
+        }
+      }, [updateInfo]);
+
+      return h('div', { className: 'top-controls' },
+        // Update pill (only visible when update available)
+        updateInfo && h('div', {
+          className: 'update-pill',
+          onClick: () => setShowModal(true),
+          title: 'Update available'
+        }, 'UPDATE v' + updateInfo.latest + ' ▲'),
+
+        // Quit button
+        h('button', {
+          className: 'quit-btn',
+          onClick: () => window.close(),
+          title: 'Quit (or Ctrl+Q)'
+        }, '✕'),
+
+        // Update modal
+        showModal && updateInfo && h('div', {
+          className: 'update-overlay',
+          onClick: (e) => { if (e.target === e.currentTarget && !installing) setShowModal(false); }
+        },
+          h('div', { className: 'update-modal' },
+            h('div', { className: 'update-modal-title' }, 'Update Available'),
+            h('div', { className: 'update-modal-version' }, 'v' + (updateInfo.current || '?') + ' → v' + updateInfo.latest),
+            updateInfo.notes && h('div', { className: 'update-modal-notes' }, updateInfo.notes),
+            h('div', null,
+              h('button', {
+                className: 'update-modal-btn',
+                onClick: doInstall,
+                disabled: installing
+              }, installing ? 'Installing…' : 'Install & Relaunch'),
+              !installing && h('button', {
+                className: 'update-modal-btn cancel',
+                onClick: () => setShowModal(false)
+              }, 'Later')
+            ),
+            status && h('div', { className: 'update-modal-status ' + statusClass }, status)
+          )
+        )
+      );
+    }
+
+    // ── APP ROOT ──
+    function App() {
+      const [ambientColor, setAmbientColor] = useState('#00d9ff');
+
+      // Load full config from main process and update global
+      useEffect(() => {
+        window.xeneon.getConfig().then(cfg => {
+          if (cfg && !cfg.error) {
+            window.xeneonConfig = cfg;
+          }
+        }).catch(() => {});
+      }, []);
+
+      useEffect(() => {
+        const el = document.getElementById('ambient-glow');
+        if (el) el.style.background = `radial-gradient(ellipse at 50% 50%, ${ambientColor}08 0%, ${ambientColor}04 30%, transparent 70%)`;
+      }, [ambientColor]);
+      return h(React.Fragment, null,
+        h(AxiomZone),
+        h(SignalZone, { onAmbientChange: setAmbientColor }),
+        h(LightsZone),
+        h(ClockZone),
+        h(NowPlayingZone),
+        h(SystemZone)
+      );
+    }
+    const root = ReactDOM.createRoot(document.getElementById('app'));
+    root.render(h(App));
+
+    // Mount top controls separately (fixed position, outside grid)
+    const controlsRoot = ReactDOM.createRoot(document.getElementById('top-controls'));
+    controlsRoot.render(h(TopControls));
+  </script>
+</body>
+</html>
