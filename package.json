@@ -72,5 +72,6 @@
   },
   "author": "Orbit",
   "license": "SEE LICENSE IN LICENSE.md",
-  "homepage": "https://github.com/orbitdash/orbit"
+  "homepage": "https://github.com/orbitdash/orbit",
+  "productName": "Orbit"
 }
