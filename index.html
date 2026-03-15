@@ -1283,6 +1283,9 @@
             h('div', {id:'settings-uptimekuma'}, integrationSection('uptimekuma', 'Uptime Kuma', '📡', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:3001'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-gmail'}, integrationSection('gmail', 'Gmail', '📧', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-outlook'}, integrationSection('outlook', 'Outlook', '📬', [{field:'clientId',label:'CLIENT ID (Azure App)'}])),
+            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-links'},
               h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
               (cfg.links||[]).map((lnk,i) =>
@@ -1761,6 +1764,306 @@
       );
     }
 
+    // ═══ GMAIL PANEL ═══
+    function GmailPanel({ config, openSettings }) {
+      const gCfg = config?.integrations?.gmail;
+      const configured = gCfg?.clientId && gCfg?.clientSecret;
+      const [authorized, setAuthorized] = useState(!!(gCfg?.accessToken));
+      const [connecting, setConnecting] = useState(false);
+      const [connectErr, setConnectErr] = useState('');
+      const [unreadCount, setUnreadCount] = useState(null);
+      const [emails, setEmails] = useState([]);
+
+      async function getToken() {
+        const freshCfg = await window.orbit.loadConfig();
+        const gm = freshCfg?.integrations?.gmail;
+        let token = gm?.accessToken;
+        if (!token) return null;
+        if (gm?.tokenExpiry && Date.now() > gm.tokenExpiry - 60000) {
+          const r = await window.orbit.gmailRefreshToken();
+          if (r.accessToken) token = r.accessToken;
+          else if (r.error) return null;
+        }
+        return token;
+      }
+
+      useEffect(() => {
+        if (!authorized) return;
+        async function poll() {
+          try {
+            const token = await getToken();
+            if (!token) { setAuthorized(false); return; }
+            const headers = { Authorization: 'Bearer '+token };
+            // Get unread count
+            const unreadRes = await window.orbit.apiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=1', headers);
+            if (unreadRes && !unreadRes.error) {
+              setUnreadCount(unreadRes.resultSizeEstimate || 0);
+            }
+            // Get last 5 messages
+            const listRes = await window.orbit.apiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=5', headers);
+            if (listRes && Array.isArray(listRes.messages)) {
+              const details = await Promise.all(
+                listRes.messages.map(m =>
+                  window.orbit.apiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date', headers)
+                )
+              );
+              const parsed = details.filter(d => d && !d.error).map(d => {
+                const hdrs = d.payload?.headers || [];
+                const from = hdrs.find(h2 => h2.name === 'From')?.value || '';
+                const subject = hdrs.find(h2 => h2.name === 'Subject')?.value || '(no subject)';
+                const date = hdrs.find(h2 => h2.name === 'Date')?.value || '';
+                // Extract sender name from "Name <email>" format
+                const nameMatch = from.match(/^"?([^"<]+)"?\s*</);
+                const senderName = nameMatch ? nameMatch[1].trim() : from.split('@')[0];
+                return { senderName, subject, date, snippet: d.snippet || '' };
+              });
+              setEmails(parsed);
+            }
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [authorized]);
+
+      function timeAgo(dateStr) {
+        if (!dateStr) return '';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'now';
+        if (mins < 60) return mins + 'm';
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return hrs + 'h';
+        const days = Math.floor(hrs / 24);
+        return days + 'd';
+      }
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},'GMAIL ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-gmail')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'📧'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+
+      if (!authorized) {
+        return h('div', {className:'panel'},
+          h('div', {className:'panel-label'}, 'GMAIL ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-gmail')},'⚙')),
+          h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '📧'),
+          connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
+          h('button', {className:'spotify-connect', disabled:connecting, onClick: async () => {
+            setConnecting(true); setConnectErr('');
+            const r = await window.orbit.gmailAuthStart();
+            setConnecting(false);
+            if (r.error) setConnectErr(r.error);
+            else setAuthorized(true);
+          }}, connecting ? 'Connecting...' : 'Connect Gmail')
+        );
+      }
+
+      return h('div', {className:'panel panel-top'},
+        h('div', {className:'panel-label'}, 'GMAIL ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-gmail')},'⚙')),
+        h('div', {style:{marginBottom:'16px'}},
+          h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1px'}}, 'UNREAD'),
+          h('div', {style:{fontSize:'48px',fontWeight:'700',color: unreadCount > 0 ? 'var(--accent)' : 'var(--dim)'}}, unreadCount != null ? unreadCount : '…')
+        ),
+        emails.length > 0 && h('div', null,
+          h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}}, 'LATEST'),
+          emails.map((em, i) =>
+            h('div', {key:i, style:{marginBottom:'10px',paddingBottom:'8px',borderBottom:'1px solid var(--border)',textAlign:'left'}},
+              h('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'2px'}},
+                h('span', {style:{fontSize:'12px',fontWeight:'600',color:'var(--text-bright)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}, em.senderName),
+                h('span', {style:{fontSize:'10px',color:'var(--dim)',flexShrink:0,marginLeft:'8px'}}, timeAgo(em.date))
+              ),
+              h('div', {style:{fontSize:'11px',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, em.subject)
+            )
+          )
+        )
+      );
+    }
+
+    // ═══ OUTLOOK PANEL ═══
+    function OutlookPanel({ config, openSettings }) {
+      const oCfg = config?.integrations?.outlook;
+      const configured = oCfg?.clientId;
+      const [authorized, setAuthorized] = useState(!!(oCfg?.accessToken));
+      const [connecting, setConnecting] = useState(false);
+      const [connectErr, setConnectErr] = useState('');
+      const [unreadCount, setUnreadCount] = useState(null);
+      const [emails, setEmails] = useState([]);
+
+      async function getToken() {
+        const freshCfg = await window.orbit.loadConfig();
+        const ol = freshCfg?.integrations?.outlook;
+        let token = ol?.accessToken;
+        if (!token) return null;
+        if (ol?.tokenExpiry && Date.now() > ol.tokenExpiry - 60000) {
+          const r = await window.orbit.outlookRefreshToken();
+          if (r.accessToken) token = r.accessToken;
+          else if (r.error) return null;
+        }
+        return token;
+      }
+
+      useEffect(() => {
+        if (!authorized) return;
+        async function poll() {
+          try {
+            const token = await getToken();
+            if (!token) { setAuthorized(false); return; }
+            const headers = { Authorization: 'Bearer '+token };
+            const res = await window.orbit.apiGet(
+              'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$filter=isRead eq false&$count=true&$top=5&$select=subject,from,receivedDateTime,isRead&$orderby=receivedDateTime desc',
+              { ...headers, 'ConsistencyLevel': 'eventual' }
+            );
+            if (res && !res.error) {
+              setUnreadCount(res['@odata.count'] != null ? res['@odata.count'] : (Array.isArray(res.value) ? res.value.length : 0));
+              if (Array.isArray(res.value)) {
+                setEmails(res.value.slice(0,5).map(m => ({
+                  sender: m.from?.emailAddress?.name || m.from?.emailAddress?.address || 'Unknown',
+                  subject: m.subject || '(no subject)',
+                  received: m.receivedDateTime
+                })));
+              }
+            }
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+      }, [authorized]);
+
+      function timeAgo(dateStr) {
+        if (!dateStr) return '';
+        const diff = Date.now() - new Date(dateStr).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'now';
+        if (mins < 60) return mins + 'm';
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return hrs + 'h';
+        const days = Math.floor(hrs / 24);
+        return days + 'd';
+      }
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},'OUTLOOK ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-outlook')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'📬'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+
+      if (!authorized) {
+        return h('div', {className:'panel'},
+          h('div', {className:'panel-label'}, 'OUTLOOK ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-outlook')},'⚙')),
+          h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '📬'),
+          connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
+          h('button', {className:'spotify-connect', disabled:connecting, onClick: async () => {
+            setConnecting(true); setConnectErr('');
+            const r = await window.orbit.outlookAuthStart();
+            setConnecting(false);
+            if (r.error) setConnectErr(r.error);
+            else setAuthorized(true);
+          }}, connecting ? 'Connecting...' : 'Connect Outlook')
+        );
+      }
+
+      return h('div', {className:'panel panel-top'},
+        h('div', {className:'panel-label'}, 'OUTLOOK ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-outlook')},'⚙')),
+        h('div', {style:{marginBottom:'16px'}},
+          h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'4px',letterSpacing:'1px'}}, 'UNREAD'),
+          h('div', {style:{fontSize:'48px',fontWeight:'700',color: unreadCount > 0 ? '#4488ff' : 'var(--dim)'}}, unreadCount != null ? unreadCount : '…')
+        ),
+        emails.length > 0 && h('div', null,
+          h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'1px'}}, 'LATEST'),
+          emails.map((em, i) =>
+            h('div', {key:i, style:{marginBottom:'10px',paddingBottom:'8px',borderBottom:'1px solid var(--border)',textAlign:'left'}},
+              h('div', {style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:'2px'}},
+                h('span', {style:{fontSize:'12px',fontWeight:'600',color:'var(--text-bright)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}, em.sender),
+                h('span', {style:{fontSize:'10px',color:'var(--dim)',flexShrink:0,marginLeft:'8px'}}, timeAgo(em.received))
+              ),
+              h('div', {style:{fontSize:'11px',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, em.subject)
+            )
+          )
+        )
+      );
+    }
+
+    // ═══ DISCORD PANEL ═══
+    function DiscordPanel({ config, openSettings }) {
+      const dCfg = config?.integrations?.discord;
+      const configured = dCfg?.clientId && dCfg?.clientSecret;
+      const [authorized, setAuthorized] = useState(!!(dCfg?.accessToken));
+      const [connecting, setConnecting] = useState(false);
+      const [connectErr, setConnectErr] = useState('');
+      const [user, setUser] = useState(dCfg?.user || null);
+      const [guildCount, setGuildCount] = useState(dCfg?.guildCount || 0);
+
+      useEffect(() => {
+        // Load stored user data from config
+        if (dCfg?.user) setUser(dCfg.user);
+        if (dCfg?.guildCount != null) setGuildCount(dCfg.guildCount);
+      }, [dCfg?.user?.id, dCfg?.guildCount]);
+
+      // Poll guilds periodically to keep count fresh
+      useEffect(() => {
+        if (!authorized || !dCfg?.accessToken) return;
+        async function poll() {
+          try {
+            const freshCfg = await window.orbit.loadConfig();
+            const token = freshCfg?.integrations?.discord?.accessToken;
+            if (!token) return;
+            const [userRes, guildsRes] = await Promise.all([
+              window.orbit.apiGet('https://discord.com/api/users/@me', { Authorization: 'Bearer '+token }),
+              window.orbit.apiGet('https://discord.com/api/users/@me/guilds', { Authorization: 'Bearer '+token })
+            ]);
+            if (userRes && !userRes.error && userRes.id) setUser(userRes);
+            if (Array.isArray(guildsRes)) setGuildCount(guildsRes.length);
+          } catch {}
+        }
+        poll(); const t = setInterval(poll, 300000); return () => clearInterval(t);
+      }, [authorized]);
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h('div',{className:'panel-label'},'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
+        h('div',{className:'panel-unconfigured-icon'},'💬'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
+
+      if (!authorized) {
+        return h('div', {className:'panel'},
+          h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
+          h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '💬'),
+          connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
+          h('button', {className:'spotify-connect', style:{borderColor:'#5865F2',color:'#5865F2',background:'rgba(88,101,242,0.08)'}, disabled:connecting, onClick: async () => {
+            setConnecting(true); setConnectErr('');
+            const r = await window.orbit.discordAuthStart();
+            setConnecting(false);
+            if (r.error) setConnectErr(r.error);
+            else {
+              setAuthorized(true);
+              if (r.user) setUser(r.user);
+              if (r.guildCount != null) setGuildCount(r.guildCount);
+            }
+          }}, connecting ? 'Connecting...' : 'Connect Discord')
+        );
+      }
+
+      const avatarUrl = user?.avatar
+        ? 'https://cdn.discordapp.com/avatars/'+user.id+'/'+user.avatar+'.png?size=128'
+        : 'https://cdn.discordapp.com/embed/avatars/'+(user?.discriminator ? (parseInt(user.discriminator) % 5) : 0)+'.png';
+      const displayName = user?.global_name || user?.username || 'Unknown';
+      const handle = user?.discriminator && user.discriminator !== '0'
+        ? user.username + '#' + user.discriminator
+        : '@' + (user?.username || '');
+
+      return h('div', {className:'panel'},
+        h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
+        h('img', {src:avatarUrl, style:{width:'52px',height:'52px',borderRadius:'50%',marginBottom:'10px',border:'2px solid rgba(88,101,242,0.4)'}}),
+        h('div', {style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)',marginBottom:'2px'}}, displayName),
+        h('div', {style:{fontSize:'12px',color:'var(--dim)',marginBottom:'16px'}}, handle),
+        h('div', {style:{display:'flex',gap:'20px',marginBottom:'20px'}},
+          h('div', null,
+            h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'SERVERS'),
+            h('div', {style:{fontSize:'28px',fontWeight:'700',color:'#5865F2'}}, guildCount)
+          )
+        ),
+        h('button', {
+          onClick:()=>window.orbit.openExternal('discord://'),
+          style:{padding:'8px 20px',fontSize:'12px',fontWeight:'700',fontFamily:'var(--font)',letterSpacing:'1px',border:'2px solid #5865F2',borderRadius:'20px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',transition:'all .2s'}
+        }, 'Open Discord')
+      );
+    }
+
     // ═══ PANEL RENDERER ═══
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key }, child);
@@ -1783,6 +2086,9 @@
         case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
         case 'links': return wrap(key, h(LinksPanel, {key, config}));
         case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
+        case 'gmail': return wrap(key, h(GmailPanel, {key, config, openSettings}));
+        case 'outlook': return wrap(key, h(OutlookPanel, {key, config, openSettings}));
+        case 'discord': return wrap(key, h(DiscordPanel, {key, config, openSettings}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
