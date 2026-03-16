@@ -48,6 +48,7 @@ contextBridge.exposeInMainWorld('orbit', {
 
   // Setup
   openSetup: () => ipcRenderer.invoke('open-setup'),
+  resetConfig: () => ipcRenderer.invoke('reset-config'),
   notifyConfigSaved: () => ipcRenderer.invoke('notify-config-saved'),
   setupComplete: () => ipcRenderer.invoke('setup-complete'),
 

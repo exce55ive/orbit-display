@@ -1,6 +1,6 @@
 {
   "name": "orbit",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A beautiful, modular desktop dashboard",
   "main": "main.js",
   "scripts": {

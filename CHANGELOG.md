@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.8] - 2026-03-16
+
+### Added
+- **Display Switcher** — new System tab in Settings lets users choose which monitor Orbit runs on; lists all detected displays with resolution and primary indicator
+- **Reset Settings** — three-step confirmation flow (click → "Are you sure?" → "Cannot be undone — confirm") wipes all config and relaunches the setup wizard clean
+
 ## [0.0.7] - 2026-03-16
 
 ### Fixed

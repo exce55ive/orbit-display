@@ -351,6 +351,35 @@ ipcMain.on('about:close', (e) => {
   if (win) win.close();
 });
 
+ipcMain.handle('reset-config', async () => {
+  try {
+    // Wipe config and saved display preference
+    const configPath = getOrbitConfigPath();
+    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+    const settings = loadSettings();
+    delete settings.displayId;
+    saveSettings(settings);
+    // Close main window, open fresh setup wizard
+    if (mainWindow) { mainWindow.close(); mainWindow = null; }
+    BrowserWindow.getAllWindows().forEach(w => { if (!w.isDestroyed()) w.close(); });
+    const setupWin = new BrowserWindow({
+      width: 860, height: 700, resizable: true, center: true,
+      backgroundColor: '#0a0a0f',
+      alwaysOnTop: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true, nodeIntegration: false,
+        sandbox: true
+      }
+    });
+    setupWin.loadFile('setup.html');
+    setupWin.webContents.on('will-navigate', (e) => e.preventDefault());
+    setupWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    setupWin.once('ready-to-show', () => { setupWin.show(); setupWin.focus(); });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+});
+
 ipcMain.handle('setup-complete', async () => {
   const settings = loadSettings();
   if (mainWindow) {
