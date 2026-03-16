@@ -362,19 +362,21 @@
                 <div class="field-group"><div class="field-label">Your Discord User ID <span style="font-weight:400;color:var(--dim)">(Dev Mode → right-click your name → Copy User ID)</span></div><input class="field-input" id="discord-user-id" value="${esc(config.integrations.discord?.userId || config.integrations.discord?.user?.id || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
                 ${testRow('discord')}
-                <div class="integration-hint">Voice channels: enable Developer Mode in Discord → right-click a voice channel → Copy Channel ID</div>
+                <div class="integration-hint">Dev Mode: Settings → Advanced → Developer Mode → right-click server name → Copy Server ID, right-click voice channel → Copy Channel ID</div>
                 <div class="field-group">
                   <div class="field-label">VOICE CHANNEL 1</div>
-                  <div style="display:flex;gap:6px;">
-                    <input class="field-input" id="discord-vc1-id" placeholder="Channel ID" style="flex:1;" value="${esc(config.integrations.discord?.favVoice1?.channelId || '')}">
-                    <input class="field-input" id="discord-vc1-name" placeholder="Name (e.g. General)" style="flex:1;" value="${esc(config.integrations.discord?.favVoice1?.channelName || '')}">
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <input class="field-input" id="discord-vc1-id" placeholder="Channel ID" style="flex:2;min-width:120px;" value="${esc(config.integrations.discord?.favVoice1?.channelId || '')}">
+                    <input class="field-input" id="discord-vc1-name" placeholder="Name (e.g. General)" style="flex:2;min-width:100px;" value="${esc(config.integrations.discord?.favVoice1?.channelName || '')}">
+                    <input class="field-input" id="discord-vc1-guild" placeholder="Server ID" style="flex:2;min-width:120px;" value="${esc(config.integrations.discord?.favVoice1?.guildId || '')}">
                   </div>
                 </div>
                 <div class="field-group">
                   <div class="field-label">VOICE CHANNEL 2</div>
-                  <div style="display:flex;gap:6px;">
-                    <input class="field-input" id="discord-vc2-id" placeholder="Channel ID" style="flex:1;" value="${esc(config.integrations.discord?.favVoice2?.channelId || '')}">
-                    <input class="field-input" id="discord-vc2-name" placeholder="Name (e.g. Gaming)" style="flex:1;" value="${esc(config.integrations.discord?.favVoice2?.channelName || '')}">
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <input class="field-input" id="discord-vc2-id" placeholder="Channel ID" style="flex:2;min-width:120px;" value="${esc(config.integrations.discord?.favVoice2?.channelId || '')}">
+                    <input class="field-input" id="discord-vc2-name" placeholder="Name (e.g. Gaming)" style="flex:2;min-width:100px;" value="${esc(config.integrations.discord?.favVoice2?.channelName || '')}">
+                    <input class="field-input" id="discord-vc2-guild" placeholder="Server ID" style="flex:2;min-width:120px;" value="${esc(config.integrations.discord?.favVoice2?.guildId || '')}">
                   </div>
                 </div>
               `)}
@@ -945,9 +947,11 @@
       // Voice channels — manual entry (no RPC)
       const vc1id = getVal('discord-vc1-id'), vc1name = getVal('discord-vc1-name');
       const vc2id = getVal('discord-vc2-id'), vc2name = getVal('discord-vc2-name');
-      if (vc1id) config.integrations.discord.favVoice1 = { channelId: vc1id, channelName: vc1name || vc1id, guildId: config.integrations.discord.favVoice1?.guildId || '', guildName: config.integrations.discord.favVoice1?.guildName || '' };
+      const vc1guild = getVal('discord-vc1-guild');
+      const vc2guild = getVal('discord-vc2-guild');
+      if (vc1id) config.integrations.discord.favVoice1 = { channelId: vc1id, channelName: vc1name || vc1id, guildId: vc1guild || config.integrations.discord.favVoice1?.guildId || '', guildName: config.integrations.discord.favVoice1?.guildName || '' };
       else delete config.integrations.discord.favVoice1;
-      if (vc2id) config.integrations.discord.favVoice2 = { channelId: vc2id, channelName: vc2name || vc2id, guildId: config.integrations.discord.favVoice2?.guildId || '', guildName: config.integrations.discord.favVoice2?.guildName || '' };
+      if (vc2id) config.integrations.discord.favVoice2 = { channelId: vc2id, channelName: vc2name || vc2id, guildId: vc2guild || config.integrations.discord.favVoice2?.guildId || '', guildName: config.integrations.discord.favVoice2?.guildName || '' };
       else delete config.integrations.discord.favVoice2;
       // favServer1/2 are set by browseDiscordServers() / clearDiscordFav() directly
 

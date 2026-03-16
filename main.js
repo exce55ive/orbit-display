@@ -1046,9 +1046,20 @@ ipcMain.handle('discord-get-voice-channels', async (_e, guildId) => {
 ipcMain.handle('discord-join-voice', async (_e, channelId, guildId) => {
   try {
     const { shell } = require('electron');
-    // Deep link opens Discord directly at the voice channel — user clicks Join Voice once
-    if (guildId && channelId) {
-      await shell.openExternal(`discord://discord.com/channels/${guildId}/${channelId}`);
+    let resolvedGuildId = guildId;
+    // Auto-resolve guild ID via bot if missing
+    if (!resolvedGuildId && channelId) {
+      try {
+        const cfg2 = loadOrbitConfig();
+        const botToken = cfg2?.integrations?.discord?.botToken;
+        if (botToken) {
+          const chRes = await fetch(`https://discord.com/api/v10/channels/${channelId}`, { headers: { Authorization: 'Bot ' + botToken } });
+          if (chRes.ok) { const ch = await chRes.json(); resolvedGuildId = ch.guild_id; }
+        }
+      } catch {}
+    }
+    if (resolvedGuildId && channelId) {
+      await shell.openExternal(`discord://discord.com/channels/${resolvedGuildId}/${channelId}`);
     } else if (channelId) {
       await shell.openExternal(`discord://discord.com/channels/${channelId}`);
     }
