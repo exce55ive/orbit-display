@@ -99,7 +99,8 @@
     .np-subtitle { font-size: 11px; color: var(--text); margin-bottom: 6px; }
     .np-progress-wrap { width: 100%; margin-bottom: 4px; }
     .np-progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
-    .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 15s linear; }
+    .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
+    .np-progress-fill.no-transition { transition: none !important; }
     .np-time { font-size: 10px; color: var(--dim); margin-bottom: 4px; }
     .np-badge { display: inline-block; padding: 2px 6px; font-size: 9px; font-weight: 700; letter-spacing: 1px; border-radius: 3px; margin-right: 4px; }
     .np-badge-transcode { background: rgba(255,200,87,0.12); color: var(--amber); border: 1px solid rgba(255,200,87,0.2); }
@@ -1000,8 +1001,12 @@
       const [connecting, setConnecting] = useState(false);
       const [connectErr, setConnectErr] = useState('');
       const [playback, setPlayback] = useState(null);
+      const [localMs, setLocalMs] = useState(0);     // locally interpolated progress_ms
+      const [noTrans, setNoTrans] = useState(false);  // suppress CSS transition on track change
       const [queue, setQueue] = useState([]);
       const [busy, setBusy] = useState(false);
+      const lastTrackId = useRef(null);
+      const pollRef = useRef(null);
 
       async function getToken() {
         const freshCfg = await window.orbit.loadConfig();
@@ -1015,6 +1020,29 @@
         return token;
       }
 
+      const applyPlayback = (pb) => {
+        if (pb && pb.item) {
+          const newId = pb.item.id;
+          const trackChanged = newId !== lastTrackId.current;
+          if (trackChanged) {
+            // Instant reset — no CSS backward-crawl animation
+            setNoTrans(true);
+            setLocalMs(pb.progress_ms || 0);
+            setTimeout(() => setNoTrans(false), 50);
+            lastTrackId.current = newId;
+          } else {
+            // Same track — sync to API value (API is authoritative)
+            setLocalMs(pb.progress_ms || 0);
+          }
+          setPlayback(pb);
+        } else {
+          setPlayback(null);
+          setLocalMs(0);
+          lastTrackId.current = null;
+        }
+      };
+
+      // Poll every 5s
       useEffect(() => {
         if (!authorized) return;
         async function poll() {
@@ -1025,12 +1053,28 @@
               window.orbit.apiGet('https://api.spotify.com/v1/me/player/currently-playing', { Authorization: 'Bearer '+token }),
               window.orbit.apiGet('https://api.spotify.com/v1/me/player/queue', { Authorization: 'Bearer '+token })
             ]);
-            if (pb && pb.item) setPlayback(pb); else setPlayback(null);
+            applyPlayback(pb);
             if (q && Array.isArray(q.queue)) setQueue(q.queue.slice(0,3));
           } catch {}
         }
-        poll(); const t = setInterval(poll, 5000); return () => clearInterval(t);
+        pollRef.current = poll;
+        poll();
+        const t = setInterval(poll, 5000);
+        return () => clearInterval(t);
       }, [authorized]);
+
+      // Local 1s tick — interpolates progress between API polls
+      useEffect(() => {
+        const t = setInterval(() => {
+          setPlayback(pb => {
+            if (pb?.is_playing) {
+              setLocalMs(ms => Math.min(ms + 1000, pb.item?.duration_ms || ms));
+            }
+            return pb;
+          });
+        }, 1000);
+        return () => clearInterval(t);
+      }, []);
 
       async function control(method, endpoint) {
         if (busy) return;
@@ -1041,9 +1085,11 @@
           const url = 'https://api.spotify.com/v1/me/player/'+endpoint;
           if (method === 'POST') await window.orbit.apiPost(url, {}, { Authorization: 'Bearer '+token });
           else await window.orbit.apiPut(url, {}, { Authorization: 'Bearer '+token });
-          // optimistic update — actual state comes from next poll
+          // Optimistic update for pause/play
           if (endpoint === 'pause') setPlayback(p => p ? {...p, is_playing:false} : p);
-          if (endpoint === 'play') setPlayback(p => p ? {...p, is_playing:true} : p);
+          else if (endpoint === 'play') setPlayback(p => p ? {...p, is_playing:true} : p);
+          // For skip/prev: repoll after short delay so new track appears quickly
+          else setTimeout(() => { if (pollRef.current) pollRef.current(); }, 700);
         } catch {} finally { setBusy(false); }
       }
 
@@ -1070,9 +1116,9 @@
       const track = playback?.item;
       const isPlaying = playback?.is_playing;
       const art = track?.album?.images?.[1]?.url || track?.album?.images?.[0]?.url;
-      const prog = (track && playback?.progress_ms && track.duration_ms)
-        ? Math.round((playback.progress_ms / track.duration_ms) * 100) : 0;
-      const remSec = track ? Math.max(0, Math.round((track.duration_ms - (playback?.progress_ms||0)) / 1000)) : 0;
+      const prog = (track && localMs && track.duration_ms)
+        ? Math.min(100, Math.round((localMs / track.duration_ms) * 100)) : 0;
+      const remSec = track ? Math.max(0, Math.round((track.duration_ms - localMs) / 1000)) : 0;
 
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
@@ -1088,9 +1134,9 @@
           ),
           // Progress bar
           h('div', {className:'np-progress-bar', style:{marginBottom:'4px'}},
-            h('div', {className:'np-progress-fill', style:{width:prog+'%'}})),
+            h('div', {className:'np-progress-fill'+(noTrans?' no-transition':''), style:{width:prog+'%'}})),
           h('div', {style:{display:'flex',justifyContent:'space-between',fontSize:'12px',color:'var(--dim)',marginBottom:'10px'}},
-            h('span', null, formatDuration(Math.round((playback?.progress_ms||0)/1000))),
+            h('span', null, formatDuration(Math.round(localMs/1000))),
             h('span', null, '-'+formatDuration(remSec))
           ),
           // Controls
