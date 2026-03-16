@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('orbit', {
   fetchSignalRGB: () => ipcRenderer.invoke('fetch-signalrgb'),
   activateEffect: (id) => ipcRenderer.invoke('activate-effect', id),
   signalrgbSetEnabled: (enabled) => ipcRenderer.invoke('signalrgb-set-enabled', enabled),
+  signalrgbSetBrightness: (brightness) => ipcRenderer.invoke('signalrgb-set-brightness', brightness),
   spotifyAuthStart: () => ipcRenderer.invoke('spotify-auth-start'),
   spotifyRefreshToken: () => ipcRenderer.invoke('spotify-refresh-token'),
   discordAuthStart: () => ipcRenderer.invoke('discord-auth-start'),

@@ -456,6 +456,7 @@
       const rawFavs = config?.signalrgbFavorites || [];
       const [favorites, setFavorites] = useState(rawFavs);
       const [error, setError] = useState(null);
+      const [localBrightness, setLocalBrightness] = useState(null);
       // Always use direct SignalRGB API — no HA dependency
       useEffect(() => {
         async function pollDirect() {
@@ -521,8 +522,20 @@
         h('div', {className:'effect-label'}, isOn?'ACTIVE':'OFF'),
         h('button', {className:'ha-toggle '+(isOn?'on':'off'), onClick:togglePower}, isOn?'ON':'OFF'),
         h('div', {className:'brightness-wrap'},
-          h('div', {className:'brightness-bar'}, h('div', {className:'brightness-fill', style:{width:brightness+'%',background:'var(--accent)'}})),
-          h('div', {className:'brightness-label'}, brightness+'%')
+          (() => {
+            const bVal = localBrightness !== null ? localBrightness : brightness;
+            return h('input', {
+              type:'range', min:0, max:100, value:bVal,
+              style:{width:'100%',height:'4px',WebkitAppearance:'none',appearance:'none',background:`linear-gradient(to right, var(--accent) ${bVal}%, rgba(255,255,255,0.1) ${bVal}%)`,borderRadius:'2px',outline:'none',cursor:'pointer'},
+              onInput: e => setLocalBrightness(parseInt(e.target.value)),
+              onChange: e => {
+                const val = parseInt(e.target.value);
+                setLocalBrightness(val);
+                window.orbit.signalrgbSetBrightness(val).then(() => setLocalBrightness(null));
+              }
+            });
+          })(),
+          h('div', {className:'brightness-label'}, (localBrightness !== null ? localBrightness : brightness)+'%')
         ),
         favorites.length > 0 && h('div', {className:'fav-pills'},
           favorites.map((f,i) => {

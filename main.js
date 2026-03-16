@@ -554,6 +554,21 @@ ipcMain.handle('activate-effect', async (_e, effectId) => {
   } catch (e) { return { error: e.message }; }
 });
 
+ipcMain.handle('signalrgb-set-brightness', async (_e, brightness) => {
+  const fetch = await getFetch();
+  const cfg2 = loadOrbitConfig();
+  try {
+    const base = cfg2?.integrations?.signalrgb?.url || 'http://localhost:16038';
+    const res = await fetch(`${base}/api/v1/lighting`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ global_brightness: Math.round(brightness) })
+    });
+    const text = await res.text();
+    try { return JSON.parse(text); } catch { return text; }
+  } catch (e) { return { error: e.message }; }
+});
+
 ipcMain.handle('signalrgb-set-enabled', async (_e, enabled) => {
   const fetch = await getFetch();
   const cfg2 = loadOrbitConfig();
