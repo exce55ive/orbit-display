@@ -172,7 +172,7 @@ function launchMain(displayId) {
     }
   });
   mainWindow.loadFile('index.html');
-  mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
+  mainWindow.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) e.preventDefault(); });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
