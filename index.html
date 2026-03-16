@@ -30,7 +30,7 @@
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(var(--panel-cols, 6), 1fr); gap: 0; }
-    .panel { height: calc(100vh - 52px); padding: 48px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .panel { height: calc(100vh - 52px); padding: 60px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
     .panel-label { font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
     .source-badge { display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 700; letter-spacing: 1px; border-radius: 3px; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-glow); text-transform: uppercase; }
@@ -104,7 +104,7 @@
     .np-subtitle { font-size: 13px; color: var(--text); margin-bottom: 6px; }
     .np-progress-wrap { width: 100%; margin-bottom: 4px; }
     .np-progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
-    .panel-header { display:flex; align-items:center; gap:8px; padding:12px 20px 10px; border-bottom:1px solid rgba(255,255,255,0.06); position:absolute; top:0; left:0; right:0; z-index:10; background:var(--bg); }
+    .panel-header { display:flex; align-items:center; gap:8px; padding:12px 20px 10px; border-bottom:1px solid rgba(255,255,255,0.12); position:absolute; top:0; left:0; right:0; z-index:10; background:var(--bg); }
     .panel-header-accent { width:3px; border-radius:2px; align-self:stretch; flex-shrink:0; min-height:20px; }
     .panel-header-icon { font-size: 18px; line-height:1; flex-shrink:0; }
     .panel-header-title { font-size: 13px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); flex:1; text-align:center; }
