@@ -914,7 +914,7 @@
         add('Jellyfin', integrations.jellyfin?.url);
         add('Tautulli', integrations.tautulli?.url);
         add('Home Assistant', integrations.homeassistant?.url);
-        add('Uptime Kuma', integrations.uptimekuma?.url);
+        // Uptime Kuma omitted — ServicesPanel replaces it
         (cfg?.customServices || []).forEach(s => add(s.name, s.url));
         return services;
       }
@@ -942,8 +942,8 @@
               h('div', { className: 'panel-unconfigured-icon' }, '📡'),
               h('div', { className: 'panel-unconfigured-text' }, 'Configure services in Setup')
             )
-          : h('div', { style: { width: '100%', textAlign: 'left' } },
-              h('div', { style: { display: 'flex', gap: '12px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.06)' } },
+          : h('div', { style: { width: '100%', textAlign: 'left', display: 'flex', flexDirection: 'column', alignItems: 'center' } },
+              h('div', { style: { display: 'flex', gap: '24px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.06)', justifyContent: 'center', width: '100%' } },
                 h('div', { style: { textAlign: 'center' } },
                   h('div', { style: { fontSize: '28px', fontWeight: 800, color: '#50fa7b', lineHeight: 1 } }, upCount),
                   h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginTop: '4px' } }, 'UP')
@@ -953,6 +953,7 @@
                   h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginTop: '4px' } }, 'DOWN')
                 )
               ),
+              h('div', { style: { width: '100%' } },
               results.map((r, i) => h('div', {
                 key: i,
                 style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }
