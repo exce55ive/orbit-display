@@ -337,6 +337,10 @@
               
                 ${testRow('jellyfin')}
               `)}
+              ${integrationCard('links', 'Quick Links', '🔗', `
+                <div id="links-list"></div>
+                <button onclick="addLink()" style="margin-top:4px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">+ Add Link</button>
+              `)}
               ${integrationCard('services', 'Services', '📡', `
                 <div class="integration-hint">The Services panel pings all configured integration URLs automatically. Add custom services below.</div>
                 <div id="custom-services-list">${(config.customServices||[]).map((s,i)=>`
@@ -346,6 +350,15 @@
                     <button onclick="removeCustomService(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
                   </div>`).join('')}</div>
                 <button onclick="addCustomService()" style="margin-top:4px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">+ Add Service</button>
+              `)}
+              ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://192.168.1.x:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
+                <div class="field-group"><div class="field-label">Token</div><input class="field-input" id="ha-token" type="password" placeholder="Long-lived access token" value="${esc(config.integrations.homeassistant.token)}" oninput="showHABrowseBtn()"></div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+                  <button id="ha-browse-btn" onclick="openHAModal()" style="display:none;padding:5px 12px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;">Browse Entities</button>
+                  <span id="ha-selected-count" style="font-size:11px;color:rgba(255,255,255,0.4);">${config.integrations.homeassistant.lights?.length > 0 ? config.integrations.homeassistant.lights.length + ' entities configured' : ''}</span>
+                </div>
+                ${testRow('homeassistant')}
               `)}
               ${integrationCard('spotify', 'Spotify', '🎵', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="spotify-id" value="${esc(config.integrations.spotify.clientId)}"></div>
@@ -360,12 +373,13 @@
             </div>
           </div>
         `;
-        // Init HA entity count display and browse button visibility
+        // Post-render inits
         (function() {
           const lights = config.integrations.homeassistant.lights;
           const countEl = document.getElementById('ha-selected-count');
           if (countEl && lights && lights.length > 0) countEl.textContent = lights.length + ' entities configured';
           showHABrowseBtn();
+          renderLinks();
         })();
       } else if (currentStep === 2) {
         renderPagesStep(container);
