@@ -697,13 +697,15 @@
     }
 
     // ═══ SYSTEM PANEL ═══
-    function SystemPanel({ config }) {
+    function SystemPanel({ config, onConfigChange }) {
       const [fast, setFast] = useState(null);
       const [slow, setSlow] = useState(null);
       const [showPicker, setShowPicker] = useState(false);
       const [cpuSensorIdx, setCpuSensorIdx] = useState(0);
       const [gpuIdx, setGpuIdx] = useState(0);
       const [showDisk, setShowDisk] = useState(false);
+      // Saved GPU model name — used to restore selection after restart
+      const savedGpuModel = config?.systemPrefs?.gpuModel || null;
       useEffect(() => {
         async function pollFast() { try { const r = await window.orbit.getSysinfoFast(); if (!r.error) setFast(r); } catch {} }
         pollFast(); const t = setInterval(pollFast, 3000); return () => clearInterval(t);
@@ -729,9 +731,14 @@
       const [showCpuPicker, setShowCpuPicker] = useState(false);
       const [showGpuPicker, setShowGpuPicker] = useState(false);
 
-      // Auto-select first Radeon or GeForce GPU
+      // Auto-select GPU: use saved model name first, then fallback to first Radeon/GeForce
       useEffect(() => {
         if (!gpuList.length) return;
+        if (savedGpuModel) {
+          const savedIdx = gpuList.findIndex(g => g.model === savedGpuModel);
+          if (savedIdx >= 0 && savedIdx !== gpuIdx) { setGpuIdx(savedIdx); return; }
+        }
+        // No saved preference — auto-pick first discrete GPU
         const pref = gpuList.findIndex(g => /radeon|geforce|rx\s|rtx\s|gtx\s/i.test(g.model));
         if (pref >= 0 && pref !== gpuIdx) setGpuIdx(pref);
       }, [gpuList.length]);
@@ -768,7 +775,20 @@
         showGpuPicker && gpuList.length > 0 && h('div', {className:'sys-picker-panel'},
           h('div', {className:'sys-picker-row'},
             h('span', {className:'sys-picker-label'}, 'GPU'),
-            h('select', {className:'sys-picker-select', value:gpuIdx, onChange:e=>{setGpuIdx(parseInt(e.target.value));setShowGpuPicker(false);}},
+            h('select', {className:'sys-picker-select', value:gpuIdx, onChange:e=>{
+                const idx = parseInt(e.target.value);
+                setGpuIdx(idx);
+                setShowGpuPicker(false);
+                // Persist selected GPU model to config
+                const model = gpuList[idx]?.model;
+                if (model && onConfigChange) {
+                  const cfg = JSON.parse(JSON.stringify(config || {}));
+                  if (!cfg.systemPrefs) cfg.systemPrefs = {};
+                  cfg.systemPrefs.gpuModel = model;
+                  window.orbit.saveConfig(cfg);
+                  onConfigChange(cfg);
+                }
+              }},
               gpuList.map((g,i) => h('option', {key:i, value:i}, g.model))
             )
           )
@@ -2304,7 +2324,7 @@
         case 'signalrgb': return null; // Rendered specially in App for context
         case 'lights': return wrap(key, h(LightsPanel, {key, config, onConfigChange: setConfig}));
         case 'nowplaying': return wrap(key, h(NowPlayingPanel, {key, config}));
-        case 'system': return wrap(key, h(SystemPanel, {key, config}));
+        case 'system': return wrap(key, h(SystemPanel, {key, config, onConfigChange: setConfig}));
         case 'media': return wrap(key, h(MediaPanel, {key, config, openSettings}));
         case 'sonarr': return wrap(key, h(SonarrPanel, {key, config, openSettings}));
         case 'radarr': return wrap(key, h(RadarrPanel, {key, config, openSettings}));
