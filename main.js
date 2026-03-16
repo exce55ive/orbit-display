@@ -199,6 +199,13 @@ app.on('open-url', (_e, url) => {
 });
 
 app.whenReady().then(() => {
+  // Proactively connect Discord RPC if Discord is configured
+  setTimeout(() => {
+    const cfg = loadOrbitConfig();
+    if (cfg?.integrations?.discord?.clientId && cfg?.integrations?.discord?.accessToken) {
+      connectDiscordRPC().catch(() => {});
+    }
+  }, 4000);
   const orbitCfg = migrateOrbitConfig(loadOrbitConfig());
   const hasConfig = orbitCfg && orbitCfg.pages && orbitCfg.pages.length > 0;
 
@@ -775,10 +782,10 @@ ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
 
 // ─── DISCORD RPC (voice mute / voice channel connect) ─────────────────────────
 let _rpcClient = null;
-let _rpcMuted = false;
 let _rpcConnecting = false;
+let _rpcReconnectTimer = null;
 
-async function getDiscordRPC() {
+async function connectDiscordRPC() {
   if (_rpcClient) return _rpcClient;
   if (_rpcConnecting) return null;
   const cfg = loadOrbitConfig();
@@ -788,14 +795,46 @@ async function getDiscordRPC() {
   try {
     const DiscordRPC = require('discord-rpc');
     DiscordRPC.register(clientId);
-    const client = new DiscordRPC.Client({ transport: 'ipc' });
+    const savedToken = cfg?.integrations?.discord?.rpcToken;
+    let client = new DiscordRPC.Client({ transport: 'ipc' });
+    const loginOpts = savedToken
+      ? { clientId, accessToken: savedToken }
+      : { clientId, scopes: ['rpc', 'rpc.voice.read', 'rpc.voice.write'] };
     await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('RPC connect timeout')), 5000);
+      const t = setTimeout(() => reject(new Error('RPC connect timeout')), 8000);
       client.on('ready', () => { clearTimeout(t); resolve(); });
-      client.login({ clientId, scopes: ['rpc', 'rpc.voice.read', 'rpc.voice.write'] }).catch(reject);
+      client.login(loginOpts).catch(async (e) => {
+        // If stored token failed, retry with full auth
+        if (savedToken) {
+          client.removeAllListeners();
+          client = new DiscordRPC.Client({ transport: 'ipc' });
+          client.on('ready', () => { clearTimeout(t); resolve(); });
+          client.login({ clientId, scopes: ['rpc', 'rpc.voice.read', 'rpc.voice.write'] }).catch(reject);
+        } else { reject(e); }
+      });
     });
+    // Persist the access token so future reconnects skip the auth dialog
+    if (client.accessToken) {
+      try {
+        const updCfg = loadOrbitConfig();
+        if (updCfg?.integrations?.discord) {
+          updCfg.integrations.discord.rpcToken = client.accessToken;
+          saveOrbitConfig(updCfg);
+        }
+      } catch {}
+    }
     _rpcClient = client;
-    client.on('disconnected', () => { _rpcClient = null; _rpcConnecting = false; });
+    client.on('disconnected', () => {
+      _rpcClient = null;
+      _rpcConnecting = false;
+      // Auto-reconnect silently after 5s
+      if (!_rpcReconnectTimer) {
+        _rpcReconnectTimer = setTimeout(() => {
+          _rpcReconnectTimer = null;
+          connectDiscordRPC().catch(() => {});
+        }, 5000);
+      }
+    });
     return client;
   } catch (e) {
     _rpcClient = null;
@@ -804,6 +843,9 @@ async function getDiscordRPC() {
     _rpcConnecting = false;
   }
 }
+
+// Alias for call sites
+const getDiscordRPC = connectDiscordRPC;
 
 ipcMain.handle('discord-toggle-mute', async () => {
   try {
