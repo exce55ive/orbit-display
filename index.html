@@ -919,11 +919,15 @@
       function buildServiceList(cfg) {
         const integrations = cfg?.integrations || {};
         const services = [];
-        const add = (name, url) => { if (url) services.push({ name, url }); };
+        const add = (name, url, auth) => { if (url) services.push({ name, url, ...(auth ? {auth} : {}) }); };
         add('Sonarr', integrations.sonarr?.url);
         add('Radarr', integrations.radarr?.url);
         add('Overseerr', integrations.overseerr?.url);
-        add('NZBGet', integrations.nzbget?.url);
+        // NZBGet requires Basic Auth — include credentials so the services check passes
+        if (integrations.nzbget?.url && integrations.nzbget?.username) {
+          const auth = btoa(integrations.nzbget.username + ':' + (integrations.nzbget.password || ''));
+          add('NZBGet', integrations.nzbget.url, auth);
+        }
         add('Jellyfin', integrations.jellyfin?.url);
         add('Tautulli', integrations.tautulli?.url);
         add('Home Assistant', integrations.homeassistant?.url);
@@ -2125,12 +2129,12 @@
           try {
             const auth = btoa(nCfg.username+':'+(nCfg.password||''));
             const [s, g] = await Promise.all([
-              window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'status',id:1}]), {Authorization:'Basic '+auth}),
-              window.orbit.apiPost(nCfg.url+'/jsonrpc', JSON.stringify([{method:'listgroups',id:2}]), {Authorization:'Basic '+auth})
+              window.orbit.apiPost(nCfg.url+'/jsonrpc', {version:'1.1',method:'status',id:1}, {Authorization:'Basic '+auth}),
+              window.orbit.apiPost(nCfg.url+'/jsonrpc', {version:'1.1',method:'listgroups',id:2}, {Authorization:'Basic '+auth})
             ]);
             if (!active) return;
-            const st = Array.isArray(s) && s[0]?.result ? s[0].result : null;
-            const gr = Array.isArray(g) && Array.isArray(g[0]?.result) ? g[0].result.slice(0,6) : [];
+            const st = s?.result ? s.result : null;
+            const gr = Array.isArray(g?.result) ? g.result.slice(0,6) : [];
             if (st) setStatus(st);
             setGroups(gr);
             // Adaptive polling: 1.5s when actively downloading, 8s when idle

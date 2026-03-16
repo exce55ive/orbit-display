@@ -832,14 +832,15 @@ ipcMain.handle('start-signalr', (_e, { sonarrUrl, sonarrKey, radarrUrl, radarrKe
 // ─── IPC: CHECK SERVICES (in-house pinger) ──────────────────────────────────
 ipcMain.handle('check-services', async (_e, services) => {
   const fetch = await getFetch();
-  const results = await Promise.all(services.map(async ({ name, url }) => {
+  const results = await Promise.all(services.map(async ({ name, url, auth }) => {
     const start = Date.now();
+    const baseHeaders = auth ? { Authorization: 'Basic ' + auth } : {};
     // Try HEAD first; fall back to GET if HEAD is not supported (connection reset)
     async function tryFetch(method) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
       try {
-        const res = await fetch(url, { method, signal: controller.signal, redirect: 'manual' });
+        const res = await fetch(url, { method, headers: baseHeaders, signal: controller.signal, redirect: 'manual' });
         clearTimeout(timer);
         return { ok: true, status: res.status };
       } catch (e) {
