@@ -47,13 +47,13 @@ It runs locally. It talks directly to your LAN services. Config stays on your ma
 
 ## ⬇ Download
 
-**[OrbitSetup‑0.1.0.exe](https://github.com/exce55ive/orbit-display/releases/download/v0.1.0/OrbitSetup-0.1.0.exe)** — Windows 10/11 x64 · portable · no install required
+**[OrbitSetup-0.0.1.exe](https://github.com/exce55ive/orbit-display/releases/download/v0.0.1/OrbitSetup-0.0.1.exe)** — Windows 10/11 x64 · installs silently, creates Desktop & Start Menu shortcut
 
 Or from PowerShell:
 
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/exce55ive/orbit-display/releases/download/v0.1.0/OrbitSetup-0.1.0.exe" -OutFile OrbitSetup-0.1.0.exe
-.\OrbitSetup-0.1.0.exe
+Invoke-WebRequest -Uri "https://github.com/exce55ive/orbit-display/releases/download/v0.0.1/OrbitSetup-0.0.1.exe" -OutFile OrbitSetup-0.0.1.exe
+.\OrbitSetup-0.0.1.exe
 ```
 
 On first launch, a setup wizard walks you through connecting your services. After that, the dashboard loads automatically.
@@ -142,10 +142,10 @@ Edit the UI directly — save the file, restart the app, see the change.
 
 ## Build
 
-Create a Windows portable executable from Linux (requires `wine64`):
+Build a Windows installer (NSIS) — requires `wine32` and `xvfb-run` on Linux, or run natively on Windows:
 
 ```bash
-npx electron-builder --win portable --config.directories.output=dist-new
+WINEPREFIX=~/.winedefault xvfb-run npx electron-builder --win nsis --config.directories.output=dist-new
 ```
 
 > NSIS installer builds require `wine32`.
