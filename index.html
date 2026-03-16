@@ -1487,6 +1487,11 @@
             setDisplays(list || []);
           }).catch(() => {});
         }
+        if (window.orbit && window.orbit.loadSettings) {
+          window.orbit.loadSettings().then(s => {
+            if (s && s.displayId) setCurrentDisplay(s.displayId);
+          }).catch(() => {});
+        }
       }, []);
 
       async function handleSelectDisplay(id) {
@@ -1521,7 +1526,7 @@
         h('div', {className:'settings-section'}, 'DISPLAY'),
         h('div', {className:'settings-label', style:{marginBottom:'8px'}}, 'SELECT TARGET DISPLAY'),
         displays.length === 0
-          ? h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.3)',letterSpacing:'1px'}}, 'No additional displays detected')
+          ? h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.3)',letterSpacing:'1px'}}, 'Loading displays...')
           : displays.map(d =>
               h('div', {
                 key: d.id,
