@@ -356,6 +356,8 @@
               ${integrationCard('discord', 'Discord', '💬', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="discord-id" value="${esc(config.integrations.discord?.clientId || '')}"></div>
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="discord-secret" value="${esc(config.integrations.discord?.clientSecret || '')}"></div>
+                <div class="field-group"><div class="field-label">Bot Token <span style="font-weight:400;color:var(--dim)">(optional — enables real voice detection)</span></div><input class="field-input" id="discord-bot-token" type="password" value="${esc(config.integrations.discord?.botToken || '')}"></div>
+                <div class="field-group"><div class="field-label">Your Discord User ID <span style="font-weight:400;color:var(--dim)">(Dev Mode → right-click your name → Copy User ID)</span></div><input class="field-input" id="discord-user-id" value="${esc(config.integrations.discord?.userId || config.integrations.discord?.user?.id || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
                 ${testRow('discord')}
                 ${config.integrations.discord?.accessToken ? `
@@ -938,6 +940,10 @@
       config.integrations.discord.enabled = isEnabled('discord');
       config.integrations.discord.clientId = getVal('discord-id');
       config.integrations.discord.clientSecret = getVal('discord-secret');
+      const botTok = getVal('discord-bot-token');
+      if (botTok) config.integrations.discord.botToken = botTok;
+      const uid = getVal('discord-user-id');
+      if (uid) config.integrations.discord.userId = uid;
       // favServer1/2 are set by browseDiscordServers() / clearDiscordFav() directly
 
       // customServices already mutated in-place by addCustomService/removeCustomService

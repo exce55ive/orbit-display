@@ -965,6 +965,58 @@ ipcMain.handle('discord-toggle-mute', async () => {
   } catch (e) { return { error: e.message }; }
 });
 
+// Bot-powered voice state — uses REST API, no RPC required
+ipcMain.handle('discord-check-voice', async () => {
+  try {
+    const cfg = loadOrbitConfig();
+    const d = cfg?.integrations?.discord;
+    const botToken = d?.botToken;
+    const userId = d?.userId || d?.user?.id;
+    const guilds = d?.guilds || [];
+    if (!botToken || !userId || !guilds.length) return { error: 'Need bot token + user ID + guilds configured' };
+    // Check each guild until we find an active voice state
+    for (const guild of guilds) {
+      try {
+        const res = await fetch(`https://discord.com/api/v10/guilds/${guild.id}/voice-states/${userId}`, {
+          headers: { Authorization: 'Bot ' + botToken }
+        });
+        if (res.ok) {
+          const vs = await res.json();
+          if (vs.channel_id) {
+            // Fetch channel name
+            let channelName = vs.channel_id;
+            try {
+              const chRes = await fetch(`https://discord.com/api/v10/channels/${vs.channel_id}`, { headers: { Authorization: 'Bot ' + botToken } });
+              if (chRes.ok) { const ch = await chRes.json(); channelName = ch.name || channelName; }
+            } catch {}
+            return { inVoice: true, guildId: guild.id, guildName: guild.name, channelId: vs.channel_id, channelName, muted: vs.self_mute, deafened: vs.self_deaf };
+          }
+        }
+      } catch {}
+    }
+    return { inVoice: false };
+  } catch (e) { return { error: e.message }; }
+});
+
+// Bot-powered move to voice channel (only works if user is already in any voice channel in the guild)
+ipcMain.handle('discord-move-to-voice', async (_e, guildId, channelId) => {
+  try {
+    const cfg = loadOrbitConfig();
+    const d = cfg?.integrations?.discord;
+    const botToken = d?.botToken;
+    const userId = d?.userId || d?.user?.id;
+    if (!botToken || !userId) return { error: 'Need bot token and user ID' };
+    const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userId}`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bot ' + botToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel_id: channelId })
+    });
+    if (res.ok) return { moved: true };
+    const err = await res.json().catch(() => ({}));
+    return { error: err.message || `Status ${res.status}` };
+  } catch (e) { return { error: e.message }; }
+});
+
 ipcMain.handle('discord-get-voice-state', async () => {
   try {
     const rpc = await getDiscordRPC();

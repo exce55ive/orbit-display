@@ -2286,6 +2286,18 @@
         poll(); const t = setInterval(poll, 300000); return () => clearInterval(t);
       }, [authorized]);
 
+      // Bot-powered real voice state polling (every 8s when bot token configured)
+      useEffect(() => {
+        if (!hasBotToken) return;
+        async function pollVoice() {
+          try {
+            const r = await window.orbit.discordCheckVoice();
+            if (r && !r.error) setVoiceState(r.inVoice ? r : null);
+          } catch {}
+        }
+        pollVoice(); const t = setInterval(pollVoice, 8000); return () => clearInterval(t);
+      }, [hasBotToken]);
+
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
         h('div',{className:'panel-unconfigured-icon'},'💬'),
@@ -2320,66 +2332,47 @@
       // Support both old favServer (name only) and new favVoice (has channelId)
       const fav1 = dCfg?.favVoice1 || null;
       const fav2 = dCfg?.favVoice2 || null;
-      // Restore last joined channel from config so green state survives restarts
-      const savedVoice = dCfg?.lastJoinedVoice || null;
-      const [voiceState, setVoiceState] = useState(savedVoice); // {channelId, channelName, muted}
+      const hasBotToken = !!(dCfg?.botToken);
+      const [voiceState, setVoiceState] = useState(null); // real state from bot API: {channelId, channelName, guildId, muted, deafened}
       const [joiningId, setJoiningId] = useState('');
       const [voiceErr, setVoiceErr] = useState('');
       const [leaveConfirm, setLeaveConfirm] = useState(false);
 
       const handleVoiceBtn = async (fav) => {
         if (!fav?.channelId) { setVoiceErr('Configure voice channel in Settings first'); return; }
-        // Already connected to this channel → confirm leave
-        if (voiceState?.channelId === fav.channelId) {
-          setLeaveConfirm(true);
-          return;
-        }
         setVoiceErr('');
         setLeaveConfirm(false);
         setJoiningId(fav.channelId);
-        const r = await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
-        setJoiningId('');
-        if (r.error) { setVoiceErr(r.error); }
-        else {
-          const vs = { channelId: fav.channelId, channelName: fav.channelName, muted: false };
-          setVoiceState(vs);
-          // Persist so panel shows green on next restart
-          if (onConfigChange) {
-            const cfg2 = { ...config };
-            if (!cfg2.integrations.discord) cfg2.integrations.discord = {};
-            cfg2.integrations.discord.lastJoinedVoice = vs;
-            onConfigChange(cfg2);
-          }
+        // If bot token available AND user is in voice → move them instantly (no Discord focus)
+        if (hasBotToken && voiceState?.inVoice) {
+          const r = await window.orbit.discordMoveToVoice(fav.guildId, fav.channelId);
+          setJoiningId('');
+          if (r.error) setVoiceErr('Could not move: ' + r.error);
+          // Voice state updates on next 8s poll automatically
+        } else {
+          // Not in voice yet → deep link opens Discord at the channel, user clicks Join Voice once
+          const r = await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
+          setJoiningId('');
+          if (r.error) setVoiceErr(r.error);
         }
       };
 
-      const handleMute = () => {
-        setVoiceState(s => s ? { ...s, muted: !s.muted } : null);
-      };
-
-      const handleLeave = () => {
-        setLeaveConfirm(false);
-        setVoiceState(null);
-        if (onConfigChange) {
-          const cfg2 = { ...config };
-          if (cfg2.integrations?.discord) cfg2.integrations.discord.lastJoinedVoice = null;
-          onConfigChange(cfg2);
-        }
-      };
-
-      const connected = voiceState !== null;
+      const connected = voiceState?.inVoice || false;
+      const currentChannelId = voiceState?.channelId || null;
       const muted = voiceState?.muted || false;
+      const deafened = voiceState?.deafened || false;
 
       const voiceBtn = (fav) => {
         if (!fav) return null;
-        const isConnected = voiceState?.channelId === fav.channelId;
+        const isHere = connected && currentChannelId === fav.channelId;
         const isJoining = joiningId === fav.channelId;
-        const bg = isConnected ? (muted ? 'rgba(255,85,85,0.15)' : 'rgba(80,250,123,0.12)') : 'rgba(88,101,242,0.08)';
-        const border = isConnected ? (muted ? 'rgba(255,85,85,0.5)' : 'rgba(80,250,123,0.4)') : 'rgba(88,101,242,0.4)';
-        const color = isConnected ? (muted ? '#ff5555' : '#50fa7b') : '#5865F2';
-        const label = isJoining ? '⏳ Joining...' : (isConnected ? (muted ? '🔇 '+fav.channelName : '🔊 '+fav.channelName) : '🎙️ '+(fav.channelName||fav.guildName||'Voice'));
+        const bg = isHere ? 'rgba(80,250,123,0.12)' : 'rgba(88,101,242,0.08)';
+        const border = isHere ? 'rgba(80,250,123,0.4)' : 'rgba(88,101,242,0.4)';
+        const color = isHere ? '#50fa7b' : '#5865F2';
+        const label = isJoining ? '⏳...' : (isHere ? '🔊 '+fav.channelName : '🎙️ '+(fav.channelName||fav.guildName||'Voice'));
+        const title = isHere ? 'Currently here' : (hasBotToken && connected ? 'Move to this channel' : 'Open in Discord → click Join Voice');
         return h('button', {
-          onClick: () => handleVoiceBtn(fav),
+          onClick: () => handleVoiceBtn(fav), title,
           style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid '+border,borderRadius:'6px',background:bg,color,cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',transition:'all .2s'}
         }, label);
       };
@@ -2401,24 +2394,19 @@
         ),
         notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
         voiceErr && h('div', {style:{fontSize:'10px',color:'rgba(255,85,85,0.8)',marginBottom:'6px',textAlign:'center'}}, voiceErr),
-        leaveConfirm && h('div', {style:{marginBottom:'8px',textAlign:'center'}},
-          h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'6px'}}, 'Leave voice channel?'),
-          h('div', {style:{display:'flex',gap:'8px',justifyContent:'center'}},
-            h('button', {onClick:handleLeave, style:{padding:'4px 12px',fontSize:'11px',fontFamily:'var(--font)',border:'1px solid #ff5555',borderRadius:'6px',background:'rgba(255,85,85,0.1)',color:'#ff5555',cursor:'pointer'}}, 'Leave'),
-            h('button', {onClick:()=>setLeaveConfirm(false), style:{padding:'4px 12px',fontSize:'11px',fontFamily:'var(--font)',border:'1px solid var(--border)',borderRadius:'6px',background:'transparent',color:'var(--dim)',cursor:'pointer'}}, 'Stay')
-          )
-        ),
         (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px'}},
-          h('div', {style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}},
-            h('div', {style:{fontSize:'10px',color:connected?'#50fa7b':'var(--dim)',letterSpacing:'1.5px'}}, connected ? '🔊 IN VOICE' : '🎙️ VOICE'),
-            connected && h('button', {
-              onClick: handleMute, title: muted ? 'Unmute' : 'Mute',
-              style:{background:muted?'rgba(255,85,85,0.15)':'transparent',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(255,255,255,0.2)'),borderRadius:'6px',color:muted?'#ff5555':'var(--dim)',cursor:'pointer',padding:'3px 10px',fontSize:'13px',fontFamily:'var(--font)'}
-            }, muted ? '🔇 Muted' : '🎙️ Mute')
+          h('div', {style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}},
+            connected
+              ? h('div', {style:{fontSize:'10px',letterSpacing:'1.5px',color:'#50fa7b'}},
+                  '🔊 ' + (voiceState.channelName || 'IN VOICE') +
+                  (muted ? ' · 🔇' : '') + (deafened ? ' · 🔕' : ''))
+              : h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}},
+                  hasBotToken ? '🎙️ NOT IN VOICE' : '🎙️ QUICK JOIN')
           ),
           h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center'}},
             voiceBtn(fav1), voiceBtn(fav2)
-          )
+          ),
+          !hasBotToken && h('div', {style:{fontSize:'9px',color:'var(--dim)',textAlign:'center',opacity:0.6}}, 'Add bot token in Settings for real voice detection')
         ),
         h('button', {
           onClick:()=>window.orbit.openExternal('discord://'),
