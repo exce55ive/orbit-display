@@ -128,6 +128,11 @@
   <div id="step-container"></div>
 
   <script>
+    // Global error trap — catches any crash before renderStep() is reached
+    window.onerror = function(msg, src, line, col, err) {
+      const el = document.getElementById('step-container');
+      if (el) el.innerHTML = '<div style="color:#ff9900;padding:20px;font-size:14px;font-family:monospace;"><b>CRASH @ line ' + line + '</b><br>' + msg + (err ? '<br><pre>' + err.stack + '</pre>' : '') + '</div>';
+    };
     const STEPS = [
       { id: 'welcome', label: 'Welcome' },
       { id: 'integrations', label: 'Integrations' },
