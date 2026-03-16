@@ -8,7 +8,7 @@ const log = require('electron-log');
 // ─── AUTO-UPDATER CONFIG ──────────────────────────────────────────────────────
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
-autoUpdater.autoDownload = false;
+autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
 const isDev = !app.isPackaged;

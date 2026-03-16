@@ -257,8 +257,12 @@
     .settings-update-btn { padding: 8px 16px; font-size: 13px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; transition: all .2s; }
     .settings-update-btn:hover { background: var(--accent-bg); }
     .settings-changelog { font-size: 13px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
-    .update-pill { display: none; }
-    .update-pill:hover { opacity: 1; background: rgba(80,250,123,0.25); }
+    .update-pill { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 6px; border: 1px solid; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 0.5px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .update-pill-ready { background: rgba(80,250,123,0.15); border-color: rgba(80,250,123,0.5); color: #50fa7b; }
+    .update-pill-ready:hover { background: rgba(80,250,123,0.28); }
+    .update-pill-downloading { background: rgba(0,217,255,0.08); border-color: rgba(0,217,255,0.25); color: var(--dim); cursor: default; }
+    .update-pill-icon { font-size: 13px; }
+    .update-pill-label { font-size: 11px; }
     .update-confirm-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(6,10,16,0.9); }
     .update-confirm-modal { width: 340px; padding: 24px; background: #0d1520; border: 1px solid var(--border); border-radius: 12px; text-align: center; }
     .update-confirm-title { font-size: 17px; font-weight: 700; color: var(--text-bright); margin-bottom: 6px; }
@@ -1826,13 +1830,12 @@
     // ═══ UPDATE PILL ═══
     function UpdatePill() {
       const [update, setUpdate] = useState(null);
-      const [showConfirm, setShowConfirm] = useState(false);
       const [downloading, setDownloading] = useState(false);
       const [progress, setProgress] = useState(0);
       const [downloaded, setDownloaded] = useState(false);
       useEffect(() => {
-        window.orbit.getPendingUpdate().then(u => { if (u) setUpdate(u); });
-        const unsub1 = window.orbit.onUpdateAvailable(info => setUpdate(info));
+        window.orbit.getPendingUpdate().then(u => { if (u) { setUpdate(u); setDownloading(true); } });
+        const unsub1 = window.orbit.onUpdateAvailable(info => { setUpdate(info); setDownloading(true); });
         const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
         const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
         const unsub4 = window.orbit.onUpdateError(() => { setDownloading(false); });
@@ -1840,24 +1843,22 @@
       }, []);
       if (!update && !downloaded) return null;
       if (downloaded) {
-        return h('div', {className:'update-pill', onClick:()=>window.orbit.installUpdate(), title:'Restart to update', style:{background:'rgba(80,250,123,0.25)',borderColor:'rgba(80,250,123,0.6)'}}, '⟳');
+        return h('div', {
+          className: 'update-pill update-pill-ready',
+          onClick: () => window.orbit.installUpdate(),
+          title: 'Click to restart and install update'
+        },
+          h('span', {className:'update-pill-icon'}, '↑'),
+          h('span', {className:'update-pill-label'}, 'Restart & Update')
+        );
       }
-      return h(React.Fragment, null,
-        h('div', {className:'update-pill', onClick:()=>setShowConfirm(true), title:'Update available'}, '↓'),
-        showConfirm && h('div', {className:'update-confirm-overlay', onClick:e=>{if(e.target===e.currentTarget&&!downloading)setShowConfirm(false)}},
-          h('div', {className:'update-confirm-modal'},
-            h('div', {className:'update-confirm-title'}, 'Update Available'),
-            h('div', {className:'update-confirm-version'}, 'v'+(update?.version||'?')),
-            downloading ? h(React.Fragment, null,
-              h('div', {className:'update-progress-bar'}, h('div', {className:'update-progress-fill', style:{width:progress+'%'}})),
-              h('div', {className:'update-status-text'}, 'Downloading... '+progress+'%')
-            ) : h('div', {className:'update-confirm-btns'},
-              h('button', {className:'update-confirm-btn primary', onClick:()=>{setDownloading(true);window.orbit.downloadUpdate();}}, 'Download'),
-              h('button', {className:'update-confirm-btn cancel', onClick:()=>setShowConfirm(false)}, 'Later')
-            )
-          )
-        )
-      );
+      if (downloading) {
+        return h('div', {className:'update-pill update-pill-downloading', title:'Downloading update...'},
+          h('span', {className:'update-pill-icon'}, '↓'),
+          h('span', {className:'update-pill-label'}, progress > 0 ? `${progress}%` : 'Update…')
+        );
+      }
+      return null;
     }
 
     // ═══ INDIVIDUAL MEDIA PANELS ═══
