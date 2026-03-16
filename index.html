@@ -1174,7 +1174,7 @@
       const links = config?.links || DEFAULT_CONFIG.links;
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'LINKS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-links')}, '⚙')),
-        links.map((lnk,i) => h('div', {key:i, className:'link-item', onClick:()=>window.orbit.openExternal(lnk.url)},
+        links.map((lnk,i) => h('div', {key:i, className:'link-item', onClick:()=>{ const u=lnk.url||''; window.orbit.openExternal(/^https?:\/\//i.test(u)?u:'https://'+u); }},
           h('span', {className:'link-icon'}, lnk.icon || '🔗'),
           h('span', {className:'link-label'}, lnk.label)
         ))

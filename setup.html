@@ -394,6 +394,13 @@
 
 
 
+            <!-- Quick Links -->
+            <div style="margin-top:24px;">
+              <div style="font-size:11px;color:var(--dim);letter-spacing:2px;margin-bottom:12px;">QUICK LINKS</div>
+              <div id="links-list"></div>
+              <button onclick="addLink()" style="margin-top:6px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">+ Add Link</button>
+            </div>
+
             <div class="btn-row">
               <button class="btn btn-secondary" onclick="prevStep()">BACK</button>
               <button class="btn btn-primary" onclick="saveAndNext()">NEXT</button>
@@ -401,6 +408,7 @@
           </div>
         `;
         renderCustomServices();
+        renderLinks();
         // Wire up toggle checkboxes
         document.querySelectorAll('.integration-toggle input[type="checkbox"]').forEach(cb => {
           const key = cb.dataset.integration;
@@ -695,6 +703,40 @@
       `).join('');
     }
 
+    const LINK_ICONS = ['🔗','🏠','💻','🔍','📺','🎮','📁','⚙','🌐','📊','🎵','🛡','🚀','📡','🔧'];
+
+    function renderLinks() {
+      const el = document.getElementById('links-list');
+      if (!el) return;
+      if (!config.links) config.links = [];
+      el.innerHTML = config.links.map((lnk,i) => `
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+          <select onchange="updateLink(${i},'icon',this.value)" style="width:44px;font-size:14px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 2px;cursor:pointer;text-align:center;">
+            ${LINK_ICONS.map(ic=>`<option value="${ic}"${ic===lnk.icon?' selected':''}>${ic}</option>`).join('')}
+          </select>
+          <input class="field-input" style="flex:1;font-size:11px;" placeholder="Label" value="${(lnk.label||'').replace(/"/g,'&quot;')}" oninput="updateLink(${i},'label',this.value)">
+          <input class="field-input" style="flex:2;font-size:11px;" placeholder="URL (e.g. google.com)" value="${(lnk.url||'').replace(/"/g,'&quot;')}" oninput="updateLink(${i},'url',this.value)" onblur="if(this.value&&!/^https?:\\/\\//i.test(this.value))this.value='https://'+this.value,updateLink(${i},'url',this.value)">
+          <button onclick="removeLink(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
+        </div>`).join('');
+    }
+
+    function addLink() {
+      if (!config.links) config.links = [];
+      config.links.push({ label: '', url: '', icon: '🔗' });
+      renderLinks();
+    }
+
+    function removeLink(i) {
+      if (!config.links) return;
+      config.links.splice(i, 1);
+      renderLinks();
+    }
+
+    function updateLink(i, field, val) {
+      if (!config.links) return;
+      if (config.links[i]) config.links[i][field] = val;
+    }
+
     function addCustomService() {
       if (!config.customServices) config.customServices = [];
       config.customServices.push({ name: '', url: '' });
@@ -955,9 +997,13 @@
       else delete config.integrations.discord.favVoice2;
       // favServer1/2 are set by browseDiscordServers() / clearDiscordFav() directly
 
-      // customServices already mutated in-place by addCustomService/removeCustomService
-      // just ensure it's present
+      // customServices and links already mutated in-place
       if (!config.customServices) config.customServices = [];
+      if (!config.links) config.links = [];
+      // Normalize link URLs
+      config.links = config.links.map(l => ({
+        ...l, url: l.url && !/^https?:\/\//i.test(l.url) ? 'https://'+l.url : l.url
+      }));
 
       window.orbit.saveConfig(config);
       nextStep();
