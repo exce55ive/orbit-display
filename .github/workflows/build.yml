@@ -57,10 +57,21 @@ jobs:
           name: OrbitSetup-windows
           path: dist/OrbitSetup-*.exe
 
-      - name: Attach to GitHub Release
+      - name: Create formatted GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          name: "Orbit ${{ github.ref_name }}"
+          body: |
+            ## Orbit ${{ github.ref_name }}
+
+            ### Install
+            Download **OrbitSetup-${{ github.ref_name }}.exe** below and run the installer.
+
+            Existing installs will be notified automatically via in-app update.
+
+            ### Changes
+            See [CHANGELOG.md](https://github.com/exce55ive/orbit-display/blob/main/CHANGELOG.md) for full history.
           files: |
             dist/OrbitSetup-*.exe
             dist/latest.yml
