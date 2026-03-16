@@ -505,7 +505,21 @@
               ))
             )
           : error
-            ? h('div', {style:{fontSize:'11px', color:'var(--amber)', textAlign:'center', padding:'12px'}}, error)
+            ? h('div', {style:{fontSize:'11px', color:'var(--amber)', textAlign:'center', padding:'12px'}},
+                h('div', null, error),
+                h('button', {
+                  onClick: async () => {
+                    setError('Scanning ports...');
+                    const r = await window.orbit.signalrgbDetectPort();
+                    if (r.port) {
+                      setError('Found on port ' + r.port + '! Save this in Settings → SignalRGB: http://localhost:' + r.port);
+                    } else {
+                      setError(r.error || 'Not found. Is SignalRGB running?');
+                    }
+                  },
+                  style:{marginTop:'8px',padding:'5px 12px',background:'rgba(0,217,255,0.08)',border:'1px solid rgba(0,217,255,0.3)',borderRadius:'6px',color:'#00d9ff',cursor:'pointer',fontFamily:'var(--font)',fontSize:'11px'}
+                }, '🔍 Auto-detect port')
+              )
             : effectList.length === 0 && h('div', {style:{fontSize:'10px',color:'var(--dim)',padding:'6px 10px',fontStyle:'italic'}},
                 'No effects found'
               )
@@ -529,8 +543,20 @@
         }
         poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
       }, [haConfigured, lightEntities.map(e=>e.entityId).join(',')]);
-      const toggleLight = async (eid, on) => { await window.orbit.haCallService('light', on?'turn_off':'turn_on', {entity_id:eid}); };
-      const setBrightness = async (eid, pct) => { await window.orbit.haCallService('light', 'turn_on', {entity_id:eid, brightness:Math.round((pct/100)*255)}); };
+      const toggleLight = async (eid, on) => {
+        // Optimistic update — flip immediately so UI responds instantly
+        setLights(prev => ({ ...prev, [eid]: { ...prev[eid], state: on ? 'off' : 'on' } }));
+        await window.orbit.haCallService('light', on ? 'turn_off' : 'turn_on', { entity_id: eid });
+        // Confirm actual state after short delay
+        setTimeout(async () => {
+          try { const r = await window.orbit.haGetState(eid); if (!r.error) setLights(prev => ({ ...prev, [eid]: r })); } catch {}
+        }, 800);
+      };
+      const setBrightness = async (eid, pct) => {
+        // Optimistic update
+        setLights(prev => ({ ...prev, [eid]: { ...prev[eid], attributes: { ...prev[eid]?.attributes, brightness: Math.round((pct/100)*255) } } }));
+        await window.orbit.haCallService('light', 'turn_on', { entity_id: eid, brightness: Math.round((pct/100)*255) });
+      };
       if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),

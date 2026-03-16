@@ -29,6 +29,8 @@ contextBridge.exposeInMainWorld('orbit', {
   spotifyAuthStart: () => ipcRenderer.invoke('spotify-auth-start'),
   spotifyRefreshToken: () => ipcRenderer.invoke('spotify-refresh-token'),
   discordAuthStart: () => ipcRenderer.invoke('discord-auth-start'),
+  discordRefreshGuilds: () => ipcRenderer.invoke('discord-refresh-guilds'),
+  signalrgbDetectPort: () => ipcRenderer.invoke('signalrgb-detect-port'),
 
   // Generic API proxy
   apiGet: (url, headers, timeout) => ipcRenderer.invoke('api-get', { url, headers, timeout }),

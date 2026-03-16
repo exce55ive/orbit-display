@@ -343,9 +343,28 @@
               ${integrationCard('discord', 'Discord', '💬', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="discord-id" value="${esc(config.integrations.discord?.clientId || '')}"></div>
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="discord-secret" value="${esc(config.integrations.discord?.clientSecret || '')}"></div>
-                <div class="field-group"><div class="field-label">Favourite Channel 1</div><input class="field-input" id="discord-fav1" value="${esc(config.integrations.discord?.favChannel1 || '')}"></div>
-                <div class="field-group"><div class="field-label">Favourite Channel 2</div><input class="field-input" id="discord-fav2" value="${esc(config.integrations.discord?.favChannel2 || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
+                ${config.integrations.discord?.accessToken ? `
+                  <div class="field-group">
+                    <div class="field-label">FAVOURITE SERVER 1</div>
+                    <div id="discord-fav1-display" style="display:flex;gap:6px;align-items:center;">
+                      ${config.integrations.discord?.favServer1 ? `
+                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favServer1.name||'')}</div>
+                        <button onclick="clearDiscordFav(1)" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>
+                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(1)">🔍 Browse Servers</button>`}
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <div class="field-label">FAVOURITE SERVER 2</div>
+                    <div id="discord-fav2-display" style="display:flex;gap:6px;align-items:center;">
+                      ${config.integrations.discord?.favServer2 ? `
+                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favServer2.name||'')}</div>
+                        <button onclick="clearDiscordFav(2)" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>
+                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(2)">🔍 Browse Servers</button>`}
+                    </div>
+                  </div>
+                  <div id="discord-guild-picker" style="display:none;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,0.3);margin-top:8px;"></div>
+                ` : `<div class="integration-hint" style="color:var(--accent);">Save Client ID/Secret first, then link Discord from the app panel to browse servers.</div>`}
               `)}
               ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
@@ -703,6 +722,55 @@
       }
     }
 
+    let _discordPickerSlot = null;
+
+    async function browseDiscordServers(slot) {
+      _discordPickerSlot = slot;
+      const picker = document.getElementById('discord-guild-picker');
+      if (!picker) return;
+      picker.style.display = 'block';
+      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Loading servers...</div>';
+      // Try saved guilds first, then refresh
+      let guilds = config.integrations.discord?.guilds || [];
+      if (!guilds.length) {
+        const r = await window.orbit.discordRefreshGuilds();
+        if (r.error) { picker.innerHTML = '<div style="padding:12px;font-size:11px;color:#ff5555;">'+r.error+'</div>'; return; }
+        guilds = r.guilds || [];
+        config.integrations.discord.guilds = guilds;
+      }
+      if (!guilds.length) { picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">No servers found.</div>'; return; }
+      picker.innerHTML = guilds.map((g, i) => `
+        <div onclick="selectDiscordServer(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
+          🎙️ ${g.name.replace(/</g,'&lt;')}
+        </div>`).join('');
+    }
+
+    function selectDiscordServer(guildIndex) {
+      const guild = (config.integrations.discord?.guilds || [])[guildIndex];
+      if (!guild || !_discordPickerSlot) return;
+      config.integrations.discord['favServer'+_discordPickerSlot] = { id: guild.id, name: guild.name };
+      window.orbit.saveConfig(config);
+      const picker = document.getElementById('discord-guild-picker');
+      if (picker) picker.style.display = 'none';
+      // Update display
+      const displayEl = document.getElementById('discord-fav'+_discordPickerSlot+'-display');
+      if (displayEl) {
+        displayEl.innerHTML = `<div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${guild.name.replace(/</g,'&lt;')}</div><button onclick="clearDiscordFav(${_discordPickerSlot})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>`;
+      }
+      _discordPickerSlot = null;
+    }
+
+    function clearDiscordFav(slot) {
+      delete config.integrations.discord['favServer'+slot];
+      window.orbit.saveConfig(config);
+      const displayEl = document.getElementById('discord-fav'+slot+'-display');
+      if (displayEl) {
+        displayEl.innerHTML = `<button class="ha-browse-btn" onclick="browseDiscordServers(${slot})">🔍 Browse Servers</button>`;
+      }
+      const picker = document.getElementById('discord-guild-picker');
+      if (picker) picker.style.display = 'none';
+    }
+
     function saveAndNext() {
       // Save enabled state and field values for all integrations
       config.integrations.homeassistant.enabled = isEnabled('homeassistant');
@@ -757,8 +825,7 @@
       config.integrations.discord.enabled = isEnabled('discord');
       config.integrations.discord.clientId = getVal('discord-id');
       config.integrations.discord.clientSecret = getVal('discord-secret');
-      config.integrations.discord.favChannel1 = getVal('discord-fav1');
-      config.integrations.discord.favChannel2 = getVal('discord-fav2');
+      // favServer1/2 are set by browseDiscordServers() / clearDiscordFav() directly
 
       // customServices already mutated in-place by addCustomService/removeCustomService
       // just ensure it's present

@@ -391,8 +391,28 @@ ipcMain.handle('api-put', async (_e, { url, body, headers }) => {
 });
 
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
+// ─── IPC: SIGNALRGB PORT AUTO-DETECT ──────────────────────────────────────────
+ipcMain.handle('signalrgb-detect-port', async () => {
+  const fetch = await getFetch();
+  const ports = [16038, 16034, 16035, 16036, 16037, 16039, 16040];
+  for (const port of ports) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1500);
+      const res = await fetch(`http://localhost:${port}/api/v1/lighting`, { signal: controller.signal });
+      clearTimeout(timer);
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        if (data.status === 'ok' || data.data) return { port, url: `http://localhost:${port}`, data };
+      } catch {}
+    } catch {}
+  }
+  return { error: 'SignalRGB not found on ports: ' + ports.join(', ') };
+});
+
 ipcMain.handle('fetch-signalrgb', async () => {
-  const cfg = loadOrbitConfig();
+  const cfg = migrateOrbitConfig(loadOrbitConfig());
   const base = cfg?.integrations?.signalrgb?.url || 'http://localhost:16038';
   const [state, effectsList] = await Promise.all([
     safeFetch(`${base}/api/v1/lighting`),
@@ -727,6 +747,24 @@ ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
   } catch (e) { return { error: e.message }; }
 });
 
+// ─── IPC: DISCORD REFRESH GUILDS ──────────────────────────────────────────────
+ipcMain.handle('discord-refresh-guilds', async () => {
+  const cfg = loadOrbitConfig();
+  const token = cfg?.integrations?.discord?.accessToken;
+  if (!token) return { error: 'Not connected to Discord' };
+  try {
+    const fetch = await getFetch();
+    const res = await fetch('https://discord.com/api/users/@me/guilds', { headers: { Authorization: 'Bearer ' + token } });
+    const guilds = await res.json();
+    if (!Array.isArray(guilds)) return { error: guilds.message || 'Failed to fetch guilds' };
+    const mapped = guilds.map(g => ({ id: g.id, name: g.name, icon: g.icon }));
+    cfg.integrations.discord.guilds = mapped;
+    cfg.integrations.discord.guildCount = mapped.length;
+    saveOrbitConfig(cfg);
+    return { guilds: mapped };
+  } catch (e) { return { error: e.message }; }
+});
+
 // ─── IPC: DISCORD OAUTH ────────────────────────────────────────────────────
 ipcMain.handle('discord-auth-start', async () => {
   const cfg = loadOrbitConfig();
@@ -778,8 +816,9 @@ ipcMain.handle('discord-auth-start', async () => {
           currentCfg.integrations.discord.tokenExpiry = Date.now() + (tokens.expires_in * 1000);
           currentCfg.integrations.discord.user = user;
           currentCfg.integrations.discord.guildCount = Array.isArray(guilds) ? guilds.length : 0;
+          currentCfg.integrations.discord.guilds = Array.isArray(guilds) ? guilds.map(g => ({ id: g.id, name: g.name, icon: g.icon })) : [];
           saveOrbitConfig(currentCfg);
-          resolve({ ok: true, user, guildCount: Array.isArray(guilds) ? guilds.length : 0 });
+          resolve({ ok: true, user, guildCount: Array.isArray(guilds) ? guilds.length : 0, guilds: currentCfg.integrations.discord.guilds });
         } else {
           resolve({ error: tokens.error_description || 'Token exchange failed' });
         }
