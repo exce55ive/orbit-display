@@ -262,6 +262,8 @@ ipcMain.handle('load-config', async () => {
 // ─── IPC: OPEN EXTERNAL URL ─────────────────────────────────────────────────
 ipcMain.handle('notify-config-saved', () => { return { ok: true }; }); // no-op; main window receives config-updated via save-config
 
+ipcMain.handle('app:get-version', () => app.getVersion());
+
 ipcMain.handle('open-external', (_e, url) => {
   shell.openExternal(url);
   return { ok: true };

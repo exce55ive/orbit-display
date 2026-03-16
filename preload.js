@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('orbit', {
   apiPost: (url, body, headers) => ipcRenderer.invoke('api-post', { url, body, headers }),
   apiPut: (url, body, headers) => ipcRenderer.invoke('api-put', { url, body, headers }),
   startSignalR: (opts) => ipcRenderer.invoke('start-signalr', opts),
+  getAppVersion: () => ipcRenderer.invoke('app:get-version'),
   onConfigUpdated: (cb) => { const h = (_e, cfg) => cb(cfg); ipcRenderer.on('config-updated', h); return () => ipcRenderer.removeListener('config-updated', h); },
   onSonarrEvent: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('sonarr-signalr-event', h); return () => ipcRenderer.removeListener('sonarr-signalr-event', h); },
   onRadarrEvent: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('radarr-signalr-event', h); return () => ipcRenderer.removeListener('radarr-signalr-event', h); },

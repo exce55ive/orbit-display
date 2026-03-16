@@ -99,6 +99,12 @@
     .np-subtitle { font-size: 11px; color: var(--text); margin-bottom: 6px; }
     .np-progress-wrap { width: 100%; margin-bottom: 4px; }
     .np-progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .panel-header { display:flex; align-items:center; gap:8px; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .panel-header-accent { width:3px; border-radius:2px; align-self:stretch; flex-shrink:0; min-height:20px; }
+    .panel-header-icon { font-size:15px; line-height:1; flex-shrink:0; }
+    .panel-header-title { font-size:11px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); flex:1; }
+    .panel-header-cog { background:none; border:none; color:rgba(255,255,255,0.2); cursor:pointer; font-size:13px; padding:0; line-height:1; transition:color .15s; }
+    .panel-header-cog:hover { color:rgba(255,255,255,0.65); }
     .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
     .np-progress-fill.no-transition { transition: none !important; }
     .np-time { font-size: 10px; color: var(--dim); margin-bottom: 4px; }
@@ -390,6 +396,15 @@
       if (window.orbit && window.orbit.openSetup) window.orbit.openSetup();
     }
 
+    function PanelHeader({ title, icon, accentColor, onSettings }) {
+      return h('div', { className:'panel-header' },
+        h('div', { className:'panel-header-accent', style:{ background: accentColor || 'var(--accent)' } }),
+        h('span', { className:'panel-header-icon' }, icon),
+        h('span', { className:'panel-header-title' }, title),
+        onSettings && h('button', { className:'panel-header-cog', onClick:onSettings, title:'Settings' }, '⚙')
+      );
+    }
+
     // ═══ CLOCK PANEL ═══
     function ClockPanel({ config }) {
       const [time, setTime] = useState('');
@@ -411,7 +426,7 @@
       const cur = weather?.current_condition?.[0];
       const forecast = weather?.weather || [];
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'CLOCK ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-weather')}, '⚙')),
+        h(PanelHeader, {title:'CLOCK', icon:'🕐', accentColor:'#00D9FF', onSettings:()=>openSettingsAt('settings-weather')}),
         h('div', {className:'clock-time'}, time),
         h('div', {className:'clock-date'}, date),
         cur && h(React.Fragment, null,
@@ -519,7 +534,7 @@
         ? effectList.filter(e => getEffName(e).toLowerCase().includes(search.toLowerCase()))
         : effectList.slice(0, 50);
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'SIGNALRGB ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-signalrgb')}, '⚙')),
+        h(PanelHeader, {title:'SIGNALRGB', icon:'⚡', accentColor:'#7B2FBE', onSettings:()=>openSettingsAt('settings-signalrgb')}),
         h('div', {className:'effect-name', style:{color:isOn?'var(--accent)':'var(--dim)'}}, effectName),
         h('div', {className:'effect-label'}, isOn?'ACTIVE':'OFF'),
         h('button', {className:'ha-toggle '+(isOn?'on':'off'), onClick:togglePower}, isOn?'ON':'OFF'),
@@ -635,9 +650,9 @@
         if (onConfigChange) onConfigChange(cfg);
       };
 
-      if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
+      if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h(PanelHeader, {title:'HOME ASSISTANT', icon:'💡', accentColor:'#18BCF2', onSettings:()=>openSettingsAt('settings-ha')}), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
+        h(PanelHeader, {title:'HOME ASSISTANT', icon:'💡', accentColor:'#18BCF2', onSettings:()=>openSettingsAt('settings-ha')}),
         lightEntities.map(({entityId:eid, name:customName}) => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
           const haName = st?.attributes?.friendly_name || eid.replace('light.','').replace(/_/g,' ');
@@ -686,12 +701,12 @@
         async function poll() { try { const r = await window.orbit.fetchTautulli(); if (r?.error) { setError(true); setData(null); } else { setError(false); setData(r); } } catch { setError(true); } }
         poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
       }, [tCfg]);
-      if (!tCfg) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text'},'Configure Tautulli in Settings'));
+      if (!tCfg) return h('div',{className:'panel panel-unconfigured'}, h(PanelHeader, {title:'NOW PLAYING', icon:'▶', accentColor:'#E5A00D', onSettings:()=>openSettingsAt('settings-tautulli')}), h('div',{className:'panel-unconfigured-icon'},'🎬'), h('div',{className:'panel-unconfigured-text'},'Configure Tautulli in Settings'));
       const sessions = data?.response?.data?.sessions || [];
-      if (error) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
-      if (!sessions.length) return h('div',{className:'panel'}, h('div',{className:'panel-label'},'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
+      if (error) return h('div',{className:'panel'}, h(PanelHeader, {title:'NOW PLAYING', icon:'▶', accentColor:'#E5A00D', onSettings:()=>openSettingsAt('settings-tautulli')}), h('div',{className:'np-offline pulse'},'TAUTULLI OFFLINE'));
+      if (!sessions.length) return h('div',{className:'panel'}, h(PanelHeader, {title:'NOW PLAYING', icon:'▶', accentColor:'#E5A00D', onSettings:()=>openSettingsAt('settings-tautulli')}), h('div',{className:'source-badge',style:{marginBottom:'12px'}},'PLEX · TAUTULLI'), h('div',{className:'np-empty'}, h('div',{className:'np-empty-icon'},'🎬'), h('div',{className:'np-empty-text'},'NO ACTIVE STREAMS')));
       return h('div', {className:'panel panel-top'},
-        h('div', {className:'panel-label'}, 'PLEX (TAUTULLI) ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-tautulli')}, '⚙')),
+        h(PanelHeader, {title:'NOW PLAYING', icon:'▶', accentColor:'#E5A00D', onSettings:()=>openSettingsAt('settings-tautulli')}),
         h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'PLEX · TAUTULLI'),
         h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
         h('div', {className:'np-session-list'},
@@ -776,7 +791,7 @@
         );
       }
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, h('span',null,'SYSTEM '), h('button', {className:'sys-gear-btn', onClick:()=>setShowPicker(!showPicker)}, '⚙')),
+        h(PanelHeader, {title:'SYSTEM', icon:'💻', accentColor:'#50FA7B', onSettings:()=>setShowPicker(!showPicker)}),
         showPicker && h('div', {className:'sys-picker-panel'},
           h('label', {className:'sys-picker-toggle'},
             h('input', {type:'checkbox', checked:showDisk, onChange:e=>setShowDisk(e.target.checked)}), 'Show Disk'
@@ -888,7 +903,7 @@
         );
       }
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'MEDIA ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-sonarr')}, '⚙')),
+        h(PanelHeader, {title:'MEDIA', icon:'🎬', accentColor:'#FFC230', onSettings:()=>openSettingsAt('settings-sonarr')}),
         section('Sonarr', sCfg?.url && sCfg?.apiKey,
           h('div', null,
             h('div',{className:'media-stat'}, h('span',{className:'media-stat-label'},'Queue: '), sonarr?.totalRecords ?? sonarr?.records?.length ?? '...'),
@@ -959,7 +974,7 @@
       const downCount = results.filter(r => r.status === 'down').length;
 
       return h('div', { className: 'panel' },
-        h('div', { className: 'panel-label' }, 'SERVICES'),
+        h(PanelHeader, {title:'SERVICES', icon:'📡', accentColor:'#00D9FF'}),
         results.length === 0
           ? h('div', { className: 'panel-unconfigured' },
               h('div', { className: 'panel-unconfigured-icon' }, '📡'),
@@ -1098,13 +1113,13 @@
       }
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
+        h(PanelHeader, {title:'SPOTIFY', icon:'🎵', accentColor:'#1DB954', onSettings:()=>openSettingsAt('settings-spotify')}),
         h('div',{className:'panel-unconfigured-icon'},'🎵'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
       if (!authorized) {
         return h('div', {className:'panel'},
-          h('div', {className:'panel-label'}, 'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
+          h(PanelHeader, {title:'SPOTIFY', icon:'🎵', accentColor:'#1DB954', onSettings:()=>openSettingsAt('settings-spotify')}),
           h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '🎵'),
           connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
           h('button', {className:'spotify-connect', disabled:connecting, onClick: async () => {
@@ -1125,7 +1140,7 @@
       const remSec = track ? Math.max(0, Math.round((track.duration_ms - localMs) / 1000)) : 0;
 
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'SPOTIFY ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-spotify')},'⚙')),
+        h(PanelHeader, {title:'SPOTIFY', icon:'🎵', accentColor:'#1DB954', onSettings:()=>openSettingsAt('settings-spotify')}),
         track ? h(React.Fragment, null,
           // Album art + track info row
           h('div', {style:{display:'flex',gap:'10px',alignItems:'center',marginBottom:'10px'}},
@@ -1173,7 +1188,7 @@
     function LinksPanel({ config }) {
       const links = config?.links || DEFAULT_CONFIG.links;
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'LINKS ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-links')}, '⚙')),
+        h(PanelHeader, {title:'LINKS', icon:'🔗', accentColor:'#FF79C6', onSettings:()=>openSettingsAt('settings-links')}),
         links.map((lnk,i) => h('div', {key:i, className:'link-item', onClick:()=>{ const u=lnk.url||''; window.orbit.openExternal(/^https?:\/\//i.test(u)?u:'https://'+u); }},
           h('span', {className:'link-icon'}, lnk.icon || '🔗'),
           h('span', {className:'link-label'}, lnk.label)
@@ -1213,12 +1228,12 @@
       }, [configured, jCfg?.url, jCfg?.apiKey]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'JELLYFIN ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-jellyfin')},'⚙')),
+        h(PanelHeader, {title:'JELLYFIN', icon:'🎞', accentColor:'#00A4DC', onSettings:()=>openSettingsAt('settings-jellyfin')}),
         h('div',{className:'panel-unconfigured-icon'},'🎞️'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
       return h('div', {className: sessions.length === 0 ? 'panel' : 'panel panel-top'},
-        h('div', {className:'panel-label'}, 'JELLYFIN ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-jellyfin')},'⚙')),
+        h(PanelHeader, {title:'JELLYFIN', icon:'🎞', accentColor:'#00A4DC', onSettings:()=>openSettingsAt('settings-jellyfin')}),
         sessions.length > 0 && h('div', {className:'source-badge', style:{marginBottom:'8px'}}, 'JELLYFIN'),
         sessions.length > 0 && h('div', {className:'np-streams-count'}, sessions.length + ' STREAM' + (sessions.length>1?'S':'')),
         sessions.length === 0
@@ -1902,7 +1917,7 @@
       }, [sCfg?.url, sCfg?.apiKey]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
+        h(PanelHeader, {title:'SONARR', icon:'📺', accentColor:'#35C5F4', onSettings:()=>openSettingsAt('settings-sonarr')}),
         h('div',{className:'panel-unconfigured-icon'},'📺'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
 
@@ -1912,7 +1927,7 @@
       }
 
       return h('div',{className:'panel panel-top'},
-        h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
+        h(PanelHeader, {title:'SONARR', icon:'📺', accentColor:'#35C5F4', onSettings:()=>openSettingsAt('settings-sonarr')}),
         h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
           h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'800',color:'var(--accent)'}}, seriesCount??'…')),
           h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'IN QUEUE'), h('div',{style:{fontSize:'30px',fontWeight:'800',color:'var(--text-bright)'}}, queue.length))
@@ -2036,12 +2051,12 @@
       }, [rCfg?.url, rCfg?.apiKey]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
+        h(PanelHeader, {title:'RADARR', icon:'🎬', accentColor:'#FFC230', onSettings:()=>openSettingsAt('settings-radarr')}),
         h('div',{className:'panel-unconfigured-icon'},'🎬'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
 
       return h('div',{className:'panel panel-top'},
-        h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
+        h(PanelHeader, {title:'RADARR', icon:'🎬', accentColor:'#FFC230', onSettings:()=>openSettingsAt('settings-radarr')}),
         // Stats
         h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
           h('div',{style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'LIBRARY'), h('div',{style:{fontSize:'30px',fontWeight:'800',color:'var(--accent)'}}, movieCount??'…')),
@@ -2131,13 +2146,13 @@
       }, [oCfg?.url, oCfg?.apiKey]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'OVERSEERR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
+        h(PanelHeader, {title:'OVERSEERR', icon:'🎯', accentColor:'#7B2FBE', onSettings:()=>openSettingsAt('settings-overseerr')}),
         h('div',{className:'panel-unconfigured-icon'},'🎭'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
       const statusLabel = {1:'PENDING',2:'APPROVED',3:'DECLINED',4:'PARTIAL',5:'AVAILABLE'};
       const statusColor = {1:'#ffb86c',2:'var(--accent)',3:'#ff5555',4:'#8be9fd',5:'#50fa7b'};
       return h('div',{className:'panel panel-top'},
-        h('div',{className:'panel-label'},'OVERSEERR ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-overseerr')},'⚙')),
+        h(PanelHeader, {title:'OVERSEERR', icon:'🎯', accentColor:'#7B2FBE', onSettings:()=>openSettingsAt('settings-overseerr')}),
         counts && h('div',{style:{display:'flex',gap:'20px',marginBottom:'18px',flexWrap:'wrap',justifyContent:'center',width:'100%'}},
           [['TOTAL',counts.total,'var(--text)'],['PENDING',counts.pending,'#ffb86c'],['PROCESSING',counts.processing,'var(--accent)'],['AVAILABLE',counts.available,'#50fa7b']]
             .map(([l,v,c])=>h('div',{key:l},
@@ -2205,14 +2220,14 @@
         return () => { active = false; if (intervalRef.current) clearTimeout(intervalRef.current); };
       }, [nCfg?.url, nCfg?.username]);
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'NZBGET ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
+        h(PanelHeader, {title:'NZBGET', icon:'⬇', accentColor:'#34A853', onSettings:()=>openSettingsAt('settings-nzbget')}),
         h('div',{className:'panel-unconfigured-icon'},'⬇'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
       const rateMBs = status ? (status.DownloadRate/1024/1024).toFixed(2) : '0.00';
       const remMB = status ? status.RemainingSizeMB : 0;
       const paused = status?.DownloadPaused;
       return h('div',{className: groups.length > 0 ? 'panel panel-top' : 'panel'},
-        h('div',{className:'panel-label'},'NZBGET ',h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-nzbget')},'⚙')),
+        h(PanelHeader, {title:'NZBGET', icon:'⬇', accentColor:'#34A853', onSettings:()=>openSettingsAt('settings-nzbget')}),
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div', null,
             h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),
@@ -2289,13 +2304,13 @@
 
       // ── Early returns (after all hooks) ──
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h('div',{className:'panel-label'},'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
+        h(PanelHeader, {title:'DISCORD', icon:'💬', accentColor:'#5865F2', onSettings:()=>openSettingsAt('settings-discord')}),
         h('div',{className:'panel-unconfigured-icon'},'💬'),
         h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
 
       if (!authorized) {
         return h('div', {className:'panel'},
-          h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
+          h(PanelHeader, {title:'DISCORD', icon:'💬', accentColor:'#5865F2', onSettings:()=>openSettingsAt('settings-discord')}),
           h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '💬'),
           connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
           h('button', {className:'spotify-connect', style:{borderColor:'#5865F2',color:'#5865F2',background:'rgba(88,101,242,0.08)'}, disabled:connecting, onClick: async () => {
@@ -2342,7 +2357,7 @@
       };
 
       return h('div', {className:'panel'},
-        h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
+        h(PanelHeader, {title:'DISCORD', icon:'💬', accentColor:'#5865F2', onSettings:()=>openSettingsAt('settings-discord')}),
         h('img', {src:avatarUrl, style:{width:'52px',height:'52px',borderRadius:'50%',marginBottom:'10px',border:'2px solid rgba(88,101,242,0.4)'}}),
         h('div', {style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)',marginBottom:'2px'}}, displayName),
         h('div', {style:{fontSize:'12px',color:'var(--dim)',marginBottom:'12px'}}, handle),
@@ -2402,6 +2417,7 @@
     // ── BOTTOM BAR — bumper strip with settings, page dots, update badge ──
     function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig }) {
       const [update, setUpdate] = useState(null);
+      const [appVersion, setAppVersion] = useState('');
       const [showConfirm, setShowConfirm] = useState(false);
       const [downloading, setDownloading] = useState(false);
       const [progress, setProgress] = useState(0);
@@ -2413,6 +2429,7 @@
         window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
         window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
         window.orbit.onUpdateError(() => setDownloading(false));
+        window.orbit.getAppVersion().then(v => setAppVersion(v)).catch(()=>{});
       }, []);
 
       const hasUpdate = update || downloaded;
@@ -2456,6 +2473,11 @@
 
           // Right — update badge when available
           h('div', {className:'bottom-bar-right'},
+            appVersion && h('span', {
+              onClick:()=>window.orbit.openSetup(),
+              title:'About Orbit',
+              style:{fontSize:'9px',color:'rgba(255,255,255,0.18)',letterSpacing:'1px',cursor:'pointer',marginRight:'8px',fontWeight:'600'}
+            }, 'v'+appVersion),
             downloaded && h('button', {className:'bottom-update-btn', onClick:()=>window.orbit.installUpdate(), title:'Restart to install update'}, '⟳ RESTART'),
             !downloaded && update && h('button', {className:'bottom-update-btn', onClick:()=>setShowConfirm(true), title:'Update available'},
               downloading ? progress+'%' : '↓ UPDATE'
