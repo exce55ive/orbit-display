@@ -398,6 +398,105 @@ ipcMain.handle('api-put', async (_e, { url, body, headers }) => {
 });
 
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
+
+// ─── IPC: TEST INTEGRATION ─────────────────────────────────────────────────────
+ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, password, token }) => {
+  const fetch = await getFetch();
+  const ok = (msg, detail='') => ({ ok: true, message: msg, detail });
+  const fail = (msg) => ({ ok: false, message: msg });
+  const headGet = async (u, headers={}) => {
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 5000);
+    const r = await fetch(u, { headers, signal: controller.signal });
+    return r;
+  };
+  try {
+    if (type === 'signalrgb') {
+      const base = (url || 'http://localhost:16038').replace(/\/$/, '');
+      const r = await headGet(`${base}/api/v1/lighting`);
+      const j = await r.json();
+      if (j.status === 'ok') return ok(`Connected — Effect: ${j.data?.attributes?.name || 'unknown'}`);
+      return fail(`Unexpected response: ${r.status}`);
+    }
+    if (type === 'tautulli') {
+      if (!url || !apiKey) return fail('URL and API Key required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/api/v2?cmd=get_server_info&apikey=${apiKey}`);
+      const j = await r.json(); if (j.response?.result === 'success') return ok(`Connected — ${j.response.data?.pms_name || 'Tautulli'}`);
+      return fail(j.response?.message || 'Auth failed');
+    }
+    if (type === 'plex') {
+      if (!url || !token) return fail('URL and Token required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/?X-Plex-Token=${token}`, { Accept: 'application/json' });
+      if (r.ok) return ok(`Connected — Plex ${r.status}`); return fail(`HTTP ${r.status}`);
+    }
+    if (type === 'sonarr') {
+      if (!url || !apiKey) return fail('URL and API Key required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/api/v3/system/status?apikey=${apiKey}`);
+      const j = await r.json(); if (j.appName === 'Sonarr') return ok(`Connected — Sonarr v${j.version}`);
+      return fail(r.status === 401 ? 'Auth failed — check API key' : `HTTP ${r.status}`);
+    }
+    if (type === 'radarr') {
+      if (!url || !apiKey) return fail('URL and API Key required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/api/v3/system/status?apikey=${apiKey}`);
+      const j = await r.json(); if (j.appName === 'Radarr') return ok(`Connected — Radarr v${j.version}`);
+      return fail(r.status === 401 ? 'Auth failed — check API key' : `HTTP ${r.status}`);
+    }
+    if (type === 'overseerr') {
+      if (!url || !apiKey) return fail('URL and API Key required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/api/v1/status`, { 'X-Api-Key': apiKey });
+      const j = await r.json(); if (j.version) return ok(`Connected — Overseerr v${j.version}`);
+      return fail(r.status === 403 ? 'Auth failed — check API key' : `HTTP ${r.status}`);
+    }
+    if (type === 'nzbget') {
+      if (!url) return fail('URL required');
+      const base = url.replace(/\/jsonrpc$/, '').replace(/\/$/, '');
+      const auth = (username && password) ? Buffer.from(`${username}:${password}`).toString('base64') : null;
+      const headers = auth ? { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 5000);
+      const r = await fetch(`${base}/jsonrpc`, { method: 'POST', headers, body: JSON.stringify({ version:'1.1', method:'version', id:1 }), signal: controller.signal });
+      const j = await r.json(); if (j.result) return ok(`Connected — NZBGet ${j.result}`);
+      return fail(j.error?.message || 'Auth failed');
+    }
+    if (type === 'jellyfin') {
+      if (!url || !apiKey) return fail('URL and API Key required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/System/Info`, { 'X-Emby-Token': apiKey });
+      const j = await r.json(); if (j.ServerName) return ok(`Connected — ${j.ServerName} v${j.Version}`);
+      return fail(r.status === 401 ? 'Auth failed — check API key' : `HTTP ${r.status}`);
+    }
+    if (type === 'homeassistant') {
+      if (!url || !token) return fail('URL and Token required');
+      const r = await headGet(`${url.replace(/\/$/, '')}/api/`, { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
+      const j = await r.json(); if (j.message === 'API running.') return ok('Connected — HA API running');
+      return fail(r.status === 401 ? 'Auth failed — check token' : `HTTP ${r.status}`);
+    }
+    if (type === 'spotify') {
+      const cfg = loadOrbitConfig();
+      if (cfg?.integrations?.spotify?.accessToken) return ok('Spotify linked — access token present');
+      return fail('Not linked — complete OAuth in Orbit app');
+    }
+    if (type === 'discord') {
+      const cfg = loadOrbitConfig();
+      if (cfg?.integrations?.discord?.accessToken) {
+        const user = cfg.integrations.discord.user;
+        return ok(user ? `Connected as ${user.username}` : 'Connected');
+      }
+      return fail('Not linked — complete OAuth in Orbit app');
+    }
+    if (type === 'weather') {
+      if (!url) return fail('City name required');
+      const r = await headGet(`https://wttr.in/${encodeURIComponent(url)}?format=j1`);
+      if (r.ok) return ok(`Weather available for "${url}"`);
+      return fail(`Location not found`);
+    }
+    if (type === 'services') return ok('Services panel auto-detects configured URLs — no test needed');
+    return fail('Unknown integration type');
+  } catch (e) {
+    if (e.name === 'AbortError') return fail('Timeout — is the service running?');
+    return fail(e.message);
+  }
+});
+
 // ─── IPC: SIGNALRGB PORT AUTO-DETECT ──────────────────────────────────────────
 ipcMain.handle('signalrgb-detect-port', async () => {
   const fetch = await getFetch();

@@ -288,42 +288,54 @@
               ${integrationCard('tautulli', 'Tautulli', '🎬', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="tau-url" placeholder="http://192.168.1.x:8181" value="${esc(config.integrations.tautulli.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="tau-key" value="${esc(config.integrations.tautulli.apiKey)}"></div>
+              
+                ${testRow('tautulli')}
               `)}
               ${integrationCard('plex', 'Plex', '▶️', `
                 <div class="field-group"><div class="field-label">Server URL</div><input class="field-input" id="plex-url" placeholder="http://192.168.1.x:32400" value="${esc(config.integrations.plex.url)}"></div>
                 <div class="field-group"><div class="field-label">Plex Token</div><input class="field-input" id="plex-token" value="${esc(config.integrations.plex.token)}"></div>
+              
+                ${testRow('plex')}
               `)}
               ${integrationCard('weather', 'Weather', '🌤️', `
                 <div class="field-group"><div class="field-label">City</div><input class="field-input" id="weather-city" placeholder="Perth" value="${esc(config.integrations.weather.city)}"><div class="field-hint">Used for weather display on the clock panel</div></div>
+              
+                ${testRow('weather')}
               `)}
               ${integrationCard('signalrgb', 'SignalRGB', '🎮', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="signalrgb-url" placeholder="http://localhost:16038" value="${esc(config.integrations.signalrgb.url)}"></div>
-                <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
-                  <button onclick="testSignalRGB()" style="padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚡ Test Connection</button>
-                  <span id="signalrgb-test-result" style="font-size:11px;color:rgba(255,255,255,0.5);"></span>
-                </div>
-                <div class="integration-hint">API port changed to 16038 in SignalRGB 2.x. Enable the HTTP API in SignalRGB → Settings → Developer.</div>
+                ${testRow('signalrgb')}
               `)}
               ${integrationCard('sonarr', 'Sonarr', '📺', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="sonarr-url" placeholder="http://192.168.1.x:8989" value="${esc(config.integrations.sonarr.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="sonarr-key" value="${esc(config.integrations.sonarr.apiKey)}"></div>
+              
+                ${testRow('sonarr')}
               `)}
               ${integrationCard('radarr', 'Radarr', '🎬', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="radarr-url" placeholder="http://192.168.1.x:7878" value="${esc(config.integrations.radarr.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="radarr-key" value="${esc(config.integrations.radarr.apiKey)}"></div>
+              
+                ${testRow('radarr')}
               `)}
               ${integrationCard('overseerr', 'Overseerr', '🎭', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="overseerr-url" placeholder="http://192.168.1.x:5055" value="${esc(config.integrations.overseerr.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="overseerr-key" value="${esc(config.integrations.overseerr.apiKey)}"></div>
+              
+                ${testRow('overseerr')}
               `)}
               ${integrationCard('nzbget', 'NZBGet', '⬇', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="nzbget-url" placeholder="http://192.168.1.x:6789" value="${esc(config.integrations.nzbget.url)}"></div>
                 <div class="field-group"><div class="field-label">Username</div><input class="field-input" id="nzbget-user" value="${esc(config.integrations.nzbget.username)}"></div>
                 <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="nzbget-pass" type="password" value="${esc(config.integrations.nzbget.password)}"></div>
+              
+                ${testRow('nzbget')}
               `)}
               ${integrationCard('jellyfin', 'Jellyfin', '🎵', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="jellyfin-url" placeholder="http://192.168.1.x:8096" value="${esc(config.integrations.jellyfin.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="jellyfin-key" value="${esc(config.integrations.jellyfin.apiKey)}"></div>
+              
+                ${testRow('jellyfin')}
               `)}
               ${integrationCard('services', 'Services', '📡', `
                 <div class="integration-hint">The Services panel pings all configured integration URLs automatically. Add custom services below.</div>
@@ -369,7 +381,11 @@
               ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
                 <div class="field-group"><div class="field-label">Long-Lived Access Token</div><input class="field-input" id="ha-token" placeholder="Your HA token" value="${esc(config.integrations.homeassistant.token)}" oninput="showHABrowseBtn()"></div>
-                <button class="ha-browse-btn" id="ha-browse-btn" onclick="openHABrowser()" style="display:none;margin-top:8px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚙ Configure Entities</button>
+                <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+                  <button class="ha-browse-btn" id="ha-browse-btn" onclick="openHABrowser()" style="display:none;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚙ Configure Entities</button>
+                  <button onclick="testIntegration('homeassistant')" style="padding:5px 12px;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.25);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;">🔌 Test</button>
+                  <span id="homeassistant-test-result" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
+                </div>
                 <div id="ha-selected-count" style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;"></div>
               `)}
             </div>
@@ -719,6 +735,41 @@
         }
       } catch (e) {
         if (resultEl) { resultEl.textContent = '❌ ' + (e.message || 'Connection failed'); resultEl.style.color = '#ff5555'; }
+      }
+    }
+
+    function testRow(id) {
+      return `<div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+        <button onclick="testIntegration('${id}')" style="padding:5px 12px;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.25);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:0.5px;">🔌 Test</button>
+        <span id="${id}-test-result" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
+      </div>`;
+    }
+
+    async function testIntegration(type) {
+      const resultEl = document.getElementById(type + '-test-result');
+      if (!resultEl) return;
+      resultEl.textContent = '⏳ Testing...';
+      resultEl.style.color = 'rgba(255,255,255,0.4)';
+      // Read current field values for each type
+      const getVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+      const opts = { type };
+      if (type === 'signalrgb') opts.url = getVal('signalrgb-url');
+      else if (type === 'tautulli') { opts.url = getVal('tau-url'); opts.apiKey = getVal('tau-key'); }
+      else if (type === 'plex') { opts.url = getVal('plex-url'); opts.token = getVal('plex-token'); }
+      else if (type === 'sonarr') { opts.url = getVal('sonarr-url'); opts.apiKey = getVal('sonarr-key'); }
+      else if (type === 'radarr') { opts.url = getVal('radarr-url'); opts.apiKey = getVal('radarr-key'); }
+      else if (type === 'overseerr') { opts.url = getVal('overseerr-url'); opts.apiKey = getVal('overseerr-key'); }
+      else if (type === 'nzbget') { opts.url = getVal('nzbget-url'); opts.username = getVal('nzbget-user'); opts.password = getVal('nzbget-pass'); }
+      else if (type === 'jellyfin') { opts.url = getVal('jellyfin-url'); opts.apiKey = getVal('jellyfin-key'); }
+      else if (type === 'homeassistant') { opts.url = getVal('ha-url'); opts.token = getVal('ha-token'); }
+      else if (type === 'weather') opts.url = getVal('weather-city');
+      try {
+        const r = await window.orbit.testIntegration(opts);
+        resultEl.textContent = r.ok ? ('✅ ' + r.message) : ('❌ ' + r.message);
+        resultEl.style.color = r.ok ? '#4ade80' : '#ff5555';
+      } catch(e) {
+        resultEl.textContent = '❌ ' + e.message;
+        resultEl.style.color = '#ff5555';
       }
     }
 

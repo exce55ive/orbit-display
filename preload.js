@@ -30,6 +30,7 @@ contextBridge.exposeInMainWorld('orbit', {
   spotifyRefreshToken: () => ipcRenderer.invoke('spotify-refresh-token'),
   discordAuthStart: () => ipcRenderer.invoke('discord-auth-start'),
   discordRefreshGuilds: () => ipcRenderer.invoke('discord-refresh-guilds'),
+  testIntegration: (opts) => ipcRenderer.invoke('test-integration', opts),
   discordToggleMute: () => ipcRenderer.invoke('discord-toggle-mute'),
   discordGetVoiceState: () => ipcRenderer.invoke('discord-get-voice-state'),
   discordJoinVoice: (guildId) => ipcRenderer.invoke('discord-join-voice', guildId),
