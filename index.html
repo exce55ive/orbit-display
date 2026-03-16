@@ -458,6 +458,7 @@
       const [favorites, setFavorites] = useState(rawFavs);
       const [error, setError] = useState(null);
       const [localBrightness, setLocalBrightness] = useState(null);
+      const brightnessTimer = useRef(null);
       // Always use direct SignalRGB API — no HA dependency
       useEffect(() => {
         async function pollDirect() {
@@ -528,11 +529,14 @@
             return h('input', {
               type:'range', min:0, max:100, value:bVal,
               style:{width:'100%',height:'4px',WebkitAppearance:'none',appearance:'none',background:`linear-gradient(to right, var(--accent) ${bVal}%, rgba(255,255,255,0.1) ${bVal}%)`,borderRadius:'2px',outline:'none',cursor:'pointer'},
-              onInput: e => setLocalBrightness(parseInt(e.target.value)),
-              onChange: e => {
+              onInput: e => {
                 const val = parseInt(e.target.value);
                 setLocalBrightness(val);
-                window.orbit.signalrgbSetBrightness(val).then(() => setLocalBrightness(null));
+                // Debounce API call — send 300ms after user stops dragging
+                if (brightnessTimer.current) clearTimeout(brightnessTimer.current);
+                brightnessTimer.current = setTimeout(() => {
+                  window.orbit.signalrgbSetBrightness(val);
+                }, 300);
               }
             });
           })(),

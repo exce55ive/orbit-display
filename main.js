@@ -541,7 +541,7 @@ ipcMain.handle('activate-effect', async (_e, effectId) => {
   const cfg2 = loadOrbitConfig();
   try {
     const base = cfg2?.integrations?.signalrgb?.url || 'http://localhost:16038';
-    const url = `${base}/api/v1/lighting/effect/${effectId}/apply`;
+    const url = `${base}/api/v1/lighting/effects/${effectId}/apply`;
     const res = await fetch(url, { method: 'POST' });
     const text = await res.text();
     try { return JSON.parse(text); } catch { return text; }
@@ -553,7 +553,7 @@ ipcMain.handle('signalrgb-set-brightness', async (_e, brightness) => {
   const cfg2 = loadOrbitConfig();
   try {
     const base = cfg2?.integrations?.signalrgb?.url || 'http://localhost:16038';
-    const res = await fetch(`${base}/api/v1/lighting`, {
+    const res = await fetch(`${base}/api/v1/lighting/global_brightness`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ global_brightness: Math.round(brightness) })
