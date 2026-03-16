@@ -199,7 +199,6 @@
       { type: 'services',   icon: '📡', name: 'Services' },
       { type: 'spotify',    icon: '🎵', name: 'Spotify' },
       { type: 'jellyfin',   icon: '🎞', name: 'Jellyfin' },
-      { type: 'discord',    icon: '💬', name: 'Discord' }
     ];
     const MAX_PANELS = 6;
 
@@ -220,7 +219,6 @@
       services:    null,                                    // always available (auto-detects from integrations)
       spotify:     (c) => c.spotify?.enabled && c.spotify?.clientId && c.spotify?.clientSecret,
       jellyfin:    (c) => c.jellyfin?.enabled && c.jellyfin?.url && c.jellyfin?.apiKey,
-      discord:     (c) => c.discord?.enabled && c.discord?.clientId,
       media:       (c) => (c.sonarr?.enabled && c.sonarr?.url) || (c.radarr?.enabled && c.radarr?.url),
     };
 
@@ -355,7 +353,7 @@
                 <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
                 ${testRow('spotify')}
               `)}
-              ;
+              `;
         });
         // Init HA entity count display and browse button visibility
         (function() {
@@ -754,7 +752,6 @@
       else if (type === 'homeassistant') { opts.url = getVal('ha-url'); opts.token = getVal('ha-token'); }
       else if (type === 'weather') opts.url = getVal('weather-city');
       else if (type === 'spotify') { opts.clientId = getVal('spotify-id'); opts.clientSecret = getVal('spotify-secret'); }
-      else if (type === 'discord') { opts.clientId = getVal('discord-id'); opts.clientSecret = getVal('discord-secret'); }
       try {
         const r = await window.orbit.testIntegration(opts);
         resultEl.textContent = r.ok ? ('✅ ' + r.message) : ('❌ ' + r.message);
@@ -763,100 +760,6 @@
         resultEl.textContent = '❌ ' + e.message;
         resultEl.style.color = '#ff5555';
       }
-    }
-
-    let _discordPickerSlot = null;
-
-    let _discordPickedGuild = null;
-
-    async function browseDiscordServers(slot) {
-      _discordPickerSlot = slot;
-      _discordPickedGuild = null;
-      const picker = document.getElementById('discord-guild-picker');
-      if (!picker) return;
-      picker.style.display = 'block';
-      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Loading servers...</div>';
-      let guilds = config.integrations.discord?.guilds || [];
-      if (!guilds.length) {
-        const r = await window.orbit.discordRefreshGuilds();
-        if (r.error) { picker.innerHTML = '<div style="padding:12px;font-size:11px;color:#ff5555;">'+r.error+'</div>'; return; }
-        guilds = r.guilds || [];
-        config.integrations.discord.guilds = guilds;
-      }
-      if (!guilds.length) { picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">No servers found.</div>'; return; }
-      picker.innerHTML = '<div style="padding:6px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;">SELECT SERVER</div>' +
-        guilds.map((g, i) => `
-        <div onclick="selectDiscordGuildForVoice(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
-          🖥️ ${g.name.replace(/</g,'&lt;')}
-        </div>`).join('');
-    }
-
-    async function selectDiscordGuildForVoice(guildIndex) {
-      const guild = (config.integrations.discord?.guilds || [])[guildIndex];
-      if (!guild) return;
-      _discordPickedGuild = guild;
-      const picker = document.getElementById('discord-guild-picker');
-      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Fetching voice channels...<br><span style="font-size:10px;color:#5865F2;">Check Discord for an authorization popup → click Authorize</span></div>';
-      const r = await window.orbit.discordGetVoiceChannels(guild.id);
-      if (!r.error && r.channels?.length) {
-        picker.innerHTML = '<div style="padding:6px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;">SELECT VOICE CHANNEL</div>' +
-          r.channels.map((ch, i) => `
-          <div onclick="selectDiscordVoiceChannel(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
-            🔊 ${ch.name.replace(/</g,'&lt;')}
-          </div>`).join('');
-        picker._channels = r.channels;
-      } else {
-        // RPC fallback — manual channel ID entry
-        picker.innerHTML = `
-          <div style="padding:10px 12px;">
-            <div style="font-size:11px;color:var(--amber);margin-bottom:8px;">${r.error || 'No channels found'}</div>
-            <div style="font-size:10px;color:var(--dim);margin-bottom:8px;">Enter voice channel ID manually:<br>In Discord: Settings → Advanced → Enable Developer Mode, then right-click a voice channel → Copy Channel ID</div>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <input id="discord-manual-ch-id" class="field-input" placeholder="Channel ID (e.g. 1234567890)" style="flex:1;font-size:12px;padding:6px 10px;">
-              <input id="discord-manual-ch-name" class="field-input" placeholder="Name (e.g. General)" style="flex:1;font-size:12px;padding:6px 10px;">
-            </div>
-            <button onclick="selectDiscordManualChannel()" style="margin-top:8px;padding:5px 14px;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.4);border-radius:6px;color:#5865F2;cursor:pointer;font-family:inherit;font-size:11px;width:100%;">✓ Use This Channel</button>
-          </div>`;
-      }
-    }
-
-    function selectDiscordManualChannel() {
-      const chId = document.getElementById('discord-manual-ch-id')?.value.trim();
-      const chName = document.getElementById('discord-manual-ch-name')?.value.trim() || 'Voice';
-      if (!chId) return;
-      const fakeChannel = { id: chId, name: chName };
-      const picker = document.getElementById('discord-guild-picker');
-      if (picker) picker._channels = [fakeChannel];
-      selectDiscordVoiceChannel(0);
-    }
-
-    function selectDiscordVoiceChannel(channelIndex) {
-      const picker = document.getElementById('discord-guild-picker');
-      const channel = picker?._channels?.[channelIndex];
-      const guild = _discordPickedGuild;
-      if (!channel || !guild || !_discordPickerSlot) return;
-      const voiceObj = { guildId: guild.id, guildName: guild.name, channelId: channel.id, channelName: channel.name };
-      config.integrations.discord['favVoice'+_discordPickerSlot] = voiceObj;
-      window.orbit.saveConfig(config);
-      if (picker) picker.style.display = 'none';
-      const displayEl = document.getElementById('discord-fav'+_discordPickerSlot+'-display');
-      if (displayEl) {
-        displayEl.innerHTML = `<div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${channel.name.replace(/</g,'&lt;')} <span style="color:var(--dim);font-size:10px;">(${guild.name.replace(/</g,'&lt;')})</span></div><button onclick="clearDiscordFav(${_discordPickerSlot})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>`;
-      }
-      _discordPickerSlot = null;
-      _discordPickedGuild = null;
-    }
-
-    function clearDiscordFav(slot) {
-      delete config.integrations.discord['favVoice'+slot];
-      delete config.integrations.discord['favServer'+slot]; // migrate old key too
-      window.orbit.saveConfig(config);
-      const displayEl = document.getElementById('discord-fav'+slot+'-display');
-      if (displayEl) {
-        displayEl.innerHTML = `<button class="ha-browse-btn" onclick="browseDiscordServers(${slot})">🎙️ Pick Voice Channel</button>`;
-      }
-      const picker = document.getElementById('discord-guild-picker');
-      if (picker) picker.style.display = 'none';
     }
 
     function saveAndNext() {
@@ -910,23 +813,6 @@
       config.integrations.spotify.enabled = isEnabled('spotify');
       config.integrations.spotify.clientId = getVal('spotify-id');
       config.integrations.spotify.clientSecret = getVal('spotify-secret');
-
-
-
-      if (!config.integrations.discord) config.integrations.discord = {};
-      config.integrations.discord.enabled = isEnabled('discord');
-      config.integrations.discord.clientId = getVal('discord-id');
-      config.integrations.discord.clientSecret = getVal('discord-secret');
-      // Voice channels — manual entry (no RPC)
-      const vc1id = getVal('discord-vc1-id'), vc1name = getVal('discord-vc1-name');
-      const vc2id = getVal('discord-vc2-id'), vc2name = getVal('discord-vc2-name');
-      const vc1guild = getVal('discord-vc1-guild');
-      const vc2guild = getVal('discord-vc2-guild');
-      if (vc1id) config.integrations.discord.favVoice1 = { channelId: vc1id, channelName: vc1name || vc1id, guildId: vc1guild || config.integrations.discord.favVoice1?.guildId || '', guildName: config.integrations.discord.favVoice1?.guildName || '' };
-      else delete config.integrations.discord.favVoice1;
-      if (vc2id) config.integrations.discord.favVoice2 = { channelId: vc2id, channelName: vc2name || vc2id, guildId: vc2guild || config.integrations.discord.favVoice2?.guildId || '', guildName: config.integrations.discord.favVoice2?.guildName || '' };
-      else delete config.integrations.discord.favVoice2;
-      // favServer1/2 are set by browseDiscordServers() / clearDiscordFav() directly
 
       // customServices and links already mutated in-place
       if (!config.customServices) config.customServices = [];
