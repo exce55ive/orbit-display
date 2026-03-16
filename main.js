@@ -829,7 +829,6 @@ ipcMain.handle('check-services', async (_e, services) => {
   const results = await Promise.all(services.map(async ({ name, url, auth }) => {
     const start = Date.now();
     const baseHeaders = auth ? { Authorization: 'Basic ' + auth } : {};
-    // Try HEAD first; fall back to GET if HEAD is not supported (connection reset)
     async function tryFetch(method) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
@@ -839,16 +838,14 @@ ipcMain.handle('check-services', async (_e, services) => {
         return { ok: true, status: res.status };
       } catch (e) {
         clearTimeout(timer);
-        return { ok: false, error: e.message, reset: e.message && (e.message.includes('reset') || e.message.includes('ECONNRESET')) };
+        return { ok: false, error: e.message };
       }
     }
     try {
-      let result = await tryFetch('HEAD');
-      // HEAD not supported (connection reset) → try GET
-      if (!result.ok && result.reset) {
+      // Services requiring auth (e.g. NZBGet) often drop HEAD — go straight to GET
+      let result = auth ? { ok: false } : await tryFetch('HEAD');
+      if (!result.ok) {
         result = await tryFetch('GET');
-        // GET connection reset also means service is alive but rejecting method
-        if (!result.ok && result.reset) return { name, url, status: 'up', ms: Date.now() - start, code: 'RST' };
       }
       if (!result.ok) return { name, url, status: 'down', ms: Date.now() - start, error: result.error };
       const ms = Date.now() - start;
