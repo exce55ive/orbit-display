@@ -705,9 +705,18 @@
       renderCustomServicesInCard();
     }
 
+    function normalizeUrl(url) {
+      const u = (url || '').trim();
+      if (!u) return u;
+      if (/^https?:\/\//i.test(u)) return u;
+      return 'https://' + u;
+    }
+
     function updateCustomService(i, field, val) {
       if (!config.customServices) return;
-      if (config.customServices[i]) config.customServices[i][field] = val;
+      if (config.customServices[i]) {
+        config.customServices[i][field] = field === 'url' ? normalizeUrl(val) : val;
+      }
     }
 
     function renderCustomServicesInCard() {
@@ -716,7 +725,7 @@
       el.innerHTML = (config.customServices||[]).map((s,i) => `
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
           <input class="field-input" style="flex:1;font-size:11px;" placeholder="Name" value="${(s.name||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'name',this.value)">
-          <input class="field-input" style="flex:2;font-size:11px;" placeholder="http://..." value="${(s.url||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'url',this.value)">
+          <input class="field-input" style="flex:2;font-size:11px;" placeholder="URL (e.g. nas.local or 192.168.1.x)" value="${(s.url||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'url',this.value)" onblur="if(this.value)this.value=normalizeUrl(this.value)">
           <button onclick="removeCustomService(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
         </div>`).join('');
     }
@@ -912,6 +921,10 @@
       config.integrations.jellyfin.enabled = isEnabled('jellyfin');
       config.integrations.jellyfin.url = getVal('jellyfin-url');
       config.integrations.jellyfin.apiKey = getVal('jellyfin-key');
+
+      // Services panel enabled state
+      if (!config.integrations.services) config.integrations.services = {};
+      config.integrations.services.enabled = isEnabled('services');
 
       // Uptime Kuma removed — use Services panel instead
 
