@@ -23,11 +23,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and publish NSIS installer
-        run: npx electron-builder --win nsis --x64 --publish always
+      - name: Build NSIS installer
+        run: npx electron-builder --win nsis --x64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate latest.yml
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist\OrbitSetup-*.exe | Select-Object -First 1
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA512).Hash.ToLower()
+          $size = $exe.Length
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
+          $name = $exe.Name
+          @"
+          version: $version
+          files:
+            - url: $name
+              sha512: $hash
+              size: $size
+          path: $name
+          sha512: $hash
+          releaseDate: '$date'
+          "@ | Set-Content dist\latest.yml
 
       - name: List build output
         run: ls dist/
@@ -37,3 +56,13 @@ jobs:
         with:
           name: OrbitSetup-windows
           path: dist/OrbitSetup-*.exe
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/OrbitSetup-*.exe
+            dist/latest.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
