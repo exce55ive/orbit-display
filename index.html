@@ -2243,7 +2243,10 @@
     // ═══ DISCORD PANEL ═══
     function DiscordPanel({ config, openSettings, onConfigChange }) {
       const dCfg = config?.integrations?.discord;
-      const configured = dCfg?.clientId && dCfg?.clientSecret;
+      const configured = !!(dCfg?.clientId && dCfg?.clientSecret);
+      const hasBotToken = !!(dCfg?.botToken);  // must be before hooks
+
+      // ── ALL hooks before any early returns (Rules of Hooks) ──
       const [authorized, setAuthorized] = useState(!!(dCfg?.accessToken));
       const [connecting, setConnecting] = useState(false);
       const [connectErr, setConnectErr] = useState('');
@@ -2251,14 +2254,15 @@
       const [guildCount, setGuildCount] = useState(dCfg?.guildCount || 0);
       const [dmCount, setDmCount] = useState(0);
       const [notificationsLine, setNotificationsLine] = useState(null);
+      const [voiceState, setVoiceState] = useState(null);
+      const [joiningId, setJoiningId] = useState('');
+      const [voiceErr, setVoiceErr] = useState('');
 
       useEffect(() => {
-        // Load stored user data from config
         if (dCfg?.user) setUser(dCfg.user);
         if (dCfg?.guildCount != null) setGuildCount(dCfg.guildCount);
       }, [dCfg?.user?.id, dCfg?.guildCount]);
 
-      // Poll guilds, DMs, and mentions periodically
       useEffect(() => {
         if (!authorized || !dCfg?.accessToken) return;
         async function poll() {
@@ -2273,24 +2277,20 @@
             ]);
             if (userRes && !userRes.error && userRes.id) setUser(userRes);
             if (Array.isArray(guildsRes)) setGuildCount(guildsRes.length);
-            // DM channels
             try {
               const chRes = await window.orbit.apiGet('https://discord.com/api/users/@me/channels', headers);
-              if (Array.isArray(chRes)) {
-                setDmCount(chRes.filter(c => c.type === 1 && c.last_message_id).length);
-              }
+              if (Array.isArray(chRes)) setDmCount(chRes.filter(c => c.type === 1 && c.last_message_id).length);
             } catch {}
-            // Best-effort mentions/notifications
             try {
               const mentRes = await window.orbit.apiGet('https://discord.com/api/users/@me/mentions', headers);
-              if (Array.isArray(mentRes)) setNotificationsLine('🔔 '+mentRes.length+' notifications');
+              if (Array.isArray(mentRes) && mentRes.length > 0) setNotificationsLine('🔔 '+mentRes.length+' unread mentions');
+              else setNotificationsLine(null);
             } catch {}
           } catch {}
         }
         poll(); const t = setInterval(poll, 300000); return () => clearInterval(t);
       }, [authorized]);
 
-      // Bot-powered real voice state polling (every 8s when bot token configured)
       useEffect(() => {
         if (!hasBotToken) return;
         async function pollVoice() {
@@ -2302,6 +2302,7 @@
         pollVoice(); const t = setInterval(pollVoice, 8000); return () => clearInterval(t);
       }, [hasBotToken]);
 
+      // ── Early returns (after all hooks) ──
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
         h('div',{className:'panel-unconfigured-icon'},'💬'),
@@ -2333,14 +2334,8 @@
       const handle = user?.discriminator && user.discriminator !== '0'
         ? user.username + '#' + user.discriminator
         : '@' + (user?.username || '');
-      // Support both old favServer (name only) and new favVoice (has channelId)
       const fav1 = dCfg?.favVoice1 || null;
       const fav2 = dCfg?.favVoice2 || null;
-      const hasBotToken = !!(dCfg?.botToken);
-      const [voiceState, setVoiceState] = useState(null); // real state from bot API: {channelId, channelName, guildId, muted, deafened}
-      const [joiningId, setJoiningId] = useState('');
-      const [voiceErr, setVoiceErr] = useState('');
-      const [leaveConfirm, setLeaveConfirm] = useState(false);
 
       const handleVoiceBtn = async (fav) => {
         if (!fav?.channelId) { setVoiceErr('Configure voice channel in Settings first'); return; }

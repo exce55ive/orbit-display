@@ -238,7 +238,9 @@
     function esc(str) { return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     function integrationCard(id, title, emoji, fieldsHtml) {
-      const enabled = config.integrations[id]?.enabled;
+      // Services defaults to enabled if custom services exist (handles configs saved before the enabled flag was added)
+      let enabled = config.integrations[id]?.enabled;
+      if (id === 'services' && enabled == null) enabled = (config.customServices?.length > 0);
       return `
         <div class="integration-card${enabled ? ' enabled' : ''}" id="card-${id}">
           <label class="integration-toggle">
@@ -360,27 +362,21 @@
                 <div class="field-group"><div class="field-label">Your Discord User ID <span style="font-weight:400;color:var(--dim)">(Dev Mode → right-click your name → Copy User ID)</span></div><input class="field-input" id="discord-user-id" value="${esc(config.integrations.discord?.userId || config.integrations.discord?.user?.id || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
                 ${testRow('discord')}
-                ${config.integrations.discord?.accessToken ? `
-                  <div class="field-group">
-                    <div class="field-label">VOICE CHANNEL 1</div>
-                    <div id="discord-fav1-display" style="display:flex;gap:6px;align-items:center;">
-                      ${config.integrations.discord?.favVoice1 ? `
-                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favVoice1.channelName||'')} <span style="color:var(--dim);font-size:10px;">(${esc(config.integrations.discord.favVoice1.guildName||'')})</span></div>
-                        <button onclick="clearDiscordFav(1)" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>
-                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(1)">🎙️ Pick Voice Channel</button>`}
-                    </div>
+                <div class="integration-hint">Voice channels: enable Developer Mode in Discord → right-click a voice channel → Copy Channel ID</div>
+                <div class="field-group">
+                  <div class="field-label">VOICE CHANNEL 1</div>
+                  <div style="display:flex;gap:6px;">
+                    <input class="field-input" id="discord-vc1-id" placeholder="Channel ID" style="flex:1;" value="${esc(config.integrations.discord?.favVoice1?.channelId || '')}">
+                    <input class="field-input" id="discord-vc1-name" placeholder="Name (e.g. General)" style="flex:1;" value="${esc(config.integrations.discord?.favVoice1?.channelName || '')}">
                   </div>
-                  <div class="field-group">
-                    <div class="field-label">VOICE CHANNEL 2</div>
-                    <div id="discord-fav2-display" style="display:flex;gap:6px;align-items:center;">
-                      ${config.integrations.discord?.favVoice2 ? `
-                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favVoice2.channelName||'')} <span style="color:var(--dim);font-size:10px;">(${esc(config.integrations.discord.favVoice2.guildName||'')})</span></div>
-                        <button onclick="clearDiscordFav(2)" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>
-                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(2)">🎙️ Pick Voice Channel</button>`}
-                    </div>
+                </div>
+                <div class="field-group">
+                  <div class="field-label">VOICE CHANNEL 2</div>
+                  <div style="display:flex;gap:6px;">
+                    <input class="field-input" id="discord-vc2-id" placeholder="Channel ID" style="flex:1;" value="${esc(config.integrations.discord?.favVoice2?.channelId || '')}">
+                    <input class="field-input" id="discord-vc2-name" placeholder="Name (e.g. Gaming)" style="flex:1;" value="${esc(config.integrations.discord?.favVoice2?.channelName || '')}">
                   </div>
-                  <div id="discord-guild-picker" style="display:none;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,0.3);margin-top:8px;"></div>
-                ` : `<div class="integration-hint" style="color:var(--accent);">Link Discord first (via the Discord panel in the app), then return here to pick voice channels.</div>`}
+                </div>
               `)}
               ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
@@ -944,6 +940,13 @@
       if (botTok) config.integrations.discord.botToken = botTok;
       const uid = getVal('discord-user-id');
       if (uid) config.integrations.discord.userId = uid;
+      // Voice channels — manual entry (no RPC)
+      const vc1id = getVal('discord-vc1-id'), vc1name = getVal('discord-vc1-name');
+      const vc2id = getVal('discord-vc2-id'), vc2name = getVal('discord-vc2-name');
+      if (vc1id) config.integrations.discord.favVoice1 = { channelId: vc1id, channelName: vc1name || vc1id, guildId: config.integrations.discord.favVoice1?.guildId || '', guildName: config.integrations.discord.favVoice1?.guildName || '' };
+      else delete config.integrations.discord.favVoice1;
+      if (vc2id) config.integrations.discord.favVoice2 = { channelId: vc2id, channelName: vc2name || vc2id, guildId: config.integrations.discord.favVoice2?.guildId || '', guildName: config.integrations.discord.favVoice2?.guildName || '' };
+      else delete config.integrations.discord.favVoice2;
       // favServer1/2 are set by browseDiscordServers() / clearDiscordFav() directly
 
       // customServices already mutated in-place by addCustomService/removeCustomService
