@@ -55,6 +55,16 @@ function loadOrbitConfig() {
   try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return null; }
 }
 
+function migrateOrbitConfig(cfg) {
+  if (!cfg) return cfg;
+  // Migrate SignalRGB port 16034 → 16038 (API changed in SignalRGB 2.x)
+  if (cfg.integrations?.signalrgb?.url?.includes('16034')) {
+    cfg.integrations.signalrgb.url = cfg.integrations.signalrgb.url.replace('16034', '16038');
+    saveOrbitConfig(cfg);
+  }
+  return cfg;
+}
+
 function saveOrbitConfig(cfg) {
   fs.writeFileSync(getOrbitConfigPath(), JSON.stringify(cfg, null, 2));
 }
@@ -189,7 +199,7 @@ app.on('open-url', (_e, url) => {
 });
 
 app.whenReady().then(() => {
-  const orbitCfg = loadOrbitConfig();
+  const orbitCfg = migrateOrbitConfig(loadOrbitConfig());
   const hasConfig = orbitCfg && orbitCfg.pages && orbitCfg.pages.length > 0;
 
   if (!hasConfig) {

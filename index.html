@@ -25,12 +25,6 @@
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
-    .panel-focus-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); cursor: pointer; }
-    .panel-focus-inner { cursor: default; width: min(520px, 88vw); max-height: 85vh; overflow-y: auto; border-radius: 14px; box-shadow: 0 0 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.07); animation: panel-focus-in 0.18s ease; }
-    .panel-focus-inner .panel { border-radius: 14px; min-height: 200px; }
-    @keyframes panel-focus-in { from { opacity:0; transform: scale(0.93); } to { opacity:1; transform: scale(1); } }
-    .panel-cell { position: relative; cursor: pointer; }
-    .panel-cell:hover::after { content:''; position:absolute; inset:0; background:rgba(0,217,255,0.04); pointer-events:none; }
     .panel { height: calc(100vh - 52px); padding: 20px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
     .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
@@ -540,7 +534,6 @@
       if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
-        h('div', {className:'source-badge', style:{marginBottom:'12px'}}, 'HOME ASSISTANT'),
         lightEntities.map(({entityId:eid, name:customName}) => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
           // Priority: custom name in Orbit > HA friendly_name > entity ID
@@ -1437,6 +1430,68 @@
         );
       }
 
+
+      // ─── DISCORD SERVER PICKER ───────────────────────────────────────────────────
+      function DiscordServerPicker({ slot }) {
+        // slot = 'favServer1' | 'favServer2'
+        const dCfg = cfg.integrations?.discord || {};
+        const authorized = !!(dCfg.accessToken);
+        const [guilds, setGuilds] = React.useState(null);
+        const [loading, setLoading] = React.useState(false);
+        const [open, setOpen] = React.useState(false);
+        const slotLabel = slot === 'favServer1' ? 'FAVOURITE SERVER 1' : 'FAVOURITE SERVER 2';
+        const stored = dCfg[slot];
+
+        async function loadGuilds() {
+          if (!authorized) return;
+          setLoading(true);
+          try {
+            const freshCfg = await window.orbit.loadConfig();
+            const token = freshCfg?.integrations?.discord?.accessToken;
+            if (!token) { setLoading(false); return; }
+            const res = await window.orbit.apiGet('https://discord.com/api/users/@me/guilds', { Authorization: 'Bearer '+token });
+            if (Array.isArray(res)) setGuilds(res);
+          } catch {}
+          setLoading(false);
+        }
+
+        function select(guild) {
+          updateIntegration('discord', slot, { id: guild.id, name: guild.name });
+          setOpen(false);
+        }
+        function clear() { updateIntegration('discord', slot, null); }
+
+        return h('div', { style: { marginBottom: '10px' } },
+          h('div', { className: 'settings-label' }, slotLabel),
+          stored
+            ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' } },
+                h('div', { style: { flex: 1, fontSize: '12px', color: 'var(--text)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: '6px', padding: '6px 10px' } }, '🎙️ ' + (stored.name || stored)),
+                h('button', { onClick: clear, style: { background: 'none', border: 'none', color: '#ff5555', cursor: 'pointer', fontSize: '14px', padding: '0 4px' } }, '×')
+              )
+            : authorized
+              ? h('button', {
+                  className: 'ha-browse-btn',
+                  onClick: () => { setOpen(o => !o); if (!guilds) loadGuilds(); },
+                  style: { marginBottom: '4px' }
+                }, loading ? 'Loading...' : '🔍 Browse Servers')
+              : h('div', { style: { fontSize: '11px', color: 'var(--dim)', fontStyle: 'italic' } }, 'Connect Discord above first'),
+          open && guilds && h('div', {
+            style: { maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '6px', background: 'rgba(0,0,0,0.3)' }
+          },
+            guilds.length === 0
+              ? h('div', { style: { padding: '12px', fontSize: '11px', color: 'var(--dim)', textAlign: 'center' } }, 'No servers found')
+              : guilds.map(g => h('div', {
+                  key: g.id,
+                  onClick: () => select(g),
+                  style: { padding: '8px 12px', fontSize: '12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'var(--text)' },
+                  onMouseEnter: e => e.target.style.background = 'rgba(88,101,242,0.1)',
+                  onMouseLeave: e => e.target.style.background = ''
+                }, '🎙️ ' + g.name)
+              )
+          )
+        );
+      }
+
       function integrationSection(key, label, emoji, fields) {
         return h('div', {className:'settings-integration'},
           h('div', {className:'settings-integration-header', onClick:()=>toggleExpand(key)},
@@ -1484,7 +1539,22 @@
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-signalrgb'}, integrationSection('signalrgb', 'SignalRGB', '⚡', [{field:'url',label:'URL',placeholder:'http://localhost:16038'}])),
-            h('div', {id:'settings-discord'}, integrationSection('discord', 'Discord', '💬', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'},{field:'favChannel1',label:'FAVOURITE CHANNEL 1'},{field:'favChannel2',label:'FAVOURITE CHANNEL 2'}])),
+            h('div', {id:'settings-discord'},
+              h('div', {className:'settings-integration'},
+                h('div', {className:'settings-integration-header', onClick:()=>toggleExpand('discord')},
+                  h('span', null, '💬 Discord'),
+                  h('span', null, expanded['discord'] ? '▼' : '▶')
+                ),
+                expanded['discord'] && h('div', {className:'settings-integration-body'},
+                  h('div', {className:'settings-label'}, 'CLIENT ID'),
+                  h('input', {className:'settings-input', value:cfg.integrations?.discord?.clientId||'', onChange:e=>updateIntegration('discord','clientId',e.target.value), placeholder:'Your Discord App Client ID'}),
+                  h('div', {className:'settings-label'}, 'CLIENT SECRET'),
+                  h('input', {className:'settings-input', type:'password', value:cfg.integrations?.discord?.clientSecret||'', onChange:e=>updateIntegration('discord','clientSecret',e.target.value)}),
+                  h(DiscordServerPicker, {slot:'favServer1'}),
+                  h(DiscordServerPicker, {slot:'favServer2'})
+                )
+              )
+            ),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
               {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
@@ -2050,8 +2120,9 @@
       const handle = user?.discriminator && user.discriminator !== '0'
         ? user.username + '#' + user.discriminator
         : '@' + (user?.username || '');
-      const fav1 = dCfg?.favChannel1;
-      const fav2 = dCfg?.favChannel2;
+      const fav1 = dCfg?.favServer1;
+      const fav2 = dCfg?.favServer2;
+      const [muted, setMuted] = useState(false);
 
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
@@ -2070,16 +2141,22 @@
         ),
         notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
         (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%'}},
-          h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px',marginBottom:'6px'}}, '🎙️ VOICE'),
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}},
+            h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}}, '🎙️ VOICE'),
+            h('button', {
+              onClick:()=>setMuted(m=>!m), title: muted ? 'Unmute' : 'Mute',
+              style:{background:muted?'rgba(255,85,85,0.15)':'rgba(88,101,242,0.08)',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(88,101,242,0.3)'),borderRadius:'6px',color:muted?'#ff5555':'#5865F2',cursor:'pointer',padding:'3px 8px',fontSize:'13px',fontFamily:'var(--font)'}
+            }, muted ? '🔇' : '🎙️')
+          ),
           h('div', {style:{display:'flex',flexDirection:'column',gap:'4px',width:'100%'}},
             fav1 && h('button', {
-              onClick:()=>window.orbit.openExternal('discord://'),
-              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
-            }, '🎙️ '+fav1),
+              onClick:()=>window.orbit.openExternal(fav1.id ? 'discord://discord.com/channels/'+fav1.id : 'discord://'),
+              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:muted?0.5:1}
+            }, '🎙️ '+(fav1.name||fav1)),
             fav2 && h('button', {
-              onClick:()=>window.orbit.openExternal('discord://'),
-              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
-            }, '🎙️ '+fav2)
+              onClick:()=>window.orbit.openExternal(fav2.id ? 'discord://discord.com/channels/'+fav2.id : 'discord://'),
+              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:muted?0.5:1}
+            }, '🎙️ '+(fav2.name||fav2))
           )
         ),
         h('button', {
@@ -2108,6 +2185,7 @@
         case 'overseerr': return wrap(key, h(OverseerrPanel, {key, config, openSettings}));
         case 'nzbget': return wrap(key, h(NZBGetPanel, {key, config, openSettings}));
         case 'uptimekuma': return wrap(key, h(ServicesPanel, {key, config}));
+        case 'services': return wrap(key, h(ServicesPanel, {key, config}));
         case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
         case 'links': return wrap(key, h(LinksPanel, {key, config}));
         case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
@@ -2205,7 +2283,6 @@
       const [currentPage, setCurrentPage] = useState(0);
       const [showLeftArrow, setShowLeftArrow] = useState(false);
       const [showRightArrow, setShowRightArrow] = useState(false);
-      const [selectedPanel, setSelectedPanel] = useState(null);
       const [signalIsOn, setSignalIsOn] = useState(false);
       const touchRef = useRef(null);
 
@@ -2239,7 +2316,6 @@
         function onKey(e) {
           if (e.key === 'ArrowLeft' && currentPage > 0) setCurrentPage(p => p - 1);
           if (e.key === 'ArrowRight' && currentPage < pages.length - 1) setCurrentPage(p => p + 1);
-          if (e.key === 'Escape') setSelectedPanel(null);
         }
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -2285,15 +2361,11 @@
       for (let col = 1; col <= 6; col++) {
         const panelCfg = panels.find(p => p.col === col);
         if (panelCfg) {
-          const panelKey = panelCfg.type + '-' + col;
-          const panelEl = panelCfg.type === 'signalrgb'
-            ? h(SignalRGBPanel, {key:'signalrgb-'+col, config, onSignalChange: setSignalIsOn})
-            : renderPanel(panelCfg, config, openSettings);
-          renderedPanels.push(h('div', {
-            key: panelKey,
-            className: 'panel-cell',
-            onClick: (e) => { if (!e.defaultPrevented) setSelectedPanel({type: panelCfg.type, col, panelCfg}); }
-          }, panelEl));
+          if (panelCfg.type === 'signalrgb') {
+            renderedPanels.push(h(SignalRGBPanel, {key:'signalrgb-'+col, config, onSignalChange: setSignalIsOn}));
+          } else {
+            renderedPanels.push(renderPanel(panelCfg, config, openSettings));
+          }
         } else {
           renderedPanels.push(h('div', {key:'empty-'+col, className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+')));
         }
@@ -2302,20 +2374,6 @@
       return h(SignalRGBContext.Provider, {value: {isOn: signalIsOn}},
         h('div', {id:'app'}, ...renderedPanels),
 
-        // ── Panel Focus Overlay (centered selected tile) ───────────────────
-        selectedPanel && h('div', {
-          className: 'panel-focus-overlay',
-          onClick: () => setSelectedPanel(null)
-        },
-          h('div', {
-            className: 'panel-focus-inner',
-            onClick: e => e.stopPropagation()
-          },
-            selectedPanel.type === 'signalrgb'
-              ? h(SignalRGBPanel, {key:'signalrgb-focused', config, onSignalChange: setSignalIsOn})
-              : renderPanel(selectedPanel.panelCfg, config, openSettings)
-          )
-        ),
 
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
         h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig}),
