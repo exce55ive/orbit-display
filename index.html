@@ -2296,14 +2296,14 @@
               style:{background:muted?'rgba(255,85,85,0.15)':'rgba(88,101,242,0.08)',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(88,101,242,0.3)'),borderRadius:'6px',color:muted?'#ff5555':'#5865F2',cursor:'pointer',padding:'3px 8px',fontSize:'13px',fontFamily:'var(--font)'}
             }, muted ? '🔇' : '🎙️')
           ),
-          h('div', {style:{display:'flex',flexDirection:'column',gap:'4px',width:'100%'}},
+          h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center'}},
             fav1 && h('button', {
               onClick: () => handleJoinVoice(fav1),
-              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav1.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
+              style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav1.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
             }, joiningVoice===fav1.id ? '⏳ Joining...' : ('🎙️ '+(fav1.name||fav1))),
             fav2 && h('button', {
               onClick: () => handleJoinVoice(fav2),
-              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav2.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
+              style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav2.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
             }, joiningVoice===fav2.id ? '⏳ Joining...' : ('🎙️ '+(fav2.name||fav2)))
           )
         ),
