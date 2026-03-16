@@ -28,7 +28,29 @@ Changes apply immediately — no save needed.
 
 No configuration fields — this panel works out of the box. The inline ⚙ buttons on the panel itself handle sensor selection.
 
+## AMD GPU telemetry (usage & temperature)
+
+Windows exposes AMD GPU data differently to NVIDIA — the standard WMI interface used by most apps (including Orbit's default sensor library) **does not return usage or temperature for AMD cards**. If your GPU panel shows `0%` or a blank temperature, this is why.
+
+**Fix: install LibreHardwareMonitor**
+
+Orbit v0.0.7+ automatically falls back to [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) when WMI returns no AMD data.
+
+1. Download and run **LibreHardwareMonitor** from <https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases>
+2. Enable its local web server: **Options → HTTP Server** (tick it on)
+3. Leave LHM running in the background (system tray is fine)
+4. Restart Orbit — GPU usage and temperature will populate automatically
+
+> LHM runs on `http://localhost:8085` by default. Orbit polls it silently; if LHM isn't running, nothing breaks — GPU stats simply won't appear.
+
+NVIDIA and Intel GPU users are unaffected and do not need LHM.
+
+---
+
 ## Troubleshooting
+
+**GPU shows 0% or no temperature (AMD card):**
+- See the **AMD GPU telemetry** section above — install LibreHardwareMonitor with the HTTP server enabled.
 
 **Sensors show zero or don't appear:**
 - Make sure your GPU drivers are installed (e.g. AMD Software: Adrenalin Edition or the NVIDIA app). Without drivers, sensor data may not be available.

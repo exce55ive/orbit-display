@@ -22,11 +22,11 @@ The first time you open Orbit, a setup wizard walks you through the basics:
 ### Welcome
 A quick intro to what Orbit does. Click **Next** to continue.
 
-### Pages
-Choose how many pages you want on your dashboard. Each page is a separate screen of panels that you can swipe or arrow-key between. Start with one — you can always add more later.
-
 ### Integrations
 This is where you connect your services. For each one, you'll enter a URL and a credential (usually an API key or token). Don't worry about getting everything connected right now — you can add or change integrations at any time from Settings.
+
+### Pages
+Choose your panel layout. Your dashboard starts with three panels — **Clock & Weather**, **System Monitor**, and **Quick Links** — which work without any integrations. As you enable integrations in the previous step, their panels become available to add here. You can always add or remove panels later from Settings.
 
 ### Done
 The wizard finishes and Orbit launches your dashboard. Panels start populating as they connect to your services.
