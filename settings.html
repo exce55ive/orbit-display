@@ -1,1 +1,643 @@
-<!-- settings.html removed — settings now live in setup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https:; media-src 'self' blob:;">
+  <meta charset="UTF-8">
+  <title>Orbit — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #060a10; --bg2: #0a0f1a; --surface: rgba(255,255,255,0.02);
+      --border: rgba(255,255,255,0.06); --text: #c8d6e5; --text-bright: #e8f0f8;
+      --dim: rgba(255,255,255,0.3); --accent: #00d9ff;
+      --accent-dim: rgba(0,217,255,0.06); --accent-bg: rgba(0,217,255,0.11);
+      --accent-glow: rgba(0,217,255,0.18); --accent-mid: rgba(0,217,255,0.32);
+      --amber: #ffc857; --red: #ff5555; --green: #50fa7b;
+      --font: "JetBrains Mono", "Fira Code", monospace;
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; overflow: hidden; -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
+
+    /* ── Layout ── */
+    #settings-root { display: flex; flex-direction: column; height: 100vh; }
+    .settings-titlebar { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px 0; flex-shrink: 0; }
+    .settings-app-title { font-size: 22px; font-weight: 700; letter-spacing: 4px; color: var(--text-bright); }
+    .settings-close-btn { background: none; border: none; color: var(--dim); font-size: 22px; cursor: pointer; font-family: var(--font); padding: 4px 8px; border-radius: 4px; transition: all .2s; line-height: 1; }
+    .settings-close-btn:hover { color: var(--red); background: rgba(255,85,85,0.08); }
+    .settings-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); padding: 0 24px; flex-shrink: 0; margin-top: 12px; }
+    .settings-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--dim); font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 10px 16px; cursor: pointer; transition: all .2s; margin-bottom: -1px; }
+    .settings-tab:hover { color: var(--text); }
+    .settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .settings-body { flex: 1; overflow-y: auto; padding: 24px; }
+    .settings-body::-webkit-scrollbar { width: 4px; }
+    .settings-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Typography ── */
+    .settings-section { font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; margin-top: 8px; }
+    .settings-label { font-size: 11px; color: var(--dim); letter-spacing: 1.5px; margin-bottom: 4px; text-transform: uppercase; }
+    .settings-hint { font-size: 10px; color: rgba(255,255,255,0.2); margin-top: 4px; letter-spacing: 0.5px; line-height: 1.5; }
+
+    /* ── Form controls ── */
+    .settings-input { width: 100%; padding: 8px 12px; font-size: 12px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; transition: border-color .2s; }
+    .settings-input:focus { border-color: var(--accent); }
+    .settings-textarea { width: 100%; padding: 8px 12px; font-size: 12px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; resize: vertical; min-height: 60px; }
+    .settings-save { padding: 10px 24px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 2px; border-radius: 6px; cursor: pointer; background: var(--accent); color: var(--bg); border: none; transition: opacity .2s; margin-top: 16px; }
+    .settings-save:hover { opacity: 0.9; }
+    .settings-saved-msg { font-size: 12px; color: var(--green); margin-top: 8px; letter-spacing: 1px; }
+
+    /* ── Integration accordion ── */
+    .settings-integration { margin-bottom: 6px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .settings-integration-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; font-size: 13px; color: var(--text); transition: background .15s; font-weight: 600; }
+    .settings-integration-header:hover { background: rgba(255,255,255,0.03); }
+    .settings-integration-body { padding: 12px 16px; border-top: 1px solid var(--border); background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── Pages tab ── */
+    .page-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; cursor: grab; transition: border-color .15s; }
+    .page-row:hover { border-color: rgba(255,255,255,0.12); }
+    .page-row.drag-over { border-color: var(--accent); background: var(--accent-bg); }
+    .page-drag-handle { color: var(--dim); font-size: 14px; flex-shrink: 0; cursor: grab; }
+    .page-name-display { font-size: 13px; color: var(--text); font-weight: 600; }
+    .page-panels-info { font-size: 10px; color: var(--dim); letter-spacing: 0.5px; margin-top: 2px; }
+    .page-edit-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 2px 4px; flex-shrink: 0; transition: color .15s; }
+    .page-edit-btn:hover { color: var(--accent); }
+    .page-rename-input { flex: 1; padding: 4px 8px; font-family: var(--font); font-size: 13px; background: rgba(255,255,255,0.06); border: 1px solid var(--accent); border-radius: 4px; color: var(--text-bright); outline: none; }
+    .page-delete-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 14px; padding: 2px 4px; flex-shrink: 0; transition: color .15s; }
+    .page-delete-btn:hover { color: var(--red); }
+
+    /* ── Theme swatches ── */
+    .theme-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+    .theme-swatch { cursor: pointer; border-radius: 10px; border: 2px solid rgba(255,255,255,0.08); padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 80px; transition: all .2s; }
+    .theme-swatch.active { box-shadow: 0 0 12px rgba(0,0,0,0.3); }
+
+    /* ── Preferences toggles ── */
+    .pref-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .pref-row:last-child { border-bottom: none; }
+    .pref-label { font-size: 13px; color: var(--text); font-weight: 600; }
+    .pref-hint { font-size: 10px; color: var(--dim); margin-top: 3px; letter-spacing: 0.5px; }
+    .pref-toggle-group { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+    .pref-toggle-btn { padding: 7px 16px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1.5px; border: none; background: transparent; color: var(--dim); cursor: pointer; transition: all .2s; }
+    .pref-toggle-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .pref-toggle-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
+    /* ── System tab ── */
+    .display-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 6px; cursor: pointer; border-radius: 6px; transition: all .2s; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); }
+    .display-item:hover { border-color: rgba(255,255,255,0.15); }
+    .display-item.selected { background: rgba(0,217,255,0.06); border-color: rgba(0,217,255,0.4); }
+    .display-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: rgba(255,255,255,0.15); }
+    .display-dot.selected { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+    /* ── Danger zone ── */
+    .danger-btn { padding: 8px 14px; font-family: var(--font); font-size: 11px; letter-spacing: 1.5px; font-weight: 700; border-radius: 6px; cursor: pointer; transition: all .2s; background: transparent; margin-top: 8px; }
+
+    /* ── About ── */
+    .settings-version { font-size: 13px; color: var(--dim); margin-bottom: 8px; }
+    .settings-update-btn { padding: 8px 16px; font-size: 12px; font-weight: 700; font-family: var(--font); letter-spacing: 1px; border: 1px solid var(--accent); border-radius: 6px; background: transparent; color: var(--accent); cursor: pointer; transition: all .2s; }
+    .settings-update-btn:hover { background: var(--accent-bg); }
+    .settings-changelog { font-size: 12px; color: var(--dim); margin-top: 12px; line-height: 1.7; white-space: pre-wrap; }
+
+    /* ── HA browser ── */
+    .ha-browse-btn { padding: 5px 12px; background: var(--accent-bg); border: 1px solid var(--accent-mid); border-radius: 6px; color: var(--accent); cursor: pointer; font-family: var(--font); font-size: 11px; letter-spacing: 0.5px; transition: background .15s; }
+    .ha-browse-btn:hover { background: rgba(0,217,255,0.18); }
+    .ha-browser-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .ha-browser-modal { background: #0e1724; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; width: 640px; max-height: 78vh; display: flex; flex-direction: column; padding: 24px; }
+    .ha-browser-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .ha-browser-title { font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--accent); }
+    .ha-browser-search { width: 100%; padding: 8px 12px; font-family: var(--font); font-size: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; margin-bottom: 10px; }
+    .ha-browser-search:focus { border-color: var(--accent); }
+    .ha-browser-domains { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .ha-domain-pill { padding: 3px 10px; font-family: var(--font); font-size: 10px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--dim); cursor: pointer; transition: all .15s; }
+    .ha-domain-pill.active { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+    .ha-browser-count { font-size: 10px; color: var(--dim); margin-bottom: 8px; letter-spacing: 1px; }
+    .ha-browser-list { flex: 1; overflow-y: auto; min-height: 200px; max-height: 320px; display: flex; flex-direction: column; gap: 2px; }
+    .ha-browser-list::-webkit-scrollbar { width: 4px; }
+    .ha-browser-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .ha-browser-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; cursor: pointer; transition: background .12s; }
+    .ha-browser-item:hover { background: rgba(255,255,255,0.04); }
+    .ha-browser-item.selected { background: var(--accent-bg); }
+    .ha-browser-check { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+    .ha-browser-item.selected .ha-browser-check { background: var(--accent-bg); border-color: var(--accent); }
+    .ha-browser-entity-info { flex: 1; min-width: 0; }
+    .ha-browser-entity-name { font-size: 12px; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ha-browser-entity-id { font-size: 10px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ha-browser-entity-state { font-size: 10px; color: rgba(255,255,255,0.2); flex-shrink: 0; }
+    .ha-browser-footer { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .ha-browser-add-btn { width: 100%; padding: 10px; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 1px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent-bg); color: var(--accent); cursor: pointer; transition: background .15s; }
+    .ha-browser-add-btn:hover:not([disabled]) { background: rgba(0,217,255,0.18); }
+    .ha-browser-add-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div id="settings-root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script>
+  const { createElement: h, useState, useEffect, useRef, useMemo } = React;
+
+  // ── Themes ──────────────────────────────────────────────────────────────────
+  const THEMES = [
+    { id:'midnight', name:'Midnight', accent:'#00d9ff', bg:'#060a10', bg2:'#0a0f1a', border:'rgba(255,255,255,0.06)', text:'#c8d6e5', textBright:'#e8f0f8', dim:'rgba(255,255,255,0.30)' },
+    { id:'carbon',   name:'Carbon',   accent:'#ff4444', bg:'#0d0d0d', bg2:'#161616', border:'rgba(255,255,255,0.07)', text:'#d0cccc', textBright:'#f0eeee', dim:'rgba(255,255,255,0.28)' },
+    { id:'nebula',   name:'Nebula',   accent:'#a855f7', bg:'#08050f', bg2:'#0e0a1c', border:'rgba(168,85,247,0.12)', text:'#c4b8e0', textBright:'#e8dcf8', dim:'rgba(200,180,255,0.30)' },
+    { id:'forest',   name:'Forest',   accent:'#50fa7b', bg:'#060e08', bg2:'#0a1510', border:'rgba(80,250,123,0.08)',  text:'#b8d4bc', textBright:'#dff0e4', dim:'rgba(180,230,190,0.30)' },
+    { id:'ember',    name:'Ember',    accent:'#ff9500', bg:'#0f0a06', bg2:'#180e08', border:'rgba(255,149,0,0.10)',   text:'#d8c4a8', textBright:'#f0dcc0', dim:'rgba(220,180,120,0.30)' },
+  ];
+
+  function applyTheme(theme) {
+    const r = document.documentElement.style;
+    r.setProperty('--bg', theme.bg); r.setProperty('--bg2', theme.bg2);
+    r.setProperty('--border', theme.border); r.setProperty('--text', theme.text);
+    r.setProperty('--text-bright', theme.textBright); r.setProperty('--dim', theme.dim);
+    r.setProperty('--accent', theme.accent);
+    document.body.style.background = theme.bg;
+    const hex = theme.accent.replace('#','');
+    const ar = parseInt(hex.slice(0,2),16), ag = parseInt(hex.slice(2,4),16), ab = parseInt(hex.slice(4,6),16);
+    r.setProperty('--accent-dim',  `rgba(${ar},${ag},${ab},0.06)`);
+    r.setProperty('--accent-bg',   `rgba(${ar},${ag},${ab},0.11)`);
+    r.setProperty('--accent-glow', `rgba(${ar},${ag},${ab},0.20)`);
+    r.setProperty('--accent-mid',  `rgba(${ar},${ag},${ab},0.33)`);
+  }
+
+  // ── Domain icons ──────────────────────────────────────────────────────────
+  const DOMAIN_ICONS = {light:'💡',switch:'🔌',sensor:'📊',binary_sensor:'🔲',climate:'🌡️',
+    media_player:'📺',camera:'📷',cover:'🚪',fan:'💨',vacuum:'🤖',script:'📝',
+    automation:'⚙️',scene:'🎬',input_boolean:'🔘',input_select:'📋',person:'👤',
+    device_tracker:'📍',sun:'☀️',weather:'🌤️',number:'🔢',select:'📋',button:'🔲'};
+
+  // ── HA Entity Browser ─────────────────────────────────────────────────────
+  function HAEntityBrowser({ haUrl, haToken, onClose, onAdd }) {
+    const [search, setSearch] = useState('');
+    const [domain, setDomain] = useState('all');
+    const [allEntities, setAllEntities] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [selected, setSelected] = useState(new Set());
+    const [domains, setDomains] = useState([]);
+
+    useEffect(() => {
+      if (!haUrl || !haToken) { setError('Configure HA URL and token first'); setLoading(false); return; }
+      window.orbit.apiGet(haUrl + '/api/states', {'Authorization': 'Bearer ' + haToken}, 20000)
+        .then(data => {
+          if (data?.error) { setError('Network error: ' + data.error); setLoading(false); return; }
+          if (!Array.isArray(data)) { setError('HA error: ' + (typeof data === 'object' ? JSON.stringify(data).slice(0,120) : String(data).slice(0,120))); setLoading(false); return; }
+          const sorted = [...data].sort((a,b) => a.entity_id.localeCompare(b.entity_id));
+          setAllEntities(sorted);
+          const d = new Set(sorted.map(e => e.entity_id.split('.')[0]));
+          setDomains(['all', ...Array.from(d).sort()]);
+          setLoading(false);
+        }).catch(e => { setError('Failed: ' + e.message); setLoading(false); });
+    }, [haUrl, haToken]);
+
+    const filtered = allEntities.filter(e => {
+      if (domain !== 'all' && e.entity_id.split('.')[0] !== domain) return false;
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return e.entity_id.includes(q) || (e.attributes?.friendly_name||'').toLowerCase().includes(q);
+    });
+
+    function toggle(entityId) { setSelected(prev => { const n = new Set(prev); n.has(entityId) ? n.delete(entityId) : n.add(entityId); return n; }); }
+    function addSelected() {
+      onAdd(Array.from(selected).map(entityId => {
+        const e = allEntities.find(x => x.entity_id === entityId);
+        return { entityId, name: e?.attributes?.friendly_name || '' };
+      }));
+      onClose();
+    }
+
+    return h('div', {className:'ha-browser-overlay', onClick:e=>{if(e.target===e.currentTarget)onClose();}},
+      h('div', {className:'ha-browser-modal'},
+        h('div', {className:'ha-browser-header'},
+          h('div', {className:'ha-browser-title'}, '🏠 BROWSE ENTITIES'),
+          h('button', {className:'settings-close-btn', onClick:onClose, style:{fontSize:'18px',padding:'2px 8px'}}, '✕')
+        ),
+        loading ? h('div', {style:{textAlign:'center',padding:'48px',color:'var(--dim)'}}, '⏳ Loading…')
+        : error ? h('div', {style:{textAlign:'center',padding:'48px',color:'#ff5555',fontSize:'12px'}}, error)
+        : h(React.Fragment, null,
+          h('input', {className:'ha-browser-search', placeholder:'Search…', value:search, onChange:e=>setSearch(e.target.value), autoFocus:true}),
+          h('div', {className:'ha-browser-domains'}, domains.map(d => h('button', {key:d, className:'ha-domain-pill'+(domain===d?' active':''), onClick:()=>setDomain(d)}, d==='all'?'All ('+allEntities.length+')':((DOMAIN_ICONS[d]||'·')+' '+d)))),
+          h('div', {className:'ha-browser-count'}, filtered.length+' entities'+(selected.size?' · '+selected.size+' selected':'')),
+          h('div', {className:'ha-browser-list'}, filtered.slice(0,300).map(e => {
+            const isSel = selected.has(e.entity_id);
+            const dom = e.entity_id.split('.')[0];
+            return h('div', {key:e.entity_id, className:'ha-browser-item'+(isSel?' selected':''), onClick:()=>toggle(e.entity_id)},
+              h('div', {className:'ha-browser-check'}, isSel?'✓':''),
+              h('span', {style:{fontSize:'14px',flexShrink:0}}, DOMAIN_ICONS[dom]||'·'),
+              h('div', {className:'ha-browser-entity-info'},
+                e.attributes?.friendly_name && h('div', {className:'ha-browser-entity-name'}, e.attributes.friendly_name),
+                h('div', {className:'ha-browser-entity-id'}, e.entity_id)
+              ),
+              h('div', {className:'ha-browser-entity-state'}, e.state)
+            );
+          })),
+          h('div', {className:'ha-browser-footer'},
+            h('button', {className:'ha-browser-add-btn', disabled:selected.size===0, onClick:addSelected},
+              selected.size>0 ? '+ Add '+selected.size+' entit'+(selected.size===1?'y':'ies') : 'Select entities above'
+            )
+          )
+        )
+      )
+    );
+  }
+
+  // ── HA Entities Editor ────────────────────────────────────────────────────
+  function HAEntitiesEditor({ integrationKey, cfg, updateIntegration }) {
+    function normalizeEntities(lights) {
+      if (!Array.isArray(lights)) return [];
+      return lights.map(e => typeof e === 'string' ? {entityId:e, name:''} : e);
+    }
+    const raw = cfg.integrations?.[integrationKey]?.lights;
+    const [entities, setEntities] = useState(normalizeEntities(raw));
+    const [showBrowser, setShowBrowser] = useState(false);
+    const haUrl = cfg.integrations?.homeassistant?.url || '';
+    const haToken = cfg.integrations?.homeassistant?.token || '';
+
+    function commit(next) { setEntities(next); updateIntegration(integrationKey, 'lights', next); }
+    function removeEntity(i) { const n=[...entities]; n.splice(i,1); commit(n); }
+    function updateName(i,name) { const n=[...entities]; n[i]={...n[i],name}; commit(n); }
+    function updateId(i,entityId) { const n=[...entities]; n[i]={...n[i],entityId}; commit(n); }
+    function onBrowserAdd(toAdd) { const ex=new Set(entities.map(e=>e.entityId)); commit([...entities,...toAdd.filter(e=>!ex.has(e.entityId))]); }
+
+    return h('div', null,
+      showBrowser && h(HAEntityBrowser, {haUrl, haToken, onClose:()=>setShowBrowser(false), onAdd:onBrowserAdd}),
+      h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'8px'}},
+        h('div', {className:'settings-label', style:{marginBottom:0}}, 'LIGHT ENTITIES'),
+        h('button', {className:'ha-browse-btn', onClick:()=>setShowBrowser(true)}, '🔍 Browse HA')
+      ),
+      entities.length > 0 && h('div', {style:{marginBottom:'8px'}},
+        entities.map((e,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'4px'}},
+          h('input', {className:'settings-input', style:{flex:'2',fontSize:'11px'}, value:e.entityId, placeholder:'light.entity_id', onChange:ev=>updateId(i,ev.target.value)}),
+          h('input', {className:'settings-input', style:{flex:'1',fontSize:'11px'}, value:e.name||'', placeholder:'Display name', onChange:ev=>updateName(i,ev.target.value)}),
+          h('button', {onClick:()=>removeEntity(i), style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'16px',padding:'0 4px',flexShrink:0}}, '×')
+        ))
+      ),
+      entities.length === 0 && h('div', {style:{fontSize:'11px',color:'var(--dim)',padding:'10px',textAlign:'center',border:'1px dashed var(--border)',borderRadius:'6px',marginBottom:'8px'}}, 'No entities added. Click Browse HA to search and add.')
+    );
+  }
+
+  // ── Services Config ───────────────────────────────────────────────────────
+  function ServicesConfigSection({ cfg, setCfg }) {
+    const [expanded, setExpanded] = useState(false);
+    const autoServices = useMemo(() => {
+      const i = cfg?.integrations || {};
+      const list = [];
+      const add = (name, url) => { if (url) list.push({name,url}); };
+      add('NZBGet', i.nzbget?.url); add('Home Assistant', i.homeassistant?.url);
+      add('Sonarr', i.sonarr?.url); add('Radarr', i.radarr?.url);
+      add('Overseerr', i.overseerr?.url); add('Jellyfin', i.jellyfin?.url);
+      add('Tautulli', i.tautulli?.url);
+      return list;
+    }, [cfg]);
+    const custom = cfg.customServices || [];
+    function addCustom() { setCfg(c=>({...c,customServices:[...(c.customServices||[]),{name:'',url:''}]})); }
+    function removeCustom(i) { setCfg(c=>({...c,customServices:(c.customServices||[]).filter((_,idx)=>idx!==i)})); }
+    function updateCustom(i,field,val) { setCfg(c=>{const l=[...(c.customServices||[])]; l[i]={...l[i],[field]:val}; return {...c,customServices:l};}); }
+
+    return h('div', {className:'settings-integration'},
+      h('div', {className:'settings-integration-header', onClick:()=>setExpanded(e=>!e)},
+        h('span', null, '📡 Services'), h('span', null, expanded?'▼':'▶')
+      ),
+      expanded && h('div', {className:'settings-integration-body'},
+        h('div', {className:'settings-label', style:{marginBottom:'6px'}}, 'AUTO-DETECTED'),
+        autoServices.length === 0
+          ? h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'12px'}}, 'No integrations configured yet.')
+          : autoServices.map((s,i) => h('div', {key:i, style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px',fontSize:'12px'}},
+              h('span', {style:{width:'8px',height:'8px',borderRadius:'50%',background:'var(--accent-mid)',flexShrink:0,display:'inline-block'}}),
+              h('span', {style:{color:'var(--text)',flex:1}}, s.name),
+              h('span', {style:{color:'var(--dim)',fontSize:'10px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'200px'}}, s.url)
+            )),
+        h('div', {className:'settings-label', style:{marginTop:'12px',marginBottom:'6px'}}, 'CUSTOM SERVICES'),
+        custom.map((s,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'6px'}},
+          h('input', {className:'settings-input', style:{flex:'1',fontSize:'11px'}, placeholder:'Name', value:s.name||'', onChange:e=>updateCustom(i,'name',e.target.value)}),
+          h('input', {className:'settings-input', style:{flex:'2',fontSize:'11px'}, placeholder:'http://...', value:s.url||'', onChange:e=>updateCustom(i,'url',e.target.value)}),
+          h('button', {onClick:()=>removeCustom(i), style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'16px',padding:'0 4px',flexShrink:0}}, '×')
+        )),
+        h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginTop:'4px',fontSize:'11px',padding:'6px 12px'}, onClick:addCustom}, '+ Add Service')
+      )
+    );
+  }
+
+  // ── Pages Tab ─────────────────────────────────────────────────────────────
+  function PagesTab({ cfg, setCfg }) {
+    const [editingIndex, setEditingIndex] = useState(-1);
+    const [editingValue, setEditingValue] = useState('');
+    const [dragOverIndex, setDragOverIndex] = useState(-1);
+    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡'};
+    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant'};
+
+    return h('div', null,
+      h('div', {className:'settings-section'}, 'PAGES'),
+      (cfg.pages||[]).map((page,i) =>
+        h('div', {key:page.id||i, className:'page-row'+(dragOverIndex===i?' drag-over':''), draggable:true,
+          onDragStart:e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';},
+          onDragOver:e=>{e.preventDefault();setDragOverIndex(i);},
+          onDragLeave:()=>setDragOverIndex(-1),
+          onDragEnd:()=>setDragOverIndex(-1),
+          onDrop:e=>{e.preventDefault();setDragOverIndex(-1);const from=Number(e.dataTransfer.getData('text/plain'));if(from===i||isNaN(from))return;const pages=cfg.pages.slice();const moved=pages.splice(from,1)[0];pages.splice(i,0,moved);setCfg({...cfg,pages});}
+        },
+          h('span', {className:'page-drag-handle'}, '⠿'),
+          editingIndex===i
+            ? h('input', {className:'page-rename-input', value:editingValue, autoFocus:true,
+                onChange:e=>setEditingValue(e.target.value),
+                onBlur:()=>{if(editingValue.trim()){cfg.pages[i].name=editingValue.trim();setCfg({...cfg});}setEditingIndex(-1);},
+                onKeyDown:e=>{if(e.key==='Enter'){if(editingValue.trim()){cfg.pages[i].name=editingValue.trim();setCfg({...cfg});}setEditingIndex(-1);}if(e.key==='Escape')setEditingIndex(-1);}
+              })
+            : h('div', {style:{flex:1}},
+                h('span', {className:'page-name-display'}, page.name||'Page '+(i+1)),
+                h('div', {className:'page-panels-info'}, (page.panels||[]).map(p=>(ICONS[p.type]||'▪')+' '+(NAMES[p.type]||p.type)).join('  '))
+              ),
+          h('button', {className:'page-edit-btn', onClick:()=>{setEditingIndex(i);setEditingValue(page.name||'Page '+(i+1));}}, '✏')
+        )
+      ),
+      (cfg.pages||[]).length > 0 && h('div', {style:{marginTop:'16px'}},
+        h('div', {className:'settings-section'}, 'PANEL ORDER'),
+        (cfg.pages||[]).map((page,pageIdx) => {
+          if (!page.panels||page.panels.length===0) return null;
+          return h('div', {key:page.id||pageIdx, style:{marginBottom:'12px'}},
+            h('div', {style:{fontSize:'10px',color:'var(--accent)',marginBottom:'5px',letterSpacing:'1px'}}, (page.name||'Page '+(pageIdx+1)).toUpperCase()),
+            page.panels.map((panel,pi) =>
+              h('div', {key:pi, style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',padding:'5px 8px',background:'rgba(255,255,255,0.02)',border:'1px solid var(--border)',borderRadius:'4px'}},
+                h('span', {style:{color:'var(--dim)',fontSize:'12px',minWidth:'18px'}}, (pi+1)+'.'),
+                h('span', null, (ICONS[panel.type]||'▪')+' '+(NAMES[panel.type]||panel.type)),
+                h('div', {style:{marginLeft:'auto',display:'flex',gap:'4px'}},
+                  h('button', {disabled:pi===0, onClick:()=>{if(pi<=0)return;const ps=cfg.pages[pageIdx].panels.slice();const t=ps[pi];ps[pi]=ps[pi-1];ps[pi-1]=t;cfg.pages[pageIdx].panels=ps;setCfg({...cfg});}, style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===0?0.3:1}}, '↑'),
+                  h('button', {disabled:pi>=page.panels.length-1, onClick:()=>{if(pi>=page.panels.length-1)return;const ps=cfg.pages[pageIdx].panels.slice();const t=ps[pi];ps[pi]=ps[pi+1];ps[pi+1]=t;cfg.pages[pageIdx].panels=ps;setCfg({...cfg});}, style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi>=page.panels.length-1?0.3:1}}, '↓')
+                )
+              )
+            )
+          );
+        })
+      )
+    );
+  }
+
+  // ── System Tab ────────────────────────────────────────────────────────────
+  function SystemTab() {
+    const [displays, setDisplays] = useState([]);
+    const [currentDisplay, setCurrentDisplay] = useState(null);
+    const [resetStage, setResetStage] = useState(0);
+
+    useEffect(() => {
+      if (window.orbit?.getDisplays) window.orbit.getDisplays().then(list => setDisplays(list||[])).catch(()=>{});
+      if (window.orbit?.loadSettings) window.orbit.loadSettings().then(s => { if (s?.displayId) setCurrentDisplay(s.displayId); }).catch(()=>{});
+    }, []);
+
+    async function handleSelectDisplay(id) {
+      setCurrentDisplay(id);
+      if (window.orbit?.selectDisplay) await window.orbit.selectDisplay(id);
+    }
+
+    async function handleReset() {
+      if (resetStage < 2) { setResetStage(s=>s+1); return; }
+      if (window.orbit?.resetConfig) await window.orbit.resetConfig();
+    }
+
+    const resetBtnStyle = {
+      marginTop:'8px', padding:'8px 14px', fontFamily:'var(--font)', fontSize:'11px',
+      letterSpacing:'1.5px', fontWeight:'700', borderRadius:'6px', cursor:'pointer', transition:'all .2s',
+      background: resetStage===2 ? 'rgba(255,85,85,0.12)' : 'transparent',
+      border: '1px solid '+(resetStage>0 ? '#ff5555' : 'rgba(255,255,255,0.15)'),
+      color: resetStage>0 ? '#ff5555' : 'rgba(255,255,255,0.4)',
+    };
+    const resetLabels = ['RESET SETTINGS', 'ARE YOU SURE?', '⚠ CONFIRM — THIS CANNOT BE UNDONE'];
+
+    return h('div', null,
+      h('div', {className:'settings-section'}, 'DISPLAY'),
+      h('div', {className:'settings-label', style:{marginBottom:'10px'}}, 'SELECT TARGET DISPLAY'),
+      displays.length === 0
+        ? h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.3)',letterSpacing:'1px',padding:'12px 0'}}, 'Loading displays...')
+        : displays.map(d =>
+            h('div', {key:d.id, className:'display-item'+(currentDisplay===d.id?' selected':''), onClick:()=>handleSelectDisplay(d.id)},
+              h('div', {className:'display-dot'+(currentDisplay===d.id?' selected':'')}),
+              h('div', null,
+                h('div', {style:{fontSize:'12px',color:'var(--text)',fontWeight:'600'}}, d.label||('Display '+d.id)),
+                h('div', {style:{fontSize:'10px',color:'rgba(255,255,255,0.3)',letterSpacing:'1px',marginTop:'2px'}}, [d.resolution, d.isPrimary?'· PRIMARY':''].filter(Boolean).join(' '))
+              )
+            )
+          ),
+      h('div', {style:{fontSize:'10px',color:'rgba(255,255,255,0.2)',letterSpacing:'1px',marginTop:'6px',lineHeight:'1.6'}}, 'Orbit moves to the selected display on next launch. Press Ctrl+D at any time to re-open the display picker.'),
+      h('div', {className:'settings-section', style:{marginTop:'32px'}}, 'DANGER ZONE'),
+      h('div', {className:'settings-label', style:{marginBottom:'4px'}}, 'RESET ALL SETTINGS'),
+      h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.3)',letterSpacing:'0.5px',lineHeight:'1.6',marginBottom:'8px'}},
+        'Deletes all integrations, pages, and configuration. Orbit will restart and run the setup wizard. This cannot be undone.'
+      ),
+      h('button', {style:resetBtnStyle, onClick:handleReset}, resetLabels[resetStage]),
+      resetStage>0 && h('button', {
+        onClick:()=>setResetStage(0),
+        style:{marginTop:'6px',marginLeft:'8px',padding:'8px 12px',fontFamily:'var(--font)',fontSize:'11px',letterSpacing:'1px',borderRadius:'6px',cursor:'pointer',background:'transparent',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.3)'}
+      }, 'CANCEL')
+    );
+  }
+
+  // ── Preferences Tab ───────────────────────────────────────────────────────
+  function PrefsTab({ cfg, setCfg }) {
+    const tempUnit = cfg?.prefs?.tempUnit || 'C';
+    const timeFormat = cfg?.prefs?.timeFormat || '24h';
+
+    function setTempUnit(v) { setCfg(c=>({...c,prefs:{...(c.prefs||{}),tempUnit:v}})); }
+    function setTimeFormat(v) { setCfg(c=>({...c,prefs:{...(c.prefs||{}),timeFormat:v}})); }
+
+    return h('div', null,
+      h('div', {className:'settings-section'}, 'PREFERENCES'),
+
+      h('div', {className:'pref-row'},
+        h('div', null,
+          h('div', {className:'pref-label'}, 'Temperature Unit'),
+          h('div', {className:'pref-hint'}, 'Applies to clock & weather panel')
+        ),
+        h('div', {className:'pref-toggle-group'},
+          h('button', {className:'pref-toggle-btn'+(tempUnit==='C'?' active':''), onClick:()=>setTempUnit('C')}, '°C'),
+          h('button', {className:'pref-toggle-btn'+(tempUnit==='F'?' active':''), onClick:()=>setTempUnit('F')}, '°F')
+        )
+      ),
+
+      h('div', {className:'pref-row'},
+        h('div', null,
+          h('div', {className:'pref-label'}, 'Time Format'),
+          h('div', {className:'pref-hint'}, '12h adds a small AM/PM marker')
+        ),
+        h('div', {className:'pref-toggle-group'},
+          h('button', {className:'pref-toggle-btn'+(timeFormat==='24h'?' active':''), onClick:()=>setTimeFormat('24h')}, '24H'),
+          h('button', {className:'pref-toggle-btn'+(timeFormat==='12h'?' active':''), onClick:()=>setTimeFormat('12h')}, '12H')
+        )
+      )
+    );
+  }
+
+  // ── About Tab ─────────────────────────────────────────────────────────────
+  function AboutTab() {
+    const [version, setVersion] = useState('');
+    const [updateStatus, setUpdateStatus] = useState('Checking...');
+
+    useEffect(() => {
+      window.orbit?.getAppVersion().then(v => setVersion(v)).catch(()=>{});
+      window.orbit?.getPendingUpdate().then(u => setUpdateStatus(u ? 'Update available — v'+(u.version||'?') : 'Up to date')).catch(()=>{});
+    }, []);
+
+    return h('div', null,
+      h('div', {className:'settings-section'}, 'ABOUT'),
+      h('div', {style:{fontSize:'32px',fontWeight:'800',color:'var(--text-bright)',letterSpacing:'-0.5px',marginBottom:'4px'}}, 'ORBIT'),
+      h('div', {style:{fontSize:'11px',color:'var(--dim)',letterSpacing:'2px',marginBottom:'16px'}}, 'YOUR HOMELAB. ONE SCREEN.'),
+      version && h('div', {style:{display:'inline-block',padding:'4px 12px',border:'1px solid rgba(255,255,255,0.12)',borderRadius:'20px',fontSize:'11px',color:'rgba(255,255,255,0.5)',letterSpacing:'1px',marginBottom:'16px'}}, 'v'+version),
+      h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.3)',marginBottom:'4px'}}, 'Exce55ive Software'),
+      h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.2)',marginTop:'12px',letterSpacing:'0.5px'}}, 'Auto-updates enabled · '+updateStatus),
+      h('div', {style:{marginTop:'16px',display:'flex',gap:'10px'}},
+        h('button', {className:'settings-update-btn', onClick:()=>window.orbit?.checkUpdate()}, 'Check for Updates')
+      )
+    );
+  }
+
+  // ── Main Settings App ─────────────────────────────────────────────────────
+  function SettingsApp() {
+    const [cfg, setCfg] = useState(null);
+    const [tab, setTab] = useState('pages');
+    const [saved, setSaved] = useState(false);
+    const [expanded, setExpanded] = useState({});
+
+    useEffect(() => {
+      window.orbit?.loadConfig().then(c => {
+        if (c) {
+          setCfg(c);
+          const t = THEMES.find(t => t.id === c.theme?.themeId);
+          if (t) applyTheme(t);
+          else if (c.theme?.accentColor) document.documentElement.style.setProperty('--accent', c.theme.accentColor);
+        }
+      }).catch(()=>{});
+    }, []);
+
+    const save = async () => {
+      await window.orbit?.saveConfig(cfg);
+      setSaved(true);
+      setTimeout(()=>setSaved(false), 2000);
+    };
+
+    function updateIntegration(key, field, value) {
+      setCfg(prev => {
+        const next = JSON.parse(JSON.stringify(prev));
+        if (!next.integrations) next.integrations = {};
+        if (!next.integrations[key]) next.integrations[key] = {};
+        next.integrations[key][field] = value;
+        return next;
+      });
+    }
+
+    function toggleExpand(key) { setExpanded(p=>({...p,[key]:!p[key]})); }
+
+    function integrationSection(key, label, emoji, fields) {
+      return h('div', {className:'settings-integration'},
+        h('div', {className:'settings-integration-header', onClick:()=>toggleExpand(key)},
+          h('span', null, emoji+' '+label), h('span', null, expanded[key]?'▼':'▶')
+        ),
+        expanded[key] && h('div', {className:'settings-integration-body'},
+          fields.map(f => h(React.Fragment, {key:f.field},
+            f.type === 'ha-entities'
+              ? h(HAEntitiesEditor, {integrationKey:key, cfg, updateIntegration})
+              : h(React.Fragment, null,
+                  h('div', {className:'settings-label'}, f.label),
+                  f.type === 'password'
+                    ? h('input', {className:'settings-input', type:'password', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
+                    : h('input', {className:'settings-input', type:'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
+                )
+          ))
+        )
+      );
+    }
+
+    const TABS = ['pages','prefs','theme','system','about'];
+
+    if (!cfg) return h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--dim)',fontSize:'12px',letterSpacing:'2px'}}, 'LOADING...');
+
+    return h('div', {id:'settings-root'},
+      // Titlebar
+      h('div', {className:'settings-titlebar'},
+        h('div', {className:'settings-app-title'}, 'ORBIT'),
+        h('button', {className:'settings-close-btn', onClick:()=>window.close(), title:'Close'}, '✕')
+      ),
+
+      // Tabs
+      h('div', {className:'settings-tabs'},
+        TABS.map(t => h('button', {key:t, className:'settings-tab'+(tab===t?' active':''), onClick:()=>setTab(t)}, t.toUpperCase()))
+      ),
+
+      // Body
+      h('div', {className:'settings-body'},
+
+        // ── Pages tab ──
+        tab === 'pages' && h('div', null,
+          h(PagesTab, {cfg, setCfg}),
+          h('div', {style:{marginTop:'16px'}},
+            h('div', {id:'settings-weather'}, integrationSection('weather','Weather','🌤️',[{field:'city',label:'CITY',placeholder:'Perth'}])),
+            h('div', {id:'settings-tautulli'}, integrationSection('tautulli','Tautulli','🎬',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-plex'}, integrationSection('plex','Plex','▶️',[{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}])),
+            h('div', {id:'settings-sonarr'}, integrationSection('sonarr','Sonarr','📺',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-radarr'}, integrationSection('radarr','Radarr','🎥',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-overseerr'}, integrationSection('overseerr','Overseerr','📋',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-nzbget'}, integrationSection('nzbget','NZBGet','📦',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
+            h('div', {id:'settings-spotify'}, integrationSection('spotify','Spotify','🎵',[{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
+            h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin','Jellyfin','🎞️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-signalrgb'}, integrationSection('signalrgb','SignalRGB','⚡',[{field:'url',label:'URL',placeholder:'http://localhost:16038'}])),
+            h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
+            h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),
+            h('div', {id:'settings-links'},
+              h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
+              (cfg.links||[]).map((lnk,i) =>
+                h('div', {key:i, style:{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}},
+                  h('input', {className:'settings-input', style:{width:'44px'}, placeholder:'🔗', value:lnk.icon||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],icon:e.target.value};setCfg(c=>({...c,links:l}));}}),
+                  h('input', {className:'settings-input', style:{flex:1}, placeholder:'Label', value:lnk.label||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],label:e.target.value};setCfg(c=>({...c,links:l}));}}),
+                  h('input', {className:'settings-input', style:{flex:2}, placeholder:'https://...', value:lnk.url||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],url:e.target.value};setCfg(c=>({...c,links:l}));}}),
+                  h('button', {className:'page-delete-btn', onClick:()=>{const l=(cfg.links||[]).filter((_,idx)=>idx!==i);setCfg(c=>({...c,links:l}));}, style:{fontSize:'18px',padding:'0 6px'}}, '✕')
+                )
+              ),
+              h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginBottom:'8px',marginTop:'8px'}, onClick:()=>{const l=[...(cfg.links||[]),{icon:'🔗',label:'New Link',url:'https://'}];setCfg(c=>({...c,links:l}));}}, '+ ADD LINK')
+            )
+          ),
+          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
+          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+        ),
+
+        // ── Prefs tab ──
+        tab === 'prefs' && h('div', null,
+          h(PrefsTab, {cfg, setCfg}),
+          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
+          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+        ),
+
+        // ── Theme tab ──
+        tab === 'theme' && h('div', null,
+          h('div', {className:'settings-section'}, 'THEME'),
+          h('div', {className:'settings-label'}, 'SELECT THEME'),
+          h('div', {className:'theme-grid'},
+            THEMES.map(theme => {
+              const isActive = (cfg.theme?.themeId||'midnight') === theme.id;
+              return h('div', {key:theme.id, className:'theme-swatch'+(isActive?' active':''), onClick:()=>{applyTheme(theme);setCfg(p=>({...p,theme:{...(p.theme||{}),themeId:theme.id,accentColor:theme.accent}}));},
+                style:{border: isActive ? `2px solid ${theme.accent}` : '2px solid rgba(255,255,255,0.08)', background:theme.bg, boxShadow:isActive?`0 0 12px ${theme.accent}44`:'none'}},
+                h('div', {style:{width:'24px',height:'24px',borderRadius:'50%',background:theme.accent,marginBottom:'4px',boxShadow:`0 0 8px ${theme.accent}66`}}),
+                h('div', {style:{fontSize:'11px',fontWeight:'700',letterSpacing:'1px',color:theme.textBright}}, 'ABCD'),
+                h('div', {style:{fontSize:'9px',letterSpacing:'1px',color:theme.dim}}, 'EFGH'),
+                h('div', {style:{fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',color:theme.accent,marginTop:'2px'}}, theme.name.toUpperCase())
+              );
+            })
+          ),
+          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
+          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+        ),
+
+        // ── System tab ──
+        tab === 'system' && h(SystemTab, null),
+
+        // ── About tab ──
+        tab === 'about' && h(AboutTab, null)
+      )
+    );
+  }
+
+  // Boot
+  const root = ReactDOM.createRoot(document.getElementById('settings-root'));
+  root.render(h(SettingsApp, null));
+</script>
+</body>
+</html>

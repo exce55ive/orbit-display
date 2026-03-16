@@ -46,6 +46,10 @@ contextBridge.exposeInMainWorld('orbit', {
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
+  // Settings window
+  openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
+  onSettingsClosed: (cb) => { const h = () => cb(); ipcRenderer.on('settings-window-closed', h); return () => ipcRenderer.removeListener('settings-window-closed', h); },
+
   // Setup
   openSetup: () => ipcRenderer.invoke('open-setup'),
   resetConfig: () => ipcRenderer.invoke('reset-config'),

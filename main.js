@@ -304,6 +304,36 @@ ipcMain.handle('open-external', async (_e, url) => {
 });
 
 // ─── IPC: SETUP ──────────────────────────────────────────────────────────────
+// ─── IPC: SETTINGS WINDOW ────────────────────────────────────────────────────
+let settingsWindow = null;
+ipcMain.handle('open-settings-window', async () => {
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.focus();
+    return;
+  }
+  settingsWindow = new BrowserWindow({
+    width: 1000, height: 700, minWidth: 800, minHeight: 560,
+    resizable: true, center: true,
+    backgroundColor: '#0a0a0f',
+    alwaysOnTop: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false,
+      sandbox: true
+    }
+  });
+  settingsWindow.loadFile('settings.html');
+  settingsWindow.webContents.on('will-navigate', (e) => e.preventDefault());
+  settingsWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  settingsWindow.once('ready-to-show', () => { settingsWindow.show(); settingsWindow.focus(); });
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('settings-window-closed');
+    }
+  });
+});
+
 ipcMain.handle('open-setup', async () => {
   // Close any existing setup windows first
   BrowserWindow.getAllWindows().forEach(w => { if (w !== mainWindow) w.close(); });

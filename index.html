@@ -444,17 +444,29 @@
 
     // ═══ CLOCK PANEL ═══
     function ClockPanel({ config }) {
-      const [time, setTime] = useState('');
+      const [timeObj, setTimeObj] = useState({str:'', ampm:''});
       const [date, setDate] = useState('');
       const [weather, setWeather] = useState(null);
+      const use12h = config?.prefs?.timeFormat === '12h';
+      const useFahrenheit = config?.prefs?.tempUnit === 'F';
+      function toF(c) { return Math.round(parseFloat(c) * 9/5 + 32); }
+      function tempDisp(c) { return useFahrenheit ? toF(c) + '°F' : c + '°C'; }
+      function tempVal(c) { return useFahrenheit ? toF(c) + '°' : c + '°'; }
       useEffect(() => {
         function tick() {
           const now = new Date();
-          setTime(String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'));
+          if (use12h) {
+            const h = now.getHours();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            setTimeObj({str: h12 + ':' + String(now.getMinutes()).padStart(2,'0'), ampm});
+          } else {
+            setTimeObj({str: String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'), ampm:''});
+          }
           setDate(now.toLocaleDateString('en-AU', {weekday:'long',day:'numeric',month:'long',year:'numeric'}));
         }
         tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
-      }, []);
+      }, [use12h]);
       useEffect(() => {
         const city = config?.integrations?.weather?.city || 'Perth';
         async function fetchWeather() {
@@ -487,25 +499,28 @@
       const forecast = weather?.weather || [];
       return h('div', {className:'panel'},
         h(PanelHeader, {title:'CLOCK', icon:'🕐', accentColor:'#00D9FF', onSettings:()=>openSettingsAt('settings-weather')}),
-        h('div', {className:'clock-time'}, time),
+        h('div', {className:'clock-time', style:{display:'flex',alignItems:'flex-start',justifyContent:'center',gap:'4px'}},
+          timeObj.str,
+          timeObj.ampm && h('span', {style:{fontSize:'18px',fontWeight:'600',color:'rgba(255,255,255,0.45)',letterSpacing:'1px',marginTop:'10px',lineHeight:'1'}}, timeObj.ampm)
+        ),
         h('div', {className:'clock-date'}, date),
         cur && h(React.Fragment, null,
           h('div', {className:'weather-current'},
             h('span', {className:'weather-icon'}, weatherEmoji(cur.weatherCode)),
-            h('span', {className:'weather-temp'}, cur.temp_C + '°')
+            h('span', {className:'weather-temp'}, tempVal(cur.temp_C))
           ),
           h('div', {className:'weather-desc'}, cur.weatherDesc?.[0]?.value || ''),
           h('div', {className:'weather-detail'},
-            h('span', null, '🌡 Feels ', cur.FeelsLikeC + '°C'),
+            h('span', null, '🌡 Feels ', tempDisp(cur.FeelsLikeC)),
             h('span', null, '💧 ', cur.humidity + '% humidity'),
             h('span', null, '💨 ', cur.windspeedKmph + ' km/h ' + cur.winddir16Point),
             h('span', null, '☀️ UV ', cur.uvIndex),
             forecast[0] && h('span', null, '🌧 ', (forecast[0]?.hourly?.[4]?.chanceofrain || '0') + '% rain')
           ),
           h('div', {className:'weather-summary'},
-            'Currently ' + cur.temp_C + '°C and ' + (cur.weatherDesc?.[0]?.value || '').toLowerCase() +
-            '. Feels like ' + cur.FeelsLikeC + '°C. ' +
-            (forecast[0] ? 'High ' + forecast[0].maxtempC + '°, low ' + forecast[0].mintempC + '°.' : '')
+            'Currently ' + tempDisp(cur.temp_C) + ' and ' + (cur.weatherDesc?.[0]?.value || '').toLowerCase() +
+            '. Feels like ' + tempDisp(cur.FeelsLikeC) + '. ' +
+            (forecast[0] ? 'High ' + tempVal(forecast[0].maxtempC) + ', low ' + tempVal(forecast[0].mintempC) + '.' : '')
           )
         ),
         (forecast.length > 0 || weather?._omForecast) && h('div', {className:'weather-strip'},
@@ -516,8 +531,8 @@
               h('span', {className:'weather-day-name'}, i===0?'Today':DAYS[d.getDay()]),
               h('span', {className:'weather-day-icon'}, icon),
               h('span', {className:'weather-day-temps'},
-                h('span',{className:'weather-hi'}, day.maxtempC+'°'), ' ',
-                h('span',{className:'weather-lo'}, day.mintempC+'°')
+                h('span',{className:'weather-hi'}, useFahrenheit ? toF(day.maxtempC)+'°' : day.maxtempC+'°'), ' ',
+                h('span',{className:'weather-lo'}, useFahrenheit ? toF(day.mintempC)+'°' : day.mintempC+'°')
               )
             );
           })
@@ -2513,7 +2528,16 @@
             { const t = THEMES.find(t => t.id === cfg.theme?.themeId) || (cfg.theme?.accentColor ? null : THEMES[0]); if (t) applyTheme(t); else if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor); }
           }
         });
-        return unsub;
+        // Reload config when settings window closes
+        const unsubSettings = window.orbit.onSettingsClosed(() => {
+          window.orbit.loadConfig().then(cfg => {
+            if (cfg) {
+              setConfig(cfg);
+              { const t = THEMES.find(t => t.id === cfg.theme?.themeId) || (cfg.theme?.accentColor ? null : THEMES[0]); if (t) applyTheme(t); else if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor); }
+            }
+          }).catch(() => {});
+        });
+        return () => { unsub(); unsubSettings(); };
       }, []);
 
       const pages = config?.pages || DEFAULT_CONFIG.pages;
@@ -2562,7 +2586,7 @@
 
       if (!config) return null;
 
-      const openSettings = () => setShowSettings(true);
+      const openSettings = () => window.orbit.openSettingsWindow();
       _openSettingsRef = openSettings;
 
       // Only render configured panels; grid cols = count of panels (max 6)
@@ -2588,12 +2612,7 @@
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
         h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig}),
 
-        // ── Settings overlay (gear button) ──
-        showSettings && h(SettingsOverlay, {
-          config,
-          onClose: () => setShowSettings(false),
-          onSave: (newCfg) => { setConfig(newCfg); setShowSettings(false); }
-        }),
+
 
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
