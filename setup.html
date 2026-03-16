@@ -351,11 +351,13 @@
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="spotify-id" value="${esc(config.integrations.spotify.clientId)}"></div>
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="spotify-secret" value="${esc(config.integrations.spotify.clientSecret)}"></div>
                 <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
+                ${testRow('spotify')}
               `)}
               ${integrationCard('discord', 'Discord', '💬', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="discord-id" value="${esc(config.integrations.discord?.clientId || '')}"></div>
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="discord-secret" value="${esc(config.integrations.discord?.clientSecret || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
+                ${testRow('discord')}
                 ${config.integrations.discord?.accessToken ? `
                   <div class="field-group">
                     <div class="field-label">FAVOURITE SERVER 1</div>
@@ -763,6 +765,8 @@
       else if (type === 'jellyfin') { opts.url = getVal('jellyfin-url'); opts.apiKey = getVal('jellyfin-key'); }
       else if (type === 'homeassistant') { opts.url = getVal('ha-url'); opts.token = getVal('ha-token'); }
       else if (type === 'weather') opts.url = getVal('weather-city');
+      else if (type === 'spotify') { opts.clientId = getVal('spotify-id'); opts.clientSecret = getVal('spotify-secret'); }
+      else if (type === 'discord') { opts.clientId = getVal('discord-id'); opts.clientSecret = getVal('discord-secret'); }
       try {
         const r = await window.orbit.testIntegration(opts);
         resultEl.textContent = r.ok ? ('✅ ' + r.message) : ('❌ ' + r.message);
