@@ -179,7 +179,7 @@
             pageCounter = pagesState.length;
             selectedPageIndex = 0;
           }
-          render(); // re-render with loaded data
+          renderProgress(); renderStep(); // re-render with loaded data
         }
       }).catch(() => {});
     }
