@@ -61,7 +61,6 @@
     "artifactName": "${productName}Setup-${version}.${ext}"
   },
   "dependencies": {
-    "discord-rpc": "^4.0.1",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.8.3",
     "node-fetch": "^3.3.0",
@@ -75,6 +74,6 @@
   },
   "author": "Orbit",
   "license": "SEE LICENSE IN LICENSE.md",
-  "homepage": "https://github.com/orbitdash/orbit",
+  "homepage": "https://orbit.exce55ive.xyz",
   "productName": "Orbit"
 }

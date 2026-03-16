@@ -506,12 +506,6 @@
       setTimeout(initPanelOrderDrag, 0);
     }
 
-    function escHtml(str) {
-      const d = document.createElement('div');
-      d.textContent = str;
-      return d.innerHTML;
-    }
-
     function selectPage(index) {
       selectedPageIndex = index;
       renderPagesStep(document.getElementById('step-container'));
@@ -1003,7 +997,7 @@
         }
       } catch (err) {
         haAllEntities = [];
-        if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#ff5555;font-size:12px;">Error: ' + (err.message || 'Request failed') + '</div>';
+        if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#ff5555;font-size:12px;">Error: ' + escHtml(err.message || 'Request failed') + '</div>';
         return;
       }
 

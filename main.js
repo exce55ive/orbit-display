@@ -117,6 +117,20 @@ async function safeFetch(url, options = {}) {
   finally { clearTimeout(timer); }
 }
 
+// ─── URL ALLOWLIST (SSRF protection) ─────────────────────────────────────────
+function isAllowedUrl(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    if (!['http:', 'https:'].includes(u.protocol)) return false;
+    const host = u.hostname;
+    // Block cloud metadata endpoints
+    if (host === '169.254.169.254' || host === 'metadata.google.internal') return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ─── WINDOWS ─────────────────────────────────────────────────────────────────
 let mainWindow, pickerWindow;
 
@@ -157,6 +171,8 @@ function launchMain(displayId) {
     }
   });
   mainWindow.loadFile('index.html');
+  mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.control && input.key.toLowerCase() === 'q') app.quit();
@@ -184,6 +200,8 @@ function showPicker() {
     }
   });
   pickerWindow.loadFile('picker.html');
+  pickerWindow.webContents.on('will-navigate', (e) => e.preventDefault());
+  pickerWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   pickerWindow.on('closed', () => { pickerWindow = null; });
 }
 
@@ -218,6 +236,8 @@ app.whenReady().then(() => {
       }
     });
     setupWin.loadFile('setup.html');
+    setupWin.webContents.on('will-navigate', (e) => e.preventDefault());
+    setupWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   } else {
     const settings = loadSettings();
     if (settings.displayId) {
@@ -294,6 +314,8 @@ ipcMain.handle('open-setup', async () => {
     }
   });
   setupWin.loadFile('setup.html');
+  setupWin.webContents.on('will-navigate', (e) => e.preventDefault());
+  setupWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   setupWin.once('ready-to-show', () => { setupWin.show(); setupWin.focus(); });
 });
 
@@ -314,6 +336,8 @@ ipcMain.handle('open-about', async () => {
   });
   aboutWin._isAboutWindow = true;
   aboutWin.loadFile('about.html');
+  aboutWin.webContents.on('will-navigate', (e) => e.preventDefault());
+  aboutWin.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   aboutWin.once('ready-to-show', () => { aboutWin.show(); aboutWin.focus(); });
 });
 
@@ -356,6 +380,9 @@ ipcMain.handle('get-config', () => legacyConfig);
 
 // ─── IPC: HOME ASSISTANT ────────────────────────────────────────────────────
 ipcMain.handle('ha-get-state', async (_e, entityId) => {
+  if (!entityId || !/^[a-z_]+\.[a-z0-9_]+$/i.test(entityId)) {
+    return { error: 'Invalid entity ID' };
+  }
   const cfg = loadOrbitConfig();
   if (!cfg || !cfg.integrations || !cfg.integrations.homeassistant || !cfg.integrations.homeassistant.url) {
     return { error: 'Home Assistant not configured' };
@@ -367,6 +394,8 @@ ipcMain.handle('ha-get-state', async (_e, entityId) => {
 });
 
 ipcMain.handle('ha-call-service', async (_e, { domain, service, data }) => {
+  if (!domain || !/^[a-z_]+$/i.test(domain)) return { error: 'Invalid domain' };
+  if (!service || !/^[a-z_]+$/i.test(service)) return { error: 'Invalid service' };
   const cfg = loadOrbitConfig();
   if (!cfg || !cfg.integrations || !cfg.integrations.homeassistant || !cfg.integrations.homeassistant.url) {
     return { error: 'Home Assistant not configured' };
@@ -391,42 +420,26 @@ ipcMain.handle('fetch-tautulli', async () => {
 
 // ─── IPC: GENERIC API PROXY ─────────────────────────────────────────────────
 ipcMain.handle('api-get', async (_e, { url, headers, timeout }) => {
+  if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
   return safeFetch(url, { headers: headers || {}, timeout: timeout || 8000 });
 });
 
 ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
-  const fetch = await getFetch();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-      body: typeof body === 'string' ? body : JSON.stringify(body),
-      signal: controller.signal
-    });
-    const text = await res.text();
-    try { return JSON.parse(text); } catch { return text; }
-  } catch (e) { return { error: e.message }; }
-  finally { clearTimeout(timer); }
+  if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
+  return safeFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+    body: typeof body === 'string' ? body : JSON.stringify(body)
+  });
 });
 
 ipcMain.handle('api-put', async (_e, { url, body, headers }) => {
-  const fetch = await getFetch();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
-  try {
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-      body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
-      signal: controller.signal
-    });
-    if (res.status === 204) return { ok: true };
-    const text = await res.text();
-    try { return JSON.parse(text); } catch { return { ok: true }; }
-  } catch (e) { return { error: e.message }; }
-  finally { clearTimeout(timer); }
+  if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
+  return safeFetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...(headers || {}) },
+    body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
+  });
 });
 
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
@@ -855,6 +868,11 @@ ipcMain.handle('start-signalr', (_e, { sonarrUrl, sonarrKey, radarrUrl, radarrKe
 
 // ─── IPC: CHECK SERVICES (in-house pinger) ──────────────────────────────────
 ipcMain.handle('check-services', async (_e, services) => {
+  for (const s of services) {
+    if (!s || !s.url || !isAllowedUrl(s.url)) {
+      return { error: `URL not allowed for service ${s && s.name ? s.name : JSON.stringify(s)}` };
+    }
+  }
   const fetch = await getFetch();
   const results = await Promise.all(services.map(async ({ name, url, auth }) => {
     const start = Date.now();
