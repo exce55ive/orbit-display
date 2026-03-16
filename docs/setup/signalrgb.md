@@ -5,9 +5,8 @@ The SignalRGB panel shows your available lighting effects and lets you switch be
 ## What you'll need
 
 - SignalRGB installed and **running on the same machine as Orbit**
-- The SignalRGB REST API enabled (it uses port 16038)
 
-> **No credentials needed.** Orbit connects to SignalRGB's local API automatically — there's nothing to copy or paste.
+> **No credentials needed.** Orbit connects to SignalRGB's local REST API automatically — it's enabled by default on port 16038. There's nothing to configure.
 
 ## Step-by-step
 
@@ -15,13 +14,7 @@ The SignalRGB panel shows your available lighting effects and lets you switch be
 
 SignalRGB needs to be open on the same Windows machine where Orbit is installed. It won't work over the network — both apps must be on the same computer.
 
-### 2. Enable the REST API
-
-1. Open SignalRGB.
-2. Go to **Settings** and make sure the **REST API** is enabled.
-3. The API runs on port **16038** by default. Leave this as-is unless you have a specific reason to change it.
-
-### 3. Check it in Orbit
+### 2. Check it in Orbit
 
 1. Open Orbit — the SignalRGB panel should automatically detect your effects and show them.
 2. Click any effect name in the panel to activate it. Changes apply immediately across all your connected RGB devices.
