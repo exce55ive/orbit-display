@@ -401,12 +401,11 @@
       if (window.orbit && window.orbit.openSetup) window.orbit.openSetup();
     }
 
-    function PanelHeader({ title, icon, accentColor, onSettings }) {
+    function PanelHeader({ title, icon, accentColor }) {
       return h('div', { className:'panel-header' },
         h('div', { className:'panel-header-accent', style:{ background: accentColor || 'var(--accent)' } }),
         h('span', { className:'panel-header-icon' }, icon),
-        h('span', { className:'panel-header-title' }, title),
-        onSettings && h('button', { className:'panel-header-cog', onClick:onSettings, title:'Settings' }, '⚙')
+        h('span', { className:'panel-header-title' }, title)
       );
     }
 
