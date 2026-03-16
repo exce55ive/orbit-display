@@ -24,7 +24,7 @@
     }
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
-    #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(6, 1fr); gap: 0; }
+    #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(var(--panel-cols, 6), 1fr); gap: 0; }
     .panel { height: calc(100vh - 52px); padding: 20px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel:last-child { border-right: none; }
     .panel-label { font-size: 10px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
@@ -2503,23 +2503,24 @@
       const openSettings = () => window.orbit.openSetup();
       _openSettingsRef = openSettings;
 
-      // Fill panels to 6 columns
+      // Only render configured panels; grid cols = count of panels (max 6)
       const renderedPanels = [];
-      for (let col = 1; col <= 6; col++) {
-        const panelCfg = panels.find(p => p.col === col);
-        if (panelCfg) {
-          if (panelCfg.type === 'signalrgb') {
-            renderedPanels.push(h(SignalRGBPanel, {key:'signalrgb-'+col, config, onSignalChange: setSignalIsOn}));
-          } else {
-            renderedPanels.push(renderPanel(panelCfg, config, openSettings, setConfig));
-          }
+      const sortedPanels = [...panels].sort((a, b) => a.col - b.col);
+      for (const panelCfg of sortedPanels) {
+        const col = panelCfg.col;
+        if (panelCfg.type === 'signalrgb') {
+          renderedPanels.push(h(SignalRGBPanel, {key:'signalrgb-'+col, config, onSignalChange: setSignalIsOn}));
         } else {
-          renderedPanels.push(h('div', {key:'empty-'+col, className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+')));
+          renderedPanels.push(renderPanel(panelCfg, config, openSettings, setConfig));
         }
       }
+      if (renderedPanels.length === 0) {
+        renderedPanels.push(h('div', {key:'empty', className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+' )));
+      }
+      const panelCols = Math.min(Math.max(renderedPanels.length, 1), 6);
 
       return h(SignalRGBContext.Provider, {value: {isOn: signalIsOn}},
-        h('div', {id:'app'}, ...renderedPanels),
+        h('div', {id:'app', style:{'--panel-cols': panelCols}}, ...renderedPanels),
 
 
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
