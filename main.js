@@ -286,6 +286,25 @@ ipcMain.handle('open-setup', async () => {
   setupWin.once('ready-to-show', () => { setupWin.show(); setupWin.focus(); });
 });
 
+ipcMain.handle('open-about', async () => {
+  // Check for existing about window
+  const existing = BrowserWindow.getAllWindows().find(w => w._isAboutWindow);
+  if (existing) { existing.focus(); return; }
+  const aboutWin = new BrowserWindow({
+    width: 420, height: 360, resizable: false, center: true,
+    frame: false, transparent: false,
+    backgroundColor: '#060a10',
+    alwaysOnTop: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+  aboutWin._isAboutWindow = true;
+  aboutWin.loadFile('about.html');
+  aboutWin.once('ready-to-show', () => { aboutWin.show(); aboutWin.focus(); });
+});
+
 ipcMain.handle('setup-complete', async () => {
   const settings = loadSettings();
   if (mainWindow) {
