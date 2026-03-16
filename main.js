@@ -910,7 +910,7 @@ async function connectDiscordRPC() {
       ? { clientId, accessToken: savedToken }
       : { clientId, scopes: ['rpc', 'rpc.voice.read', 'rpc.voice.write'] };
     await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('RPC connect timeout')), 8000);
+      const t = setTimeout(() => reject(new Error('RPC connect timeout — check Discord for an authorization popup')), 30000);
       client.on('ready', () => { clearTimeout(t); resolve(); });
       client.login(loginOpts).catch(async (e) => {
         // If stored token failed, retry with full auth
@@ -980,13 +980,18 @@ ipcMain.handle('discord-get-voice-state', async () => {
 
 // Get voice channels for a guild (used during setup to let user pick a channel)
 ipcMain.handle('discord-get-voice-channels', async (_e, guildId) => {
+  let rpc;
   try {
-    const rpc = await getDiscordRPC();
-    if (!rpc) return { error: 'Discord must be running to fetch voice channels' };
+    rpc = await getDiscordRPC();
+  } catch (e) {
+    return { error: 'RPC connect failed: ' + e.message };
+  }
+  if (!rpc) return { error: 'RPC busy or failed — close Orbit, reopen Discord, try again' };
+  try {
     const channels = await rpc.getChannels(guildId);
     const voiceChannels = (channels?.channels || []).filter(c => c.type === 2);
     return { channels: voiceChannels.map(c => ({ id: c.id, name: c.name })) };
-  } catch (e) { return { error: e.message }; }
+  } catch (e) { return { error: 'getChannels failed: ' + e.message }; }
 });
 
 ipcMain.handle('discord-join-voice', async (_e, channelId) => {

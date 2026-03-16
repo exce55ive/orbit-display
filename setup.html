@@ -808,7 +808,7 @@
       if (!guild) return;
       _discordPickedGuild = guild;
       const picker = document.getElementById('discord-guild-picker');
-      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Fetching voice channels... (Discord must be running)</div>';
+      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Connecting to Discord RPC...<br><span style="font-size:10px;color:#5865F2;">Check Discord for an authorization popup and click Authorize</span></div>';
       const r = await window.orbit.discordGetVoiceChannels(guild.id);
       if (r.error) {
         picker.innerHTML = '<div style="padding:12px;font-size:11px;color:#ff5555;">'+r.error+'</div>';
