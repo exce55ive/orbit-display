@@ -404,8 +404,10 @@
           const key = cb.dataset.integration;
           const card = cb.closest('.integration-card');
           const fields = card.querySelector('.integration-fields');
-          // Set initial state
-          if (config.integrations[key]?.enabled) {
+          // Set initial state — services defaults to enabled if custom services exist
+          const isEnabled = config.integrations[key]?.enabled ||
+            (key === 'services' && config.customServices?.length > 0);
+          if (isEnabled) {
             cb.checked = true;
             card.classList.add('enabled');
             fields.classList.add('visible');
