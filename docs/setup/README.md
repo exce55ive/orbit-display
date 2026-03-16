@@ -1,26 +1,37 @@
-## Setup Index
+# Setup Guide
 
-Configure each integration by adding credentials to Orbit's **Settings → Integrations** panel, or directly in `orbit-config.json`.
+This section walks you through connecting each of Orbit's integrations. Whether you're hooking up Plex, monitoring your downloads, or controlling your smart lights — you'll find step-by-step instructions for everything here.
 
-> **Security:** All credentials are stored locally in `orbit-config.json`. Nothing is sent to any external server.
+## Before you begin
 
----
-
-### Integrations
-
-| Integration | Description | Min Version | Doc |
-|---|---|---|---|
-| Plex | Media server — URL + X-Plex-Token | v0.0.1 | [plex.md](./plex.md) |
-| Tautulli | Plex activity monitor | v0.0.1 | [tautulli.md](./tautulli.md) |
-| Home Assistant | Smart home — Long-Lived Access Token | v0.0.1 | [home-assistant.md](./home-assistant.md) |
-| SignalRGB | Local RGB lighting API (no key needed) | v0.0.1 | [signalrgb.md](./signalrgb.md) |
-| Sonarr | TV series management | v0.0.1 | [sonarr.md](./sonarr.md) |
-| Radarr | Movie management | v0.0.1 | [radarr.md](./radarr.md) |
-| Overseerr | Media request management | v0.0.1 | [overseerr.md](./overseerr.md) |
-| NZBGet | Usenet downloader (username/password) | v0.0.1 | [nzbget.md](./nzbget.md) |
-| Jellyfin | Open-source media server | v0.0.1 | [jellyfin.md](./jellyfin.md) |
-| Uptime Kuma | Service status monitoring | v0.0.1 | [uptime-kuma.md](./uptime-kuma.md) |
+**Your credentials stay on your machine.** Orbit stores all connection details locally in its config file. Nothing is sent to any external server — your API keys, tokens, and passwords never leave your computer.
 
 ---
 
-Each doc covers: where to find the credential, and exactly where to paste it in Orbit.
+> 🚀 **New to Orbit?** Start with the [Getting Started](./getting-started.md) guide — it covers installation, the setup wizard, and how panels work.
+
+---
+
+## Integrations
+
+| Integration | What it does | Guide |
+|---|---|---|
+| [Plex](./plex.md) | See who's streaming and what they're watching | [Setup →](./plex.md) |
+| [Tautulli](./tautulli.md) | Live stream monitoring for your Plex server | [Setup →](./tautulli.md) |
+| [Home Assistant](./home-assistant.md) | Control your lights from the dashboard | [Setup →](./home-assistant.md) |
+| [Sonarr](./sonarr.md) | TV library stats, queue, and upcoming episodes | [Setup →](./sonarr.md) |
+| [Radarr](./radarr.md) | Movie library stats, queue, and upcoming releases | [Setup →](./radarr.md) |
+| [Overseerr](./overseerr.md) | Track media requests and their status | [Setup →](./overseerr.md) |
+| [NZBGet](./nzbget.md) | Download queue, speed, and progress | [Setup →](./nzbget.md) |
+| [Jellyfin](./jellyfin.md) | Active streams and playback details | [Setup →](./jellyfin.md) |
+| [Spotify](./spotify.md) | Now playing, controls, and Up Next queue | [Setup →](./spotify.md) |
+| [Uptime Kuma](./uptime-kuma.md) | Service status at a glance | [Setup →](./uptime-kuma.md) |
+| [SignalRGB](./signalrgb.md) | Browse and switch lighting effects | [Setup →](./signalrgb.md) |
+| [System Monitor](./system-monitor.md) | CPU, GPU, RAM, and uptime | [Setup →](./system-monitor.md) |
+| [Clock & Weather](./clock-weather.md) | Time, date, and 5-day forecast | [Setup →](./clock-weather.md) |
+
+---
+
+## Need help?
+
+If something isn't working or you've found a bug, [open an issue on GitHub](https://github.com/robby-meyer/orbit/issues) — we'd love to help.

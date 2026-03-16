@@ -1,41 +1,51 @@
 # Radarr — Movies Panel
 
-The Radarr panel shows your movie library stats, download queue, recent downloads, and upcoming releases — including whether they're hitting cinemas or digital.
+The Radarr panel shows your movie library stats, active download queue, recently grabbed movies, and upcoming releases — with labels showing whether they're heading to cinemas or available for download.
 
-## What it shows
+## What you'll need
 
-- Total movie library size
-- Current download queue
-- Movies downloaded today
-- Upcoming releases with release type classification
+- Radarr (v3 or later) running and reachable on your network
+- Your Radarr API key
 
-## Requirements
+## Step-by-step
 
-- Radarr v3 or later, running and reachable on your network
-
-## How to get your API key
+### 1. Find your Radarr API key
 
 1. Open Radarr in your browser.
 2. Go to **Settings → General**.
-3. Find the **API Key** field and copy it.
+3. Copy the **API Key**.
 
-## Settings fields
+### 2. Enter your details in Orbit
 
-| Field | Value |
-|---|---|
-| URL | `http://YOUR-SERVER-IP:7878` |
-| API Key | Paste the key from Radarr |
+1. Open Orbit and click the **⚙** button in the bottom bar to open Settings.
+2. Go to **Settings → Integrations → Radarr**.
+3. Enter your Radarr **URL** (e.g. `http://192.168.1.100:7878`) and **API Key**.
+4. Save — the panel connects and starts showing your movie library.
 
-## Upcoming release classification
+## Where to enter it in Orbit
 
-Orbit labels upcoming movies based on their release type:
+**Settings → Integrations → Radarr**
 
-- 🎭 **CINEMA** — theatrical release, heading to cinemas
-- 💾 **DOWNLOAD** — expected digital/home release
+- **URL** — Your Radarr address (e.g. `http://192.168.1.100:7878`)
+- **API Key** — The key from Radarr's General settings
+
+## Good to know
+
+Orbit labels upcoming movies by release type:
+- 🎭 **CINEMA** — heading to theatres
+- 💾 **DOWNLOAD** — expected as a digital or home release
 
 ## Troubleshooting
 
-**Missing movies or empty queue:**
-- Confirm your Radarr URL and API key in Orbit Settings.
-- Ensure Radarr v3+ is running — older versions use a different API.
-- Check that Radarr's root folders and calendar are configured correctly inside Radarr itself.
+**Panel is empty or movies are missing:**
+- Double-check the URL and API key in Orbit Settings.
+- Make sure you're running Radarr v3 or later — older versions use a different API.
+- Check that Radarr has root folders configured and movies in its library.
+
+**Upcoming section is blank:**
+- Radarr needs release date information to show upcoming movies. If your library is mostly older titles, there may not be anything upcoming.
+
+**Queue shows downloads but they're not appearing in the library count:**
+- Downloads in progress show in the queue but aren't counted in the library total until they're imported. This is normal.
+
+← Back to [Setup Guide](./README.md)

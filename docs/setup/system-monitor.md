@@ -1,37 +1,43 @@
-# System Monitor Panel
+# System Monitor — Hardware Panel
 
-The System Monitor panel shows live CPU, GPU, and RAM stats alongside your system uptime — all from the local machine, no external services needed.
+The System Monitor panel shows live CPU, GPU, and RAM usage alongside your system uptime — all from the local machine, with no setup required.
+
+## What you'll need
+
+Nothing. This panel works automatically using your computer's built-in sensors. No accounts, no API keys, no external services.
 
 ## What it shows
 
-- CPU usage (from a selectable sensor)
-- GPU usage and temperature (auto-detects AMD Radeon and NVIDIA GeForce)
-- RAM usage
-- System uptime
+- **CPU usage** — current load percentage from a selectable sensor
+- **GPU usage and temperature** — auto-detects AMD Radeon and NVIDIA GeForce cards
+- **RAM usage** — how much memory is in use
+- **System uptime** — how long since the last restart
 
-## Requirements
+## Customising the sensors
 
-- No external services or accounts needed
-- Runs entirely on local system data
+The panel has small **⚙** buttons next to the CPU and GPU sections:
 
-## How to configure
+- Click the **⚙** next to **CPU** to choose which CPU sensor to display (useful if you have multiple sensors reporting).
+- Click the **⚙** next to **GPU** to select your GPU if multiple are detected (e.g. integrated graphics vs. a dedicated card).
 
-The panel has inline ⚙ buttons for quick sensor selection:
+Changes apply immediately — no save needed.
 
-1. Click the **⚙** next to the CPU section to choose which CPU sensor to display.
-2. Click the **⚙** next to the GPU section to select your GPU if multiple are detected.
-3. Changes apply immediately — no save required.
+## Where to enter it in Orbit
 
-## Notes
+**Settings → Integrations → System Monitor**
 
-- GPU detection is automatic. If you have both an integrated GPU and a dedicated card, use the inline ⚙ to select the right one.
-- Uptime resets on system restart.
+No configuration fields — this panel works out of the box. The inline ⚙ buttons on the panel itself handle sensor selection.
 
 ## Troubleshooting
 
-**Sensors show zero or don't populate:**
-- Ensure GPU vendor software or sensor drivers are installed (e.g. AMD Software or NVIDIA app).
+**Sensors show zero or don't appear:**
+- Make sure your GPU drivers are installed (e.g. AMD Software: Adrenalin Edition or the NVIDIA app). Without drivers, sensor data may not be available.
 - Try restarting Orbit — sensors sometimes need a moment to initialise on first launch.
 
 **Wrong GPU listed:**
-- Use the inline ⚙ to manually select the correct GPU from the detected list.
+- Use the inline **⚙** button on the panel to manually select the correct GPU from the detected list.
+
+**Uptime seems wrong:**
+- System uptime resets on restart. If Windows fast-started (hibernated) instead of fully shutting down, the uptime counter may seem higher than expected.
+
+← Back to [Setup Guide](./README.md)

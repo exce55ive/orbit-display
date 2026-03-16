@@ -1,38 +1,48 @@
 # Sonarr — TV Panel
 
-The Sonarr panel shows your TV library stats, active queue, episodes downloaded today, and your upcoming calendar.
+The Sonarr panel shows your TV library stats, active download queue, episodes downloaded today, and an upcoming calendar of what's airing soon.
 
-## What it shows
+## What you'll need
 
-- Total TV library size (series and episodes)
-- Current download queue with item count
-- Episodes downloaded today, including show name and episode info
-- Upcoming calendar — what's expected soon
+- Sonarr (v3 or later) running and reachable on your network
+- Your Sonarr API key
 
-## Requirements
+## Step-by-step
 
-- Sonarr v3 or later, running and reachable on your network
-
-## How to get your API key
+### 1. Find your Sonarr API key
 
 1. Open Sonarr in your browser.
 2. Go to **Settings → General**.
-3. Find the **API Key** field and copy it.
+3. You'll see the **API Key** field — copy the key.
 
-## Settings fields
+### 2. Enter your details in Orbit
 
-| Field | Value |
-|---|---|
-| URL | `http://YOUR-SERVER-IP:8989` |
-| API Key | Paste the key from Sonarr |
+1. Open Orbit and click the **⚙** button in the bottom bar to open Settings.
+2. Go to **Settings → Integrations → Sonarr**.
+3. Enter your Sonarr **URL** (e.g. `http://192.168.1.100:8989`) and **API Key**.
+4. Save — the panel connects and starts showing your library data.
 
-## Notes
+## Where to enter it in Orbit
 
-- **Real-time updates:** Orbit uses Sonarr's SignalR connection, so the panel refreshes automatically the moment an episode finishes downloading — no manual refresh needed.
+**Settings → Integrations → Sonarr**
+
+- **URL** — Your Sonarr address (e.g. `http://192.168.1.100:8989`)
+- **API Key** — The key from Sonarr's General settings
+
+## Good to know
+
+Orbit uses Sonarr's SignalR connection for real-time updates. That means the panel refreshes automatically the moment an episode finishes downloading — no manual refresh needed.
 
 ## Troubleshooting
 
-**No data or stale data:**
-- Verify your Sonarr URL and API key are correct in Orbit Settings.
-- Ensure Sonarr is accessible in your browser at the URL you entered.
-- If real-time updates stop working, try restarting Sonarr.
+**Panel is empty or shows no data:**
+- Verify the URL and API key in Orbit Settings. Try opening the Sonarr URL in your browser to confirm it's running.
+- Make sure you're running Sonarr v3 or later — older versions use a different API that Orbit doesn't support.
+
+**Real-time updates stopped working:**
+- Try restarting Sonarr. The SignalR connection can occasionally drop and needs to reconnect.
+
+**Queue shows items but calendar is empty:**
+- The calendar only shows upcoming episodes from series you're actively monitoring in Sonarr. Check that your series have future episodes scheduled.
+
+← Back to [Setup Guide](./README.md)
