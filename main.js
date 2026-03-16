@@ -107,7 +107,12 @@ async function safeFetch(url, options = {}) {
   try {
     const res = await fetch(url, { ...options, signal: controller.signal });
     const text = await res.text();
-    try { return JSON.parse(text); } catch { return text; }
+    let data;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (!res.ok) {
+      return { error: `HTTP ${res.status}`, status: res.status, data };
+    }
+    return data;
   } catch (e) { return { error: e.message }; }
   finally { clearTimeout(timer); }
 }
@@ -264,9 +269,15 @@ ipcMain.handle('notify-config-saved', () => { return { ok: true }; }); // no-op;
 
 ipcMain.handle('app:get-version', () => app.getVersion());
 
-ipcMain.handle('open-external', (_e, url) => {
-  shell.openExternal(url);
-  return { ok: true };
+ipcMain.handle('open-external', async (_e, url) => {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return { error: 'Invalid protocol' };
+    await shell.openExternal(url);
+    return { ok: true };
+  } catch {
+    return { error: 'Invalid URL' };
+  }
 });
 
 // ─── IPC: SETUP ──────────────────────────────────────────────────────────────
@@ -296,13 +307,19 @@ ipcMain.handle('open-about', async () => {
     backgroundColor: '#060a10',
     alwaysOnTop: true,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload-about.js')
     }
   });
   aboutWin._isAboutWindow = true;
   aboutWin.loadFile('about.html');
   aboutWin.once('ready-to-show', () => { aboutWin.show(); aboutWin.focus(); });
+});
+
+ipcMain.on('about:close', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  if (win) win.close();
 });
 
 ipcMain.handle('setup-complete', async () => {

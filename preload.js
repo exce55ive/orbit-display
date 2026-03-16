@@ -67,8 +67,24 @@ contextBridge.exposeInMainWorld('orbit', {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getPendingUpdate: () => ipcRenderer.invoke('get-pending-update'),
-  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, info) => cb(info)),
-  onUpdateProgress: (cb) => ipcRenderer.on('update-progress', (_e, pct) => cb(pct)),
-  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_e) => cb()),
-  onUpdateError: (cb) => ipcRenderer.on('update-error', (_e, msg) => cb(msg)),
+  onUpdateAvailable: (cb) => {
+    const handler = (_e, info) => cb(info);
+    ipcRenderer.on('update-available', handler);
+    return () => ipcRenderer.removeListener('update-available', handler);
+  },
+  onUpdateProgress: (cb) => {
+    const handler = (_e, pct) => cb(pct);
+    ipcRenderer.on('update-progress', handler);
+    return () => ipcRenderer.removeListener('update-progress', handler);
+  },
+  onUpdateDownloaded: (cb) => {
+    const handler = (_e) => cb();
+    ipcRenderer.on('update-downloaded', handler);
+    return () => ipcRenderer.removeListener('update-downloaded', handler);
+  },
+  onUpdateError: (cb) => {
+    const handler = (_e, msg) => cb(msg);
+    ipcRenderer.on('update-error', handler);
+    return () => ipcRenderer.removeListener('update-error', handler);
+  },
 });

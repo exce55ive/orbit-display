@@ -642,6 +642,15 @@
     function prevStep() { currentStep--; renderProgress(); renderStep(); }
 
     function getVal(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function isEnabled(key) { const cb = document.querySelector(`input[data-integration="${key}"]`); return cb ? cb.checked : false; }
 
     // ── Custom Services ──────────────────────────────────────────────────────
@@ -653,8 +662,8 @@
       list.innerHTML = config.customServices.map((s, i) => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:6px;">
           <div>
-            <span style="font-size:12px;color:#c8d6e5;">${s.name}</span>
-            <span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:10px;">${s.url}</span>
+            <span style="font-size:12px;color:#c8d6e5;">${escHtml(s.name)}</span>
+            <span style="font-size:11px;color:rgba(255,255,255,0.3);margin-left:10px;">${escHtml(s.url)}</span>
           </div>
           <button onclick="removeCustomService(${i})" style="background:none;border:none;color:rgba(255,255,255,0.3);cursor:pointer;font-size:14px;padding:0 4px;" title="Remove">✕</button>
         </div>
@@ -672,8 +681,8 @@
           <select onchange="updateLink(${i},'icon',this.value)" style="width:44px;font-size:14px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 2px;cursor:pointer;text-align:center;">
             ${LINK_ICONS.map(ic=>`<option value="${ic}"${ic===lnk.icon?' selected':''}>${ic}</option>`).join('')}
           </select>
-          <input class="field-input" style="flex:1;font-size:11px;" placeholder="Label" value="${(lnk.label||'').replace(/"/g,'&quot;')}" oninput="updateLink(${i},'label',this.value)">
-          <input class="field-input" style="flex:2;font-size:11px;" placeholder="URL (e.g. google.com)" value="${(lnk.url||'').replace(/"/g,'&quot;')}" oninput="updateLink(${i},'url',this.value)" onblur="if(this.value&&!/^https?:\\/\\//i.test(this.value))this.value='https://'+this.value,updateLink(${i},'url',this.value)">
+          <input class="field-input" style="flex:1;font-size:11px;" placeholder="Label" value="${escHtml(lnk.label||'')}" oninput="updateLink(${i},'label',this.value)">
+          <input class="field-input" style="flex:2;font-size:11px;" placeholder="URL (e.g. google.com)" value="${escHtml(lnk.url||'')}" oninput="updateLink(${i},'url',this.value)" onblur="if(this.value&&!/^https?:\\/\\//i.test(this.value))this.value='https://'+this.value,updateLink(${i},'url',this.value)">
           <button onclick="removeLink(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
         </div>`).join('');
     }
@@ -726,8 +735,8 @@
       if (!el) return;
       el.innerHTML = (config.customServices||[]).map((s,i) => `
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-          <input class="field-input" style="flex:1;font-size:11px;" placeholder="Name" value="${(s.name||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'name',this.value)">
-          <input class="field-input" style="flex:2;font-size:11px;" placeholder="URL (e.g. nas.local or 192.168.1.x)" value="${(s.url||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'url',this.value)" onblur="if(this.value)this.value=normalizeUrl(this.value)">
+          <input class="field-input" style="flex:1;font-size:11px;" placeholder="Name" value="${escHtml(s.name||'')}" oninput="updateCustomService(${i},'name',this.value)">
+          <input class="field-input" style="flex:2;font-size:11px;" placeholder="URL (e.g. nas.local or 192.168.1.x)" value="${escHtml(s.url||'')}" oninput="updateCustomService(${i},'url',this.value)" onblur="if(this.value)this.value=normalizeUrl(this.value)">
           <button onclick="removeCustomService(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
         </div>`).join('');
     }
@@ -932,9 +941,9 @@
         const checked = haSelectedIds.has(e.entity_id) ? 'checked' : '';
         const row = document.createElement('label');
         row.style.cssText = 'display:flex;gap:8px;align-items:center;padding:6px 4px;cursor:pointer;border-radius:4px;';
-        row.innerHTML = `<input type="checkbox" data-eid="${e.entity_id}" ${checked} style="flex-shrink:0;accent-color:#00d9ff;">
-          <span style="font-size:12px;color:#c8d6e5;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${friendlyName}</span>
-          <span style="font-size:10px;color:rgba(255,255,255,0.3);flex-shrink:0;">${e.entity_id}</span>`;
+        row.innerHTML = `<input type="checkbox" data-eid="${escHtml(e.entity_id)}" ${checked} style="flex-shrink:0;accent-color:#00d9ff;">
+          <span style="font-size:12px;color:#c8d6e5;flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${escHtml(friendlyName)}</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.3);flex-shrink:0;">${escHtml(e.entity_id)}</span>`;
         row.querySelector('input').addEventListener('change', function() {
           if (this.checked) haSelectedIds.add(this.dataset.eid);
           else haSelectedIds.delete(this.dataset.eid);

@@ -695,12 +695,12 @@
         // Update local state immediately for instant UI feedback
         setLocalNames(prev => ({ ...prev, [eid]: trimmed }));
         setEditingEid(null);
-        // Persist to config
+        // Persist to config (write to .lights to match the key the panel reads)
         const cfg = JSON.parse(JSON.stringify(config));
-        const entities = cfg?.integrations?.homeassistant?.entities || [];
-        const idx = entities.findIndex(e => (typeof e === 'string' ? e : e.entityId) === eid);
+        const lights = cfg?.integrations?.homeassistant?.lights || [];
+        const idx = lights.findIndex(e => (typeof e === 'string' ? e : e.entityId) === eid);
         if (idx >= 0) {
-          cfg.integrations.homeassistant.entities[idx] = { entityId: eid, name: trimmed };
+          cfg.integrations.homeassistant.lights[idx] = { entityId: eid, name: trimmed };
         }
         window.orbit.saveConfig(cfg);
         if (onConfigChange) onConfigChange(cfg);
@@ -1832,10 +1832,11 @@
       const [downloaded, setDownloaded] = useState(false);
       useEffect(() => {
         window.orbit.getPendingUpdate().then(u => { if (u) setUpdate(u); });
-        window.orbit.onUpdateAvailable(info => setUpdate(info));
-        window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
-        window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
-        window.orbit.onUpdateError(() => { setDownloading(false); });
+        const unsub1 = window.orbit.onUpdateAvailable(info => setUpdate(info));
+        const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
+        const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
+        const unsub4 = window.orbit.onUpdateError(() => { setDownloading(false); });
+        return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
       }, []);
       if (!update && !downloaded) return null;
       if (downloaded) {
@@ -2299,11 +2300,12 @@
 
       useEffect(() => {
         window.orbit.getPendingUpdate().then(u => { if (u) setUpdate(u); });
-        window.orbit.onUpdateAvailable(info => setUpdate(info));
-        window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
-        window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
-        window.orbit.onUpdateError(() => setDownloading(false));
+        const unsub1 = window.orbit.onUpdateAvailable(info => setUpdate(info));
+        const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
+        const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
+        const unsub4 = window.orbit.onUpdateError(() => setDownloading(false));
         window.orbit.getAppVersion().then(v => setAppVersion(v)).catch(()=>{});
+        return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
       }, []);
 
       const hasUpdate = update || downloaded;

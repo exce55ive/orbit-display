@@ -98,7 +98,7 @@
   </style>
 </head>
 <body>
-  <button class="close-btn" onclick="window.close()">✕</button>
+  <button class="close-btn" onclick="window.orbitAbout.close()">✕</button>
 
   <div class="title">ORBIT</div>
   <div class="tagline">YOUR HOMELAB. ONE SCREEN.</div>
@@ -114,18 +114,16 @@
   </div>
 
   <script>
-    const { ipcRenderer } = require('electron');
-
     async function init() {
       // Version
       try {
-        const v = await ipcRenderer.invoke('app:get-version');
+        const v = await window.orbitAbout.getVersion();
         document.getElementById('version-text').textContent = 'v' + v;
       } catch {}
 
       // Update status
       try {
-        const pending = await ipcRenderer.invoke('get-pending-update');
+        const pending = await window.orbitAbout.getPendingUpdate();
         const dot = document.getElementById('update-dot');
         const status = document.getElementById('update-status');
         if (pending && pending.version) {
@@ -143,7 +141,7 @@
       // Website link
       document.getElementById('site-link').addEventListener('click', (e) => {
         e.preventDefault();
-        ipcRenderer.invoke('open-external', 'https://exce55ive.xyz');
+        window.orbitAbout.openExternal('https://exce55ive.xyz');
       });
     }
 
