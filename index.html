@@ -2485,6 +2485,7 @@
       const [showLeftArrow, setShowLeftArrow] = useState(false);
       const [showRightArrow, setShowRightArrow] = useState(false);
       const [signalIsOn, setSignalIsOn] = useState(false);
+      const [showSettings, setShowSettings] = useState(false);
       const touchRef = useRef(null);
 
       // Load config + start SignalR
@@ -2561,7 +2562,7 @@
 
       if (!config) return null;
 
-      const openSettings = () => window.orbit.openSetup();
+      const openSettings = () => setShowSettings(true);
       _openSettingsRef = openSettings;
 
       // Only render configured panels; grid cols = count of panels (max 6)
@@ -2586,6 +2587,13 @@
 
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
         h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig}),
+
+        // ── Settings overlay (gear button) ──
+        showSettings && h(SettingsOverlay, {
+          config,
+          onClose: () => setShowSettings(false),
+          onSave: (newCfg) => { setConfig(newCfg); setShowSettings(false); }
+        }),
 
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
