@@ -95,7 +95,7 @@
     .np-empty-text { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.28); }
     .np-offline { color: var(--amber); font-size: 16px; letter-spacing: 1px; }
     .np-session-list { width: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 110px); padding: 0 2px; }
-    .panel-top { justify-content: flex-start !important; padding-top: 44px !important; padding-bottom: 16px !important; align-items: stretch !important; overflow-y: auto !important; }
+    .panel-top { justify-content: flex-start !important; padding-top: 60px !important; padding-bottom: 16px !important; align-items: stretch !important; overflow-y: auto !important; }
     .np-session-list::-webkit-scrollbar { width: 3px; }
     .np-session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     .np-session { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; text-align: left; transition: border-color .15s; }
@@ -2206,7 +2206,7 @@
             if (st) setStatus(st);
             setGroups(gr);
             // Adaptive polling: 1.5s when actively downloading, 8s when idle
-            const nextInterval = (st && st.DownloadRate > 0 && !st.DownloadPaused) ? 1500 : 8000;
+            const nextInterval = (st && st.DownloadRate > 0 && !st.DownloadPaused) ? 3000 : 8000;
             if (intervalRef.current) clearTimeout(intervalRef.current);
             intervalRef.current = setTimeout(poll, nextInterval);
           } catch {
@@ -2224,7 +2224,7 @@
       const rateMBs = status ? (status.DownloadRate/1024/1024).toFixed(2) : '0.00';
       const remMB = status ? status.RemainingSizeMB : 0;
       const paused = status?.DownloadPaused;
-      return h('div',{className: groups.length > 0 ? 'panel panel-top' : 'panel'},
+      return h('div',{className:'panel panel-top'},
         h(PanelHeader, {title:'NZBGET', icon:'⬇', accentColor:'#34A853', onSettings:()=>openSettingsAt('settings-nzbget')}),
         h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
           h('div', null,
