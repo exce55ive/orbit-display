@@ -361,7 +361,7 @@
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://192.168.1.x:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
                 <div class="field-group"><div class="field-label">Token</div><input class="field-input" id="ha-token" type="password" placeholder="Long-lived access token" value="${esc(config.integrations.homeassistant.token)}" oninput="showHABrowseBtn()"></div>
                 <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-                  <button id="ha-browse-btn" onclick="openHAModal()" style="display:none;padding:5px 12px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;">Browse Entities</button>
+                  <button id="ha-browse-btn" onclick="openHABrowser()" style="display:none;padding:5px 12px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;">Browse Entities</button>
                   <span id="ha-selected-count" style="font-size:11px;color:rgba(255,255,255,0.4);">${config.integrations.homeassistant.lights?.length > 0 ? config.integrations.homeassistant.lights.length + ' entities configured' : ''}</span>
                 </div>
                 ${testRow('homeassistant')}
