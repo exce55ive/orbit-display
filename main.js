@@ -629,6 +629,39 @@ ipcMain.handle('signalrgb-set-enabled', async (_e, enabled) => {
 });
 
 // ─── IPC: SYSTEM INFO ───────────────────────────────────────────────────────
+// LibreHardwareMonitor fallback for AMD GPU — WMI does not expose AMD GPU usage/temp on Windows.
+// Requires LHM running locally with its web server enabled (default: http://localhost:8085).
+async function tryLHMGpu() {
+  try {
+    const res = await fetch('http://localhost:8085/data.json', { signal: AbortSignal.timeout(800) });
+    const data = await res.json();
+    const out = { usage: null, temp: null };
+    function walk(node) {
+      if (!node) return;
+      const name = (node.Text || '').toLowerCase();
+      const isGpu = name.includes('gpu') || name.includes('radeon') || name.includes('rx ');
+      for (const child of node.Children || []) {
+        const cn = (child.Text || '').toLowerCase();
+        if (isGpu && cn === 'load') {
+          for (const s of child.Children || []) {
+            if ((s.Text || '').toLowerCase().includes('gpu core') && s.Value && out.usage === null)
+              out.usage = parseFloat(s.Value);
+          }
+        }
+        if (isGpu && cn === 'temperatures') {
+          for (const s of child.Children || []) {
+            if (s.Value && out.temp === null)
+              out.temp = parseFloat(s.Value);
+          }
+        }
+        walk(child);
+      }
+    }
+    walk(data);
+    return out;
+  } catch { return { usage: null, temp: null }; }
+}
+
 ipcMain.handle('get-sysinfo', async (_e, params) => {
   try {
     const { cpuSensorIndex = 0, gpuControllerIndex = 0, showDisk = false } = params || {};
@@ -661,6 +694,12 @@ ipcMain.handle('get-sysinfo', async (_e, params) => {
     };
     if (showDisk) {
       result.disk = { usage: disk ? Math.round(disk.use) : 0, mount: disk ? disk.mount : 'C:\\' };
+    }
+    // AMD GPU WMI fallback: if GPU usage and temp are both empty, try LibreHardwareMonitor
+    if (result.gpu.usage === 0 && result.gpu.temp === null) {
+      const lhm = await tryLHMGpu();
+      if (lhm.usage !== null) result.gpu.usage = Math.round(lhm.usage);
+      if (lhm.temp !== null) result.gpu.temp = lhm.temp;
     }
     return result;
   } catch (e) { return { error: e.message }; }
@@ -702,9 +741,16 @@ ipcMain.handle('get-sysinfo-slow', async (_e, params) => {
   const disk = showDisk ? (fsSize.find(d => d.mount === 'C:\\' || d.mount === 'C:' || d.mount === '/') || fsSize[0]) : null;
   const cpuTempVal = cpuSensors[cpuSensorIndex]?.value ?? null;
   const gpuTempVal = (gpu && gpu.temperatureGpu && gpu.temperatureGpu > 0) ? gpu.temperatureGpu : null;
+  const gpuResult = { usage: gpu ? Math.round(gpu.utilizationGpu || 0) : 0, temp: gpuTempVal, model: gpu ? (gpu.model || 'GPU') : 'GPU', list: gpuList };
+  // AMD GPU WMI fallback: if GPU usage and temp are both empty, try LibreHardwareMonitor
+  if (gpuResult.usage === 0 && gpuResult.temp === null) {
+    const lhm = await tryLHMGpu();
+    if (lhm.usage !== null) gpuResult.usage = Math.round(lhm.usage);
+    if (lhm.temp !== null) gpuResult.temp = lhm.temp;
+  }
   return {
     cpu: { speed: cpu.speed || 0, brand: cpu.brand || 'CPU', temp: cpuTempVal, sensors: cpuSensors },
-    gpu: { usage: gpu ? Math.round(gpu.utilizationGpu || 0) : 0, temp: gpuTempVal, model: gpu ? (gpu.model || 'GPU') : 'GPU', list: gpuList },
+    gpu: gpuResult,
     disk: showDisk && disk ? { usage: Math.round(disk.use), mount: disk.mount } : null
   };
 });

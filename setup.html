@@ -140,8 +140,7 @@
     const DEFAULTS = {
       theme: { accentColor: '#00d9ff', darkMode: true },
       pages: [{ id: 'page1', name: 'Home', panels: [
-        {type:'clock',col:1,width:1},{type:'signalrgb',col:2,width:1},{type:'lights',col:3,width:1},
-        {type:'nowplaying',col:4,width:1},{type:'system',col:5,width:1},{type:'links',col:6,width:1}
+        {type:'clock',col:1,width:1},{type:'system',col:2,width:1},{type:'links',col:3,width:1}
       ]}],
       integrations: {
         weather:{enabled:false, city:'Perth'}, tautulli:{enabled:false, url:'',apiKey:''}, plex:{enabled:false, url:'',token:''},
@@ -624,11 +623,13 @@
     }
 
     function savePagesAndNext() {
-      // Write pagesState back to config
+      // Write pagesState back to config — filter out panels whose integrations aren't configured
       config.pages = pagesState.map(pg => ({
         id: pg.id,
         name: pg.name,
-        panels: pg.panels.map((p, i) => ({ type: p.type, col: i + 1, width: 1 }))
+        panels: pg.panels
+          .filter(p => isTypeAvailable(p.type))
+          .map((p, i) => ({ type: p.type, col: i + 1, width: 1 }))
       }));
       window.orbit.saveConfig(config);
       nextStep();
