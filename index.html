@@ -1811,6 +1811,8 @@
       useEffect(() => {
         if (!configured) return;
         const hdr = {'X-Api-Key': sCfg.apiKey};
+        let _sonarrTimer = null;
+        let _active = false;
         async function poll() {
           try {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -1835,19 +1837,19 @@
               setTodayImports(imports.slice(0,6));
             }
             if (Array.isArray(cal)) setCalendar(cal.slice(0,6));
-            if (Array.isArray(q?.records)) setQueue(q.records.slice(0,3));
+            if (Array.isArray(q?.records)) {
+              const qr = q.records.slice(0,3);
+              setQueue(qr);
+              _active = qr.length > 0;
+            }
           } catch {}
+          clearTimeout(_sonarrTimer);
+          _sonarrTimer = setTimeout(poll, _active ? 10000 : 30000);
         }
         pollRef.current = poll;
-        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+        poll();
+        return () => clearTimeout(_sonarrTimer);
       }, [sCfg?.url, sCfg?.apiKey]);
-
-      // SignalR push — trigger immediate repoll on grab/import events
-      useEffect(() => {
-        if (!configured || !window.orbit.onSonarrEvent) return;
-        const unsub = window.orbit.onSonarrEvent(() => { if (pollRef.current) pollRef.current(); });
-        return unsub;
-      }, [configured]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'SONARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-sonarr')},'⚙')),
@@ -1930,6 +1932,8 @@
       useEffect(() => {
         if (!configured) return;
         const hdr = {'X-Api-Key': rCfg.apiKey};
+        let _radarrTimer = null;
+        let _active = false;
         async function poll() {
           try {
             const todayStr = new Date().toISOString().split('T')[0];
@@ -1967,19 +1971,19 @@
               }).filter(m => !m.hasFile && m.daysAway < 90).sort((a,b)=>a.daysAway-b.daysAway);
               setUpcoming(classified.slice(0,5));
             }
-            if (Array.isArray(q?.records)) setQueue(q.records.slice(0,3));
+            if (Array.isArray(q?.records)) {
+              const qr = q.records.slice(0,3);
+              setQueue(qr);
+              _active = qr.length > 0;
+            }
           } catch {}
+          clearTimeout(_radarrTimer);
+          _radarrTimer = setTimeout(poll, _active ? 10000 : 30000);
         }
         pollRef.current = poll;
-        poll(); const t = setInterval(poll, 60000); return () => clearInterval(t);
+        poll();
+        return () => clearTimeout(_radarrTimer);
       }, [rCfg?.url, rCfg?.apiKey]);
-
-      // SignalR push
-      useEffect(() => {
-        if (!configured || !window.orbit.onRadarrEvent) return;
-        const unsub = window.orbit.onRadarrEvent(() => { if (pollRef.current) pollRef.current(); });
-        return unsub;
-      }, [configured]);
 
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
         h('div',{className:'panel-label'},'RADARR ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-radarr')},'⚙')),
