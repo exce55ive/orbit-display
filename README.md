@@ -120,50 +120,7 @@ npm install
 npm start
 ```
 
-### Architecture (the short version)
-
-There is no build step for the UI. `index.html` is plain HTML/CSS/JS — React 18 is loaded from CDN and used via `h()` calls. No Webpack, no Vite, no bundler.
-
-Electron's main process (`main.js`) handles all HTTP requests to your services (bypassing CORS), file I/O, and IPC. `preload.js` exposes a `window.orbit.*` API to the renderer via `contextBridge`. Config lives as JSON in Electron's `userData` directory.
-
-The setup wizard, settings panel, and about screen are each their own `BrowserWindow`.
-
-Edit the UI directly — save the file, restart the app, see the change.
-
-> For the full technical breakdown, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-> To add a panel, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the panel lifecycle and `window.orbit` API.
-
----
-
-## Build
-
-Build a Windows installer (NSIS) — requires `wine32` and `xvfb-run` on Linux, or run natively on Windows:
-
-```bash
-WINEPREFIX=~/.winedefault xvfb-run npx electron-builder --win nsis --config.directories.output=dist-new
-```
-
-> NSIS installer builds require `wine32`.
-
----
-
-## Project Structure
-
-```
-orbit/
-├── main.js           # Electron main process — networking, IPC, file I/O
-├── preload.js        # contextBridge → window.orbit.* API
-├── index.html        # Dashboard renderer (React 18 via CDN, no build step)
-├── setup.html        # First‑run setup wizard
-├── settings.html     # Settings window
-├── about.html        # About window
-├── config.json       # Default config schema
-├── icon.ico          # App icon
-├── package.json
-└── docs/
-    ├── ARCHITECTURE.md
-    └── ARCHITECTURE.md
-```
+For architecture details, the `window.orbit` API, and how to add panels — see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 ---
 
