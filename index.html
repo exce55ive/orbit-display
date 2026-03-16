@@ -1675,67 +1675,6 @@
       }
 
 
-      // ─── DISCORD SERVER PICKER ───────────────────────────────────────────────────
-      function DiscordServerPicker({ slot }) {
-        // slot = 'favServer1' | 'favServer2'
-        const dCfg = cfg.integrations?.discord || {};
-        const authorized = !!(dCfg.accessToken);
-        const [guilds, setGuilds] = React.useState(null);
-        const [loading, setLoading] = React.useState(false);
-        const [open, setOpen] = React.useState(false);
-        const slotLabel = slot === 'favServer1' ? 'FAVOURITE SERVER 1' : 'FAVOURITE SERVER 2';
-        const stored = dCfg[slot];
-
-        async function loadGuilds() {
-          if (!authorized) return;
-          setLoading(true);
-          try {
-            const freshCfg = await window.orbit.loadConfig();
-            const token = freshCfg?.integrations?.discord?.accessToken;
-            if (!token) { setLoading(false); return; }
-            const res = await window.orbit.apiGet('https://discord.com/api/users/@me/guilds', { Authorization: 'Bearer '+token });
-            if (Array.isArray(res)) setGuilds(res);
-          } catch {}
-          setLoading(false);
-        }
-
-        function select(guild) {
-          updateIntegration('discord', slot, { id: guild.id, name: guild.name });
-          setOpen(false);
-        }
-        function clear() { updateIntegration('discord', slot, null); }
-
-        return h('div', { style: { marginBottom: '10px' } },
-          h('div', { className: 'settings-label' }, slotLabel),
-          stored
-            ? h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' } },
-                h('div', { style: { flex: 1, fontSize: '12px', color: 'var(--text)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: '6px', padding: '6px 10px' } }, '🎙️ ' + (stored.name || stored)),
-                h('button', { onClick: clear, style: { background: 'none', border: 'none', color: '#ff5555', cursor: 'pointer', fontSize: '14px', padding: '0 4px' } }, '×')
-              )
-            : authorized
-              ? h('button', {
-                  className: 'ha-browse-btn',
-                  onClick: () => { setOpen(o => !o); if (!guilds) loadGuilds(); },
-                  style: { marginBottom: '4px' }
-                }, loading ? 'Loading...' : '🔍 Browse Servers')
-              : h('div', { style: { fontSize: '11px', color: 'var(--dim)', fontStyle: 'italic' } }, 'Connect Discord above first'),
-          open && guilds && h('div', {
-            style: { maxHeight: '160px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '6px', background: 'rgba(0,0,0,0.3)' }
-          },
-            guilds.length === 0
-              ? h('div', { style: { padding: '12px', fontSize: '11px', color: 'var(--dim)', textAlign: 'center' } }, 'No servers found')
-              : guilds.map(g => h('div', {
-                  key: g.id,
-                  onClick: () => select(g),
-                  style: { padding: '8px 12px', fontSize: '12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'var(--text)' },
-                  onMouseEnter: e => e.target.style.background = 'rgba(88,101,242,0.1)',
-                  onMouseLeave: e => e.target.style.background = ''
-                }, '🎙️ ' + g.name)
-              )
-          )
-        );
-      }
-
       function integrationSection(key, label, emoji, fields) {
         return h('div', {className:'settings-integration'},
           h('div', {className:'settings-integration-header', onClick:()=>toggleExpand(key)},
@@ -1783,22 +1722,6 @@
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-signalrgb'}, integrationSection('signalrgb', 'SignalRGB', '⚡', [{field:'url',label:'URL',placeholder:'http://localhost:16038'}])),
-            h('div', {id:'settings-discord'},
-              h('div', {className:'settings-integration'},
-                h('div', {className:'settings-integration-header', onClick:()=>toggleExpand('discord')},
-                  h('span', null, '💬 Discord'),
-                  h('span', null, expanded['discord'] ? '▼' : '▶')
-                ),
-                expanded['discord'] && h('div', {className:'settings-integration-body'},
-                  h('div', {className:'settings-label'}, 'CLIENT ID'),
-                  h('input', {className:'settings-input', value:cfg.integrations?.discord?.clientId||'', onChange:e=>updateIntegration('discord','clientId',e.target.value), placeholder:'Your Discord App Client ID'}),
-                  h('div', {className:'settings-label'}, 'CLIENT SECRET'),
-                  h('input', {className:'settings-input', type:'password', value:cfg.integrations?.discord?.clientSecret||'', onChange:e=>updateIntegration('discord','clientSecret',e.target.value)}),
-                  h(DiscordServerPicker, {slot:'favServer1'}),
-                  h(DiscordServerPicker, {slot:'favServer2'})
-                )
-              )
-            ),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
               {field:'token',label:'LONG-LIVED ACCESS TOKEN'},
@@ -2307,156 +2230,6 @@
       );
     }
 
-    // ═══ DISCORD PANEL ═══
-    function DiscordPanel({ config, openSettings, onConfigChange }) {
-      const dCfg = config?.integrations?.discord;
-      const configured = !!(dCfg?.clientId && dCfg?.clientSecret);
-      // ── ALL hooks before any early returns (Rules of Hooks) ──
-      const [authorized, setAuthorized] = useState(!!(dCfg?.accessToken));
-      const [connecting, setConnecting] = useState(false);
-      const [connectErr, setConnectErr] = useState('');
-      const [user, setUser] = useState(dCfg?.user || null);
-      const [guildCount, setGuildCount] = useState(dCfg?.guildCount || 0);
-      const [dmCount, setDmCount] = useState(0);
-      const [notificationsLine, setNotificationsLine] = useState(null);
-      const [joiningId, setJoiningId] = useState('');
-      const [connections, setConnections] = useState(dCfg?.connections || []);
-
-      useEffect(() => {
-        if (dCfg?.user) setUser(dCfg.user);
-        if (dCfg?.guildCount != null) setGuildCount(dCfg.guildCount);
-        if (dCfg?.connections?.length) setConnections(dCfg.connections);
-      }, [dCfg?.user?.id, dCfg?.guildCount]);
-
-      useEffect(() => {
-        if (!authorized) return;
-        window.orbit.discordGetConnections().then(r => {
-          if (r?.connections?.length) setConnections(r.connections);
-        }).catch(()=>{});
-      }, [authorized]);
-
-      useEffect(() => {
-        if (!authorized || !dCfg?.accessToken) return;
-        async function poll() {
-          try {
-            const freshCfg = await window.orbit.loadConfig();
-            const token = freshCfg?.integrations?.discord?.accessToken;
-            if (!token) return;
-            const headers = { Authorization: 'Bearer '+token };
-            const [userRes, guildsRes] = await Promise.all([
-              window.orbit.apiGet('https://discord.com/api/users/@me', headers),
-              window.orbit.apiGet('https://discord.com/api/users/@me/guilds', headers)
-            ]);
-            if (userRes && !userRes.error && userRes.id) setUser(userRes);
-            if (Array.isArray(guildsRes)) setGuildCount(guildsRes.length);
-            try {
-              const chRes = await window.orbit.apiGet('https://discord.com/api/users/@me/channels', headers);
-              if (Array.isArray(chRes)) setDmCount(chRes.filter(c => c.type === 1 && c.last_message_id).length);
-            } catch {}
-            try {
-              const mentRes = await window.orbit.apiGet('https://discord.com/api/users/@me/mentions', headers);
-              if (Array.isArray(mentRes) && mentRes.length > 0) setNotificationsLine('🔔 '+mentRes.length+' unread mentions');
-              else setNotificationsLine(null);
-            } catch {}
-          } catch {}
-        }
-        poll(); const t = setInterval(poll, 300000); return () => clearInterval(t);
-      }, [authorized]);
-
-      // ── Early returns (after all hooks) ──
-      if (!configured) return h('div',{className:'panel panel-unconfigured'},
-        h(PanelHeader, {title:'DISCORD', icon:'💬', accentColor:'#5865F2', onSettings:()=>openSettingsAt('settings-discord')}),
-        h('div',{className:'panel-unconfigured-icon'},'💬'),
-        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'},onClick:openSettings},'Configure in Settings'));
-
-      if (!authorized) {
-        return h('div', {className:'panel'},
-          h(PanelHeader, {title:'DISCORD', icon:'💬', accentColor:'#5865F2', onSettings:()=>openSettingsAt('settings-discord')}),
-          h('div', {className:'panel-unconfigured-icon', style:{opacity:0.3,fontSize:'36px',marginBottom:'12px'}}, '💬'),
-          connectErr && h('div', {style:{fontSize:'10px',color:'#ff5555',marginBottom:'8px',textAlign:'center',padding:'0 12px'}}, connectErr),
-          h('button', {className:'spotify-connect', style:{borderColor:'#5865F2',color:'#5865F2',background:'rgba(88,101,242,0.08)'}, disabled:connecting, onClick: async () => {
-            setConnecting(true); setConnectErr('');
-            const r = await window.orbit.discordAuthStart();
-            setConnecting(false);
-            if (r.error) setConnectErr(r.error);
-            else {
-              setAuthorized(true);
-              if (r.user) setUser(r.user);
-              if (r.guildCount != null) setGuildCount(r.guildCount);
-            }
-          }}, connecting ? 'Connecting...' : 'Connect Discord')
-        );
-      }
-
-      const avatarUrl = user?.avatar
-        ? 'https://cdn.discordapp.com/avatars/'+user.id+'/'+user.avatar+'.png?size=128'
-        : 'https://cdn.discordapp.com/embed/avatars/'+(user?.discriminator ? (parseInt(user.discriminator) % 5) : 0)+'.png';
-      const displayName = user?.global_name || user?.username || 'Unknown';
-      const handle = user?.discriminator && user.discriminator !== '0'
-        ? user.username + '#' + user.discriminator
-        : '@' + (user?.username || '');
-      const fav1 = dCfg?.favVoice1 || null;
-      const fav2 = dCfg?.favVoice2 || null;
-      const [leaveConfirm, setLeaveConfirm] = useState(false); // unused but kept for hook count stability
-
-      const handleVoiceBtn = async (fav) => {
-        if (!fav?.channelId) return;
-        setJoiningId(fav.channelId);
-        await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
-        setJoiningId('');
-      };
-
-      const voiceBtn = (fav) => {
-        if (!fav) return null;
-        const isJoining = joiningId === fav.channelId;
-        const label = isJoining ? '⏳ Opening...' : '🎙️ '+(fav.channelName||'Voice');
-        return h('button', {
-          onClick: () => handleVoiceBtn(fav),
-          title: 'Open in Discord',
-          style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',transition:'all .2s'}
-        }, label);
-      };
-
-      return h('div', {className:'panel'},
-        h(PanelHeader, {title:'DISCORD', icon:'💬', accentColor:'#5865F2', onSettings:()=>openSettingsAt('settings-discord')}),
-        h('img', {src:avatarUrl, style:{width:'52px',height:'52px',borderRadius:'50%',marginBottom:'10px',border:'2px solid rgba(88,101,242,0.4)'}}),
-        h('div', {style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)',marginBottom:'2px'}}, displayName),
-        h('div', {style:{fontSize:'12px',color:'var(--dim)',marginBottom:'12px'}}, handle),
-        h('div', {style:{display:'flex',gap:'20px',marginBottom:'10px'}},
-          h('div', null,
-            h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'SERVERS'),
-            h('div', {style:{fontSize:'28px',fontWeight:'800',color:'#5865F2'}}, guildCount)
-          ),
-          dmCount > 0 && h('div', null,
-            h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}}, 'DMS'),
-            h('div', {style:{fontSize:'28px',fontWeight:'800',color:'var(--text-bright)'}}, dmCount)
-          )
-        ),
-        notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
-        connections.length > 0 && h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center',marginBottom:'12px'}},
-          connections.map((c,i) => {
-            const PLATFORM_ICONS = { steam:'🎮', twitch:'📺', youtube:'▶️', xbox:'🎯', github:'🐙', spotify:'🎵', reddit:'🤖', twitter:'🐦', facebook:'📘', playstation:'🕹️', battlenet:'⚔️', epicgames:'🎮', leagueoflegends:'⚔️', tiktok:'🎵', instagram:'📸', domain:'🌐', skype:'💬' };
-            const icon = PLATFORM_ICONS[c.type] || '🔗';
-            return h('div', {
-              key: i,
-              title: c.type.charAt(0).toUpperCase()+c.type.slice(1) + ': ' + c.name,
-              style:{display:'inline-flex',alignItems:'center',gap:'4px',padding:'3px 8px',background:'rgba(255,255,255,0.05)',borderRadius:'20px',fontSize:'11px',cursor:'default',border:'1px solid rgba(255,255,255,0.07)'}
-            }, h('span', {style:{fontSize:'13px',lineHeight:'1'}}, icon), h('span', {style:{color:'rgba(255,255,255,0.45)',letterSpacing:'0.3px',fontSize:'10px'}}, c.name));
-          })
-        ),
-        (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',gap:'6px'}},
-          h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}}, '🎙️ VOICE SHORTCUTS'),
-          h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center'}},
-            voiceBtn(fav1), voiceBtn(fav2)
-          )
-        ),
-        h('button', {
-          onClick:()=>window.orbit.openExternal('discord://'),
-          style:{padding:'8px 20px',fontSize:'12px',fontWeight:'700',fontFamily:'var(--font)',letterSpacing:'1px',border:'2px solid #5865F2',borderRadius:'20px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',transition:'all .2s'}
-        }, 'Open Discord')
-      );
-    }
-
     // ═══ PANEL RENDERER ═══
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key }, child);
@@ -2480,7 +2253,6 @@
         case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
         case 'links': return wrap(key, h(LinksPanel, {key, config}));
         case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
-        case 'discord': return wrap(key, h(DiscordPanel, {key, config, openSettings, onConfigChange: setConfig}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
