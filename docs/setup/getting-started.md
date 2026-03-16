@@ -68,7 +68,6 @@ Now that Orbit is running, connect your services one by one. Each integration ha
 - [NZBGet](./nzbget.md) — download queue
 - [Jellyfin](./jellyfin.md) — active streams
 - [Spotify](./spotify.md) — now playing and controls
-- [Uptime Kuma](./uptime-kuma.md) — service status
 - [SignalRGB](./signalrgb.md) — lighting effects
 - [System Monitor](./system-monitor.md) — CPU, GPU, and RAM
 - [Clock & Weather](./clock-weather.md) — time and forecast

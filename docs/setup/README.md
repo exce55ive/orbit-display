@@ -25,7 +25,6 @@ This section walks you through connecting each of Orbit's integrations. Whether 
 | [NZBGet](./nzbget.md) | Download queue, speed, and progress | [Setup →](./nzbget.md) |
 | [Jellyfin](./jellyfin.md) | Active streams and playback details | [Setup →](./jellyfin.md) |
 | [Spotify](./spotify.md) | Now playing, controls, and Up Next queue | [Setup →](./spotify.md) |
-| [Uptime Kuma](./uptime-kuma.md) | Service status at a glance | [Setup →](./uptime-kuma.md) |
 | [SignalRGB](./signalrgb.md) | Browse and switch lighting effects | [Setup →](./signalrgb.md) |
 | [System Monitor](./system-monitor.md) | CPU, GPU, RAM, and uptime | [Setup →](./system-monitor.md) |
 | [Clock & Weather](./clock-weather.md) | Time, date, and 5-day forecast | [Setup →](./clock-weather.md) |
