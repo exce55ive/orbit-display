@@ -353,7 +353,13 @@
                 <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
                 ${testRow('spotify')}
               `)}
-              `;
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-secondary" onclick="prevStep()">BACK</button>
+              <button class="btn btn-primary" onclick="saveAndNext()">SAVE & CONTINUE</button>
+            </div>
+          </div>
+        `;
         // Init HA entity count display and browse button visibility
         (function() {
           const lights = config.integrations.homeassistant.lights;

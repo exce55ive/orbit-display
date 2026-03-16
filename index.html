@@ -458,8 +458,8 @@
             const data = await res.json();
             // Extend forecast to 5 days via Open-Meteo using lat/lon from wttr.in response
             try {
-              const lat = data.nearest_area?.[0]?.latitude?.[0]?.value;
-              const lon = data.nearest_area?.[0]?.longitude?.[0]?.value;
+              const lat = data.nearest_area?.[0]?.latitude;
+              const lon = data.nearest_area?.[0]?.longitude;
               if (lat && lon) {
                 const omRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=5`);
                 const om = await omRes.json();
@@ -2224,32 +2224,39 @@
       const rateMBs = status ? (status.DownloadRate/1024/1024).toFixed(2) : '0.00';
       const remMB = status ? status.RemainingSizeMB : 0;
       const paused = status?.DownloadPaused;
+      const hasQueue = groups.length > 0;
       return h('div',{className:'panel panel-top'},
-        h(PanelHeader, {title:'NZBGET', icon:'⬇', accentColor:'#34A853', onSettings:()=>openSettingsAt('settings-nzbget')}),
-        h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px'}},
-          h('div', null,
-            h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),
-            h('div',{style:{fontSize:'28px',fontWeight:'800',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
-          ),
-          remMB > 0 && h('div', null,
-            h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'REMAINING'),
-            h('div',{style:{fontSize:'22px',fontWeight:'700'}}, remMB > 1024 ? (remMB/1024).toFixed(1)+' GB' : remMB+' MB')
-          )
-        ),
-        groups.length > 0 && h('div', null,
-          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'QUEUE'),
-          groups.map((g,i)=>{
-            const pct = g.FileSizeMB > 0 ? Math.round((1-(g.RemainingSizeMB/g.FileSizeMB))*100) : 0;
-            const name = (g.NZBNicename||g.NZBFilename||'Unknown').slice(0,38);
-            const remStr = g.RemainingSizeMB > 1024 ? (g.RemainingSizeMB/1024).toFixed(1)+' GB' : g.RemainingSizeMB+' MB';
-            return h('div',{key:i,style:{marginBottom:'10px'}},
-              h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
-              h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
-              h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'% · '+remStr+' left')
-            );
-          })
-        ),
-        !status && h('div',{style:{fontSize:'13px',color:'var(--dim)',textAlign:'center',padding:'20px'}},'Connecting...')
+        h(PanelHeader, {title:'NZBGET', icon:'⬇', accentColor:'#34A853'}),
+        // Content wrapper — centers when idle, top-anchors when queue is active
+        h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent: hasQueue ? 'flex-start' : 'center',flex:'1',width:'100%'}},
+          !status
+            ? h('div',{style:{fontSize:'13px',color:'var(--dim)',textAlign:'center'}},'Connecting...')
+            : h(React.Fragment, null,
+                h('div',{style:{display:'flex',gap:'20px',marginBottom: hasQueue ? '14px' : '0',textAlign:'center'}},
+                  h('div', null,
+                    h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),
+                    h('div',{style:{fontSize:'28px',fontWeight:'800',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : rateMBs+' MB/s')
+                  ),
+                  remMB > 0 && h('div', null,
+                    h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'REMAINING'),
+                    h('div',{style:{fontSize:'22px',fontWeight:'700'}}, remMB > 1024 ? (remMB/1024).toFixed(1)+' GB' : remMB+' MB')
+                  )
+                ),
+                hasQueue && h('div',{style:{width:'100%'}},
+                  h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'QUEUE'),
+                  groups.map((g,i)=>{
+                    const pct = g.FileSizeMB > 0 ? Math.round((1-(g.RemainingSizeMB/g.FileSizeMB))*100) : 0;
+                    const name = (g.NZBNicename||g.NZBFilename||'Unknown').slice(0,38);
+                    const remStr = g.RemainingSizeMB > 1024 ? (g.RemainingSizeMB/1024).toFixed(1)+' GB' : g.RemainingSizeMB+' MB';
+                    return h('div',{key:g.NZBID||i,style:{marginBottom:'10px'}},
+                      h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
+                      h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
+                      h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'% · '+remStr+' left')
+                    );
+                  })
+                )
+              )
+        )
       );
     }
 
