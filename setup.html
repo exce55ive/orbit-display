@@ -144,7 +144,7 @@
       integrations: {
         weather:{enabled:false, city:'Perth'}, tautulli:{enabled:false, url:'',apiKey:''}, plex:{enabled:false, url:'',token:''},
         homeassistant:{enabled:false, url:'',token:'',lights:[],signalrgbEntity:''},
-        signalrgb:{enabled:false, url:'http://localhost:16034'},
+        signalrgb:{enabled:false, url:'http://localhost:16038'},
         sonarr:{enabled:false, url:'',apiKey:''}, radarr:{enabled:false, url:'',apiKey:''}, overseerr:{enabled:false, url:'',apiKey:''},
         nzbget:{enabled:false, url:'',username:'',password:''}, uptimekuma:{enabled:false, url:'',username:'',password:''},
         spotify:{enabled:false, clientId:'',clientSecret:''}, jellyfin:{enabled:false, url:'',apiKey:''}
@@ -203,6 +203,32 @@
     ];
     const MAX_PANELS = 6;
 
+    // Integration → required fields map for availability check
+    const INTEGRATION_REQUIREMENTS = {
+      clock:       null,                                    // always available
+      system:      null,                                    // always available
+      links:       null,                                    // always available
+      nowplaying:  (c) => (c.tautulli?.enabled && c.tautulli?.url && c.tautulli?.apiKey) || (c.plex?.enabled && c.plex?.url && c.plex?.token),
+      lights:      (c) => c.homeassistant?.enabled && c.homeassistant?.url && c.homeassistant?.token,
+      signalrgb:   (c) => c.signalrgb?.enabled && c.signalrgb?.url,
+      sonarr:      (c) => c.sonarr?.enabled && c.sonarr?.url && c.sonarr?.apiKey,
+      radarr:      (c) => c.radarr?.enabled && c.radarr?.url && c.radarr?.apiKey,
+      overseerr:   (c) => c.overseerr?.enabled && c.overseerr?.url && c.overseerr?.apiKey,
+      nzbget:      (c) => c.nzbget?.enabled && c.nzbget?.url && c.nzbget?.username,
+      uptimekuma:  (c) => c.uptimekuma?.enabled && c.uptimekuma?.url,
+      services:    null,                                    // always available (auto-detects from integrations)
+      spotify:     (c) => c.spotify?.enabled && c.spotify?.clientId && c.spotify?.clientSecret,
+      jellyfin:    (c) => c.jellyfin?.enabled && c.jellyfin?.url && c.jellyfin?.apiKey,
+      discord:     (c) => c.discord?.enabled && c.discord?.clientId,
+      media:       (c) => (c.sonarr?.enabled && c.sonarr?.url) || (c.radarr?.enabled && c.radarr?.url),
+    };
+
+    function isTypeAvailable(type) {
+      const req = INTEGRATION_REQUIREMENTS[type];
+      if (req === null || req === undefined) return true; // always available
+      return !!req(config.integrations || {});
+    }
+
     // Pages builder state — deep clone from config.pages
     let pagesState = JSON.parse(JSON.stringify(config.pages));
     let selectedPageIndex = 0;
@@ -258,12 +284,6 @@
           <div class="step visible">
             <div style="font-size:13px;color:var(--dim);margin-bottom:16px;text-align:center;letter-spacing:1px;">Enable the integrations you use. You can always change these later in Settings.</div>
             <div class="two-col">
-              ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
-                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
-                <div class="field-group"><div class="field-label">Long-Lived Access Token</div><input class="field-input" id="ha-token" placeholder="Your HA token" value="${esc(config.integrations.homeassistant.token)}" oninput="showHABrowseBtn()"></div>
-                <button class="ha-browse-btn" id="ha-browse-btn" onclick="openHABrowser()" style="display:none;margin-top:8px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚙ Configure Entities</button>
-                <div id="ha-selected-count" style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;"></div>
-              `)}
               ${integrationCard('tautulli', 'Tautulli', '🎬', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="tau-url" placeholder="http://192.168.1.x:8181" value="${esc(config.integrations.tautulli.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="tau-key" value="${esc(config.integrations.tautulli.apiKey)}"></div>
@@ -276,7 +296,12 @@
                 <div class="field-group"><div class="field-label">City</div><input class="field-input" id="weather-city" placeholder="Perth" value="${esc(config.integrations.weather.city)}"><div class="field-hint">Used for weather display on the clock panel</div></div>
               `)}
               ${integrationCard('signalrgb', 'SignalRGB', '🎮', `
-                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="signalrgb-url" placeholder="http://localhost:16034" value="${esc(config.integrations.signalrgb.url)}"></div>
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="signalrgb-url" placeholder="http://localhost:16038" value="${esc(config.integrations.signalrgb.url)}"></div>
+                <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+                  <button onclick="testSignalRGB()" style="padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚡ Test Connection</button>
+                  <span id="signalrgb-test-result" style="font-size:11px;color:rgba(255,255,255,0.5);"></span>
+                </div>
+                <div class="integration-hint">API port changed to 16038 in SignalRGB 2.x. Enable the HTTP API in SignalRGB → Settings → Developer.</div>
               `)}
               ${integrationCard('sonarr', 'Sonarr', '📺', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="sonarr-url" placeholder="http://192.168.1.x:8989" value="${esc(config.integrations.sonarr.url)}"></div>
@@ -299,11 +324,15 @@
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="jellyfin-url" placeholder="http://192.168.1.x:8096" value="${esc(config.integrations.jellyfin.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="jellyfin-key" value="${esc(config.integrations.jellyfin.apiKey)}"></div>
               `)}
-              ${integrationCard('uptimekuma', 'Uptime Kuma', '🔔', `
-                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="uptime-url" placeholder="http://192.168.1.x:3001" value="${esc(config.integrations.uptimekuma.url)}"></div>
-                <div class="field-group"><div class="field-label">Username <span style="color:rgba(255,255,255,0.3);font-size:10px;">(optional)</span></div><input class="field-input" id="uptime-user" value="${esc(config.integrations.uptimekuma.username)}"></div>
-                <div class="field-group"><div class="field-label">Password <span style="color:rgba(255,255,255,0.3);font-size:10px;">(optional)</span></div><input class="field-input" id="uptime-pass" type="password" value="${esc(config.integrations.uptimekuma.password)}"></div>
-                <div class="integration-hint">The service monitor will ping this URL directly — credentials only needed for legacy Uptime Kuma socket access.</div>
+              ${integrationCard('services', 'Services', '📡', `
+                <div class="integration-hint">The Services panel pings all configured integration URLs automatically. Add custom services below.</div>
+                <div id="custom-services-list">${(config.customServices||[]).map((s,i)=>`
+                  <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                    <input class="field-input" style="flex:1;font-size:11px;" placeholder="Name" value="${esc(s.name||'')}" oninput="updateCustomService(${i},'name',this.value)">
+                    <input class="field-input" style="flex:2;font-size:11px;" placeholder="http://..." value="${esc(s.url||'')}" oninput="updateCustomService(${i},'url',this.value)">
+                    <button onclick="removeCustomService(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
+                  </div>`).join('')}</div>
+                <button onclick="addCustomService()" style="margin-top:4px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">+ Add Service</button>
               `)}
               ${integrationCard('spotify', 'Spotify', '🎵', `
                 <div class="field-group"><div class="field-label">Client ID</div><input class="field-input" id="spotify-id" value="${esc(config.integrations.spotify.clientId)}"></div>
@@ -316,6 +345,12 @@
                 <div class="field-group"><div class="field-label">Favourite Channel 1</div><input class="field-input" id="discord-fav1" value="${esc(config.integrations.discord?.favChannel1 || '')}"></div>
                 <div class="field-group"><div class="field-label">Favourite Channel 2</div><input class="field-input" id="discord-fav2" value="${esc(config.integrations.discord?.favChannel2 || '')}"></div>
                 <div class="integration-hint">Create app at discord.com/developers — redirect URI: http://127.0.0.1:8893/callback</div>
+              `)}
+              ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
+                <div class="field-group"><div class="field-label">Long-Lived Access Token</div><input class="field-input" id="ha-token" placeholder="Your HA token" value="${esc(config.integrations.homeassistant.token)}" oninput="showHABrowseBtn()"></div>
+                <button class="ha-browse-btn" id="ha-browse-btn" onclick="openHABrowser()" style="display:none;margin-top:8px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">⚙ Configure Entities</button>
+                <div id="ha-selected-count" style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:4px;"></div>
               `)}
             </div>
 
@@ -408,8 +443,8 @@
         </div>`;
       }).join('');
 
-      // Panel cards HTML
-      let panelCardsHtml = PANEL_TYPES.map(pt => {
+      // Panel cards HTML — only show configured/always-available types
+      let panelCardsHtml = PANEL_TYPES.filter(pt => isTypeAvailable(pt.type)).map(pt => {
         const isSelected = selectedTypes.includes(pt.type);
         const isDisabled = !isSelected && atMax;
         let cls = 'panel-card';
@@ -421,7 +456,10 @@
           <span class="panel-card-name">${pt.name}</span>
           <span class="panel-card-check">✓</span>
         </div>`;
-      }).join('');
+      }).join('') + (PANEL_TYPES.filter(pt => !isTypeAvailable(pt.type)).length > 0 ? `
+        <div style="grid-column:1/-1;font-size:10px;color:rgba(255,255,255,0.2);letter-spacing:1px;text-align:center;padding:6px 0;border-top:1px solid rgba(255,255,255,0.04);margin-top:4px;">
+          ${PANEL_TYPES.filter(pt => !isTypeAvailable(pt.type)).length} panels hidden — configure their integrations first
+        </div>` : '');
 
       // Selected panels order list (drag-to-reorder)
       let orderListHtml = '';
@@ -628,18 +666,50 @@
     }
 
     function addCustomService() {
-      const name = getVal('custom-svc-name');
-      const url = getVal('custom-svc-url');
-      if (!name || !url) return;
-      config.customServices.push({ name, url });
-      document.getElementById('custom-svc-name').value = '';
-      document.getElementById('custom-svc-url').value = '';
-      renderCustomServices();
+      if (!config.customServices) config.customServices = [];
+      config.customServices.push({ name: '', url: '' });
+      renderCustomServicesInCard();
     }
 
     function removeCustomService(i) {
+      if (!config.customServices) return;
       config.customServices.splice(i, 1);
-      renderCustomServices();
+      renderCustomServicesInCard();
+    }
+
+    function updateCustomService(i, field, val) {
+      if (!config.customServices) return;
+      if (config.customServices[i]) config.customServices[i][field] = val;
+    }
+
+    function renderCustomServicesInCard() {
+      const el = document.getElementById('custom-services-list');
+      if (!el) return;
+      el.innerHTML = (config.customServices||[]).map((s,i) => `
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+          <input class="field-input" style="flex:1;font-size:11px;" placeholder="Name" value="${(s.name||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'name',this.value)">
+          <input class="field-input" style="flex:2;font-size:11px;" placeholder="http://..." value="${(s.url||'').replace(/"/g,'&quot;')}" oninput="updateCustomService(${i},'url',this.value)">
+          <button onclick="removeCustomService(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:16px;padding:0 4px;flex-shrink:0;">×</button>
+        </div>`).join('');
+    }
+
+    async function testSignalRGB() {
+      const url = document.getElementById('signalrgb-url')?.value?.trim() || 'http://localhost:16038';
+      const resultEl = document.getElementById('signalrgb-test-result');
+      if (resultEl) resultEl.textContent = 'Testing...';
+      try {
+        const r = await window.orbit.apiGet(url + '/api/v1/lighting', {}, 5000);
+        if (r && r.status === 'ok') {
+          if (resultEl) resultEl.textContent = '✅ Connected! Effect: ' + (r.data?.attributes?.name || 'unknown');
+          if (resultEl) resultEl.style.color = '#50fa7b';
+        } else if (r && r.error) {
+          if (resultEl) { resultEl.textContent = '❌ ' + r.error; resultEl.style.color = '#ff5555'; }
+        } else {
+          if (resultEl) { resultEl.textContent = '⚠️ Unexpected response'; resultEl.style.color = '#ffb86c'; }
+        }
+      } catch (e) {
+        if (resultEl) { resultEl.textContent = '❌ ' + (e.message || 'Connection failed'); resultEl.style.color = '#ff5555'; }
+      }
     }
 
     function saveAndNext() {
@@ -661,7 +731,7 @@
       config.integrations.weather.city = getVal('weather-city') || 'Perth';
 
       config.integrations.signalrgb.enabled = isEnabled('signalrgb');
-      config.integrations.signalrgb.url = getVal('signalrgb-url') || 'http://localhost:16034';
+      config.integrations.signalrgb.url = getVal('signalrgb-url') || 'http://localhost:16038';
 
       config.integrations.sonarr.enabled = isEnabled('sonarr');
       config.integrations.sonarr.url = getVal('sonarr-url');
@@ -684,10 +754,7 @@
       config.integrations.jellyfin.url = getVal('jellyfin-url');
       config.integrations.jellyfin.apiKey = getVal('jellyfin-key');
 
-      config.integrations.uptimekuma.enabled = isEnabled('uptimekuma');
-      config.integrations.uptimekuma.url = getVal('uptime-url');
-      config.integrations.uptimekuma.username = getVal('uptime-user');
-      config.integrations.uptimekuma.password = getVal('uptime-pass');
+      // Uptime Kuma removed — use Services panel instead
 
       config.integrations.spotify.enabled = isEnabled('spotify');
       config.integrations.spotify.clientId = getVal('spotify-id');

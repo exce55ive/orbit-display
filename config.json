@@ -4,10 +4,10 @@
     "apikey": "YOUR_TAUTULLI_API_KEY"
   },
   "signalrgb": {
-    "url": "http://localhost:16034"
+    "url": "http://localhost:16038"
   },
   "ha": {
-    "url": "https://YOUR_HA_INSTANCE",
+    "url": "http://192.168.1.252:8123",
     "token": "YOUR_HA_LONG_LIVED_TOKEN",
     "entities": {
       "signalrgb": "light.YOUR_SIGNALRGB_ENTITY"
