@@ -2191,7 +2191,7 @@
     }
 
     // ═══ DISCORD PANEL ═══
-    function DiscordPanel({ config, openSettings }) {
+    function DiscordPanel({ config, openSettings, onConfigChange }) {
       const dCfg = config?.integrations?.discord;
       const configured = dCfg?.clientId && dCfg?.clientSecret;
       const [authorized, setAuthorized] = useState(!!(dCfg?.accessToken));
@@ -2274,7 +2274,9 @@
       // Support both old favServer (name only) and new favVoice (has channelId)
       const fav1 = dCfg?.favVoice1 || null;
       const fav2 = dCfg?.favVoice2 || null;
-      const [voiceState, setVoiceState] = useState(null); // {channelId, channelName, muted}
+      // Restore last joined channel from config so green state survives restarts
+      const savedVoice = dCfg?.lastJoinedVoice || null;
+      const [voiceState, setVoiceState] = useState(savedVoice); // {channelId, channelName, muted}
       const [joiningId, setJoiningId] = useState('');
       const [voiceErr, setVoiceErr] = useState('');
       const [leaveConfirm, setLeaveConfirm] = useState(false);
@@ -2292,17 +2294,31 @@
         const r = await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
         setJoiningId('');
         if (r.error) { setVoiceErr(r.error); }
-        else { setVoiceState({ channelId: fav.channelId, channelName: fav.channelName, muted: false }); }
+        else {
+          const vs = { channelId: fav.channelId, channelName: fav.channelName, muted: false };
+          setVoiceState(vs);
+          // Persist so panel shows green on next restart
+          if (onConfigChange) {
+            const cfg2 = { ...config };
+            if (!cfg2.integrations.discord) cfg2.integrations.discord = {};
+            cfg2.integrations.discord.lastJoinedVoice = vs;
+            onConfigChange(cfg2);
+          }
+        }
       };
 
       const handleMute = () => {
         setVoiceState(s => s ? { ...s, muted: !s.muted } : null);
       };
 
-      const handleLeave = async () => {
+      const handleLeave = () => {
         setLeaveConfirm(false);
-        // Disconnect by selecting null channel — RPC doesn't have explicit leave, so try joining a different/empty state
         setVoiceState(null);
+        if (onConfigChange) {
+          const cfg2 = { ...config };
+          if (cfg2.integrations?.discord) cfg2.integrations.discord.lastJoinedVoice = null;
+          onConfigChange(cfg2);
+        }
       };
 
       const connected = voiceState !== null;
@@ -2346,13 +2362,13 @@
             h('button', {onClick:()=>setLeaveConfirm(false), style:{padding:'4px 12px',fontSize:'11px',fontFamily:'var(--font)',border:'1px solid var(--border)',borderRadius:'6px',background:'transparent',color:'var(--dim)',cursor:'pointer'}}, 'Stay')
           )
         ),
-        (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%'}},
-          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}},
+        (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px'}},
+          h('div', {style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}},
             h('div', {style:{fontSize:'10px',color:connected?'#50fa7b':'var(--dim)',letterSpacing:'1.5px'}}, connected ? '🔊 IN VOICE' : '🎙️ VOICE'),
             connected && h('button', {
               onClick: handleMute, title: muted ? 'Unmute' : 'Mute',
-              style:{background:muted?'rgba(255,85,85,0.15)':'transparent',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(255,255,255,0.15)'),borderRadius:'6px',color:muted?'#ff5555':'var(--dim)',cursor:'pointer',padding:'3px 8px',fontSize:'13px',fontFamily:'var(--font)'}
-            }, muted ? '🔇' : '🎙️')
+              style:{background:muted?'rgba(255,85,85,0.15)':'transparent',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(255,255,255,0.2)'),borderRadius:'6px',color:muted?'#ff5555':'var(--dim)',cursor:'pointer',padding:'3px 10px',fontSize:'13px',fontFamily:'var(--font)'}
+            }, muted ? '🔇 Muted' : '🎙️ Mute')
           ),
           h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center'}},
             voiceBtn(fav1), voiceBtn(fav2)
@@ -2388,7 +2404,7 @@
         case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
         case 'links': return wrap(key, h(LinksPanel, {key, config}));
         case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
-        case 'discord': return wrap(key, h(DiscordPanel, {key, config, openSettings}));
+        case 'discord': return wrap(key, h(DiscordPanel, {key, config, openSettings, onConfigChange: setConfig}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
