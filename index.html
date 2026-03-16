@@ -2244,8 +2244,6 @@
     function DiscordPanel({ config, openSettings, onConfigChange }) {
       const dCfg = config?.integrations?.discord;
       const configured = !!(dCfg?.clientId && dCfg?.clientSecret);
-      const hasBotToken = !!(dCfg?.botToken);  // must be before hooks
-
       // ── ALL hooks before any early returns (Rules of Hooks) ──
       const [authorized, setAuthorized] = useState(!!(dCfg?.accessToken));
       const [connecting, setConnecting] = useState(false);
@@ -2254,9 +2252,7 @@
       const [guildCount, setGuildCount] = useState(dCfg?.guildCount || 0);
       const [dmCount, setDmCount] = useState(0);
       const [notificationsLine, setNotificationsLine] = useState(null);
-      const [voiceState, setVoiceState] = useState(null);
       const [joiningId, setJoiningId] = useState('');
-      const [voiceErr, setVoiceErr] = useState('');
 
       useEffect(() => {
         if (dCfg?.user) setUser(dCfg.user);
@@ -2290,17 +2286,6 @@
         }
         poll(); const t = setInterval(poll, 300000); return () => clearInterval(t);
       }, [authorized]);
-
-      useEffect(() => {
-        if (!hasBotToken) return;
-        async function pollVoice() {
-          try {
-            const r = await window.orbit.discordCheckVoice();
-            if (r && !r.error) setVoiceState(r.inVoice ? r : null);
-          } catch {}
-        }
-        pollVoice(); const t = setInterval(pollVoice, 8000); return () => clearInterval(t);
-      }, [hasBotToken]);
 
       // ── Early returns (after all hooks) ──
       if (!configured) return h('div',{className:'panel panel-unconfigured'},
@@ -2336,43 +2321,23 @@
         : '@' + (user?.username || '');
       const fav1 = dCfg?.favVoice1 || null;
       const fav2 = dCfg?.favVoice2 || null;
+      const [leaveConfirm, setLeaveConfirm] = useState(false); // unused but kept for hook count stability
 
       const handleVoiceBtn = async (fav) => {
-        if (!fav?.channelId) { setVoiceErr('Configure voice channel in Settings first'); return; }
-        setVoiceErr('');
-        setLeaveConfirm(false);
+        if (!fav?.channelId) return;
         setJoiningId(fav.channelId);
-        // If bot token available AND user is in voice → move them instantly (no Discord focus)
-        if (hasBotToken && voiceState?.inVoice) {
-          const r = await window.orbit.discordMoveToVoice(fav.guildId, fav.channelId);
-          setJoiningId('');
-          if (r.error) setVoiceErr('Could not move: ' + r.error);
-          // Voice state updates on next 8s poll automatically
-        } else {
-          // Not in voice yet → deep link opens Discord at the channel, user clicks Join Voice once
-          const r = await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
-          setJoiningId('');
-          if (r.error) setVoiceErr(r.error);
-        }
+        await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
+        setJoiningId('');
       };
-
-      const connected = voiceState?.inVoice || false;
-      const currentChannelId = voiceState?.channelId || null;
-      const muted = voiceState?.muted || false;
-      const deafened = voiceState?.deafened || false;
 
       const voiceBtn = (fav) => {
         if (!fav) return null;
-        const isHere = connected && currentChannelId === fav.channelId;
         const isJoining = joiningId === fav.channelId;
-        const bg = isHere ? 'rgba(80,250,123,0.12)' : 'rgba(88,101,242,0.08)';
-        const border = isHere ? 'rgba(80,250,123,0.4)' : 'rgba(88,101,242,0.4)';
-        const color = isHere ? '#50fa7b' : '#5865F2';
-        const label = isJoining ? '⏳...' : (isHere ? '🔊 '+fav.channelName : '🎙️ '+(fav.channelName||fav.guildName||'Voice'));
-        const title = isHere ? 'Currently here' : (hasBotToken && connected ? 'Move to this channel' : 'Open in Discord → click Join Voice');
+        const label = isJoining ? '⏳ Opening...' : '🎙️ '+(fav.channelName||'Voice');
         return h('button', {
-          onClick: () => handleVoiceBtn(fav), title,
-          style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid '+border,borderRadius:'6px',background:bg,color,cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',transition:'all .2s'}
+          onClick: () => handleVoiceBtn(fav),
+          title: 'Open in Discord',
+          style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',transition:'all .2s'}
         }, label);
       };
 
@@ -2392,20 +2357,11 @@
           )
         ),
         notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
-        voiceErr && h('div', {style:{fontSize:'10px',color:'rgba(255,85,85,0.8)',marginBottom:'6px',textAlign:'center'}}, voiceErr),
-        (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',gap:'8px'}},
-          h('div', {style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}},
-            connected
-              ? h('div', {style:{fontSize:'10px',letterSpacing:'1.5px',color:'#50fa7b'}},
-                  '🔊 ' + (voiceState.channelName || 'IN VOICE') +
-                  (muted ? ' · 🔇' : '') + (deafened ? ' · 🔕' : ''))
-              : h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}},
-                  hasBotToken ? '🎙️ NOT IN VOICE' : '🎙️ QUICK JOIN')
-          ),
+        (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%',display:'flex',flexDirection:'column',alignItems:'center',gap:'6px'}},
+          h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}}, '🎙️ VOICE SHORTCUTS'),
           h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center'}},
             voiceBtn(fav1), voiceBtn(fav2)
-          ),
-          !hasBotToken && h('div', {style:{fontSize:'9px',color:'var(--dim)',textAlign:'center',opacity:0.6}}, 'Add bot token in Settings for real voice detection')
+          )
         ),
         h('button', {
           onClick:()=>window.orbit.openExternal('discord://'),
