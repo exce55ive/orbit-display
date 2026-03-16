@@ -13,6 +13,8 @@
 
 ---
 
+_Designed for the Corsair Xeneon Edge — should work on other displays._
+
 Orbit is a modular desktop dashboard for Windows, built for homelab users who are done Alt‑Tabbing between Sonarr, Home Assistant, Plex, and a dozen other browser tabs. You wire up your services once — media stack, home automation, RGB lighting, download queues, system stats — and Orbit keeps everything visible on a single screen of panels you arrange yourself.
 
 It runs locally. It talks directly to your LAN services. Config stays on your machine. No cloud, no account, no telemetry.
