@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('orbit', {
   discordGetVoiceState: () => ipcRenderer.invoke('discord-get-voice-state'),
   discordJoinVoice: (guildId) => ipcRenderer.invoke('discord-join-voice', guildId),
   signalrgbDetectPort: () => ipcRenderer.invoke('signalrgb-detect-port'),
+  discordGetVoiceChannels: (guildId) => ipcRenderer.invoke('discord-get-voice-channels', guildId),
 
   // Generic API proxy
   apiGet: (url, headers, timeout) => ipcRenderer.invoke('api-get', { url, headers, timeout }),

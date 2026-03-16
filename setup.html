@@ -360,25 +360,25 @@
                 ${testRow('discord')}
                 ${config.integrations.discord?.accessToken ? `
                   <div class="field-group">
-                    <div class="field-label">FAVOURITE SERVER 1</div>
+                    <div class="field-label">VOICE CHANNEL 1</div>
                     <div id="discord-fav1-display" style="display:flex;gap:6px;align-items:center;">
-                      ${config.integrations.discord?.favServer1 ? `
-                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favServer1.name||'')}</div>
+                      ${config.integrations.discord?.favVoice1 ? `
+                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favVoice1.channelName||'')} <span style="color:var(--dim);font-size:10px;">(${esc(config.integrations.discord.favVoice1.guildName||'')})</span></div>
                         <button onclick="clearDiscordFav(1)" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>
-                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(1)">🔍 Browse Servers</button>`}
+                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(1)">🎙️ Pick Voice Channel</button>`}
                     </div>
                   </div>
                   <div class="field-group">
-                    <div class="field-label">FAVOURITE SERVER 2</div>
+                    <div class="field-label">VOICE CHANNEL 2</div>
                     <div id="discord-fav2-display" style="display:flex;gap:6px;align-items:center;">
-                      ${config.integrations.discord?.favServer2 ? `
-                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favServer2.name||'')}</div>
+                      ${config.integrations.discord?.favVoice2 ? `
+                        <div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${esc(config.integrations.discord.favVoice2.channelName||'')} <span style="color:var(--dim);font-size:10px;">(${esc(config.integrations.discord.favVoice2.guildName||'')})</span></div>
                         <button onclick="clearDiscordFav(2)" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>
-                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(2)">🔍 Browse Servers</button>`}
+                      ` : `<button class="ha-browse-btn" onclick="browseDiscordServers(2)">🎙️ Pick Voice Channel</button>`}
                     </div>
                   </div>
-                  <div id="discord-guild-picker" style="display:none;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,0.3);margin-top:8px;"></div>
-                ` : `<div class="integration-hint" style="color:var(--accent);">Save Client ID/Secret first, then link Discord from the app panel to browse servers.</div>`}
+                  <div id="discord-guild-picker" style="display:none;max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:rgba(0,0,0,0.3);margin-top:8px;"></div>
+                ` : `<div class="integration-hint" style="color:var(--accent);">Link Discord first (via the Discord panel in the app), then return here to pick voice channels.</div>`}
               `)}
               ${integrationCard('homeassistant', 'Home Assistant', '🏠', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="ha-url" placeholder="http://homeassistant.local:8123" value="${esc(config.integrations.homeassistant.url)}" oninput="showHABrowseBtn()"></div>
@@ -779,13 +779,15 @@
 
     let _discordPickerSlot = null;
 
+    let _discordPickedGuild = null;
+
     async function browseDiscordServers(slot) {
       _discordPickerSlot = slot;
+      _discordPickedGuild = null;
       const picker = document.getElementById('discord-guild-picker');
       if (!picker) return;
       picker.style.display = 'block';
       picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Loading servers...</div>';
-      // Try saved guilds first, then refresh
       let guilds = config.integrations.discord?.guilds || [];
       if (!guilds.length) {
         const r = await window.orbit.discordRefreshGuilds();
@@ -794,33 +796,60 @@
         config.integrations.discord.guilds = guilds;
       }
       if (!guilds.length) { picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">No servers found.</div>'; return; }
-      picker.innerHTML = guilds.map((g, i) => `
-        <div onclick="selectDiscordServer(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
-          🎙️ ${g.name.replace(/</g,'&lt;')}
+      picker.innerHTML = '<div style="padding:6px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;">SELECT SERVER</div>' +
+        guilds.map((g, i) => `
+        <div onclick="selectDiscordGuildForVoice(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
+          🖥️ ${g.name.replace(/</g,'&lt;')}
         </div>`).join('');
     }
 
-    function selectDiscordServer(guildIndex) {
+    async function selectDiscordGuildForVoice(guildIndex) {
       const guild = (config.integrations.discord?.guilds || [])[guildIndex];
-      if (!guild || !_discordPickerSlot) return;
-      config.integrations.discord['favServer'+_discordPickerSlot] = { id: guild.id, name: guild.name };
-      window.orbit.saveConfig(config);
+      if (!guild) return;
+      _discordPickedGuild = guild;
       const picker = document.getElementById('discord-guild-picker');
+      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Fetching voice channels... (Discord must be running)</div>';
+      const r = await window.orbit.discordGetVoiceChannels(guild.id);
+      if (r.error) {
+        picker.innerHTML = '<div style="padding:12px;font-size:11px;color:#ff5555;">'+r.error+'</div>';
+        return;
+      }
+      if (!r.channels?.length) {
+        picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">No voice channels in that server.</div>';
+        return;
+      }
+      picker.innerHTML = '<div style="padding:6px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;">SELECT VOICE CHANNEL</div>' +
+        r.channels.map((ch, i) => `
+        <div onclick="selectDiscordVoiceChannel(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
+          🔊 ${ch.name.replace(/</g,'&lt;')}
+        </div>`).join('');
+      picker._channels = r.channels;
+    }
+
+    function selectDiscordVoiceChannel(channelIndex) {
+      const picker = document.getElementById('discord-guild-picker');
+      const channel = picker?._channels?.[channelIndex];
+      const guild = _discordPickedGuild;
+      if (!channel || !guild || !_discordPickerSlot) return;
+      const voiceObj = { guildId: guild.id, guildName: guild.name, channelId: channel.id, channelName: channel.name };
+      config.integrations.discord['favVoice'+_discordPickerSlot] = voiceObj;
+      window.orbit.saveConfig(config);
       if (picker) picker.style.display = 'none';
-      // Update display
       const displayEl = document.getElementById('discord-fav'+_discordPickerSlot+'-display');
       if (displayEl) {
-        displayEl.innerHTML = `<div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${guild.name.replace(/</g,'&lt;')}</div><button onclick="clearDiscordFav(${_discordPickerSlot})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>`;
+        displayEl.innerHTML = `<div style="flex:1;font-size:12px;color:var(--text);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">🎙️ ${channel.name.replace(/</g,'&lt;')} <span style="color:var(--dim);font-size:10px;">(${guild.name.replace(/</g,'&lt;')})</span></div><button onclick="clearDiscordFav(${_discordPickerSlot})" style="background:none;border:none;color:#ff5555;cursor:pointer;font-size:14px;">×</button>`;
       }
       _discordPickerSlot = null;
+      _discordPickedGuild = null;
     }
 
     function clearDiscordFav(slot) {
-      delete config.integrations.discord['favServer'+slot];
+      delete config.integrations.discord['favVoice'+slot];
+      delete config.integrations.discord['favServer'+slot]; // migrate old key too
       window.orbit.saveConfig(config);
       const displayEl = document.getElementById('discord-fav'+slot+'-display');
       if (displayEl) {
-        displayEl.innerHTML = `<button class="ha-browse-btn" onclick="browseDiscordServers(${slot})">🔍 Browse Servers</button>`;
+        displayEl.innerHTML = `<button class="ha-browse-btn" onclick="browseDiscordServers(${slot})">🎙️ Pick Voice Channel</button>`;
       }
       const picker = document.getElementById('discord-guild-picker');
       if (picker) picker.style.display = 'none';

@@ -923,10 +923,11 @@
         add('Sonarr', integrations.sonarr?.url);
         add('Radarr', integrations.radarr?.url);
         add('Overseerr', integrations.overseerr?.url);
-        // NZBGet requires Basic Auth — include credentials so the services check passes
+        // NZBGet requires Basic Auth — strip /jsonrpc path (HEAD/GET rejected there), use root URL
         if (integrations.nzbget?.url && integrations.nzbget?.username) {
           const auth = btoa(integrations.nzbget.username + ':' + (integrations.nzbget.password || ''));
-          add('NZBGet', integrations.nzbget.url, auth);
+          const nzbBase = integrations.nzbget.url.replace(/\/jsonrpc\/?$/i, '');
+          add('NZBGet', nzbBase, auth);
         }
         add('Jellyfin', integrations.jellyfin?.url);
         add('Tautulli', integrations.tautulli?.url);
@@ -2266,26 +2267,57 @@
       const handle = user?.discriminator && user.discriminator !== '0'
         ? user.username + '#' + user.discriminator
         : '@' + (user?.username || '');
-      const fav1 = dCfg?.favServer1;
-      const fav2 = dCfg?.favServer2;
-      const [muted, setMuted] = useState(false);
-      const [muteErr, setMuteErr] = useState('');
-      const [joiningVoice, setJoiningVoice] = useState('');
+      // Support both old favServer (name only) and new favVoice (has channelId)
+      const fav1 = dCfg?.favVoice1 || null;
+      const fav2 = dCfg?.favVoice2 || null;
+      const [voiceState, setVoiceState] = useState(null); // {channelId, channelName, muted}
+      const [joiningId, setJoiningId] = useState('');
+      const [voiceErr, setVoiceErr] = useState('');
+      const [leaveConfirm, setLeaveConfirm] = useState(false);
 
-      const handleMute = async () => {
-        setMuteErr('');
-        const r = await window.orbit.discordToggleMute();
-        if (r.error) { setMuteErr(r.error); return; }
-        setMuted(r.muted);
+      const handleVoiceBtn = async (fav) => {
+        if (!fav?.channelId) { setVoiceErr('Configure voice channel in Settings first'); return; }
+        // Already connected to this channel → confirm leave
+        if (voiceState?.channelId === fav.channelId) {
+          setLeaveConfirm(true);
+          return;
+        }
+        setVoiceErr('');
+        setLeaveConfirm(false);
+        setJoiningId(fav.channelId);
+        const r = await window.orbit.discordJoinVoice(fav.channelId);
+        setJoiningId('');
+        if (r.error) { setVoiceErr(r.error); }
+        else { setVoiceState({ channelId: fav.channelId, channelName: fav.channelName, muted: false }); }
       };
 
-      const handleJoinVoice = async (srv) => {
-        if (!srv?.id) return;
-        setJoiningVoice(srv.id);
-        const r = await window.orbit.discordJoinVoice(srv.id);
-        setJoiningVoice('');
-        if (r.error) { setMuteErr(r.error); }
-        // r.fallback = opened via deep link (no RPC), r.joined = connected via RPC
+      const handleMute = async () => {
+        const r = await window.orbit.discordToggleMute();
+        if (r.error) { setVoiceErr(r.error); return; }
+        setVoiceState(s => s ? { ...s, muted: r.muted } : null);
+      };
+
+      const handleLeave = async () => {
+        setLeaveConfirm(false);
+        // Disconnect by selecting null channel — RPC doesn't have explicit leave, so try joining a different/empty state
+        setVoiceState(null);
+      };
+
+      const connected = voiceState !== null;
+      const muted = voiceState?.muted || false;
+
+      const voiceBtn = (fav) => {
+        if (!fav) return null;
+        const isConnected = voiceState?.channelId === fav.channelId;
+        const isJoining = joiningId === fav.channelId;
+        const bg = isConnected ? (muted ? 'rgba(255,85,85,0.15)' : 'rgba(80,250,123,0.12)') : 'rgba(88,101,242,0.08)';
+        const border = isConnected ? (muted ? 'rgba(255,85,85,0.5)' : 'rgba(80,250,123,0.4)') : 'rgba(88,101,242,0.4)';
+        const color = isConnected ? (muted ? '#ff5555' : '#50fa7b') : '#5865F2';
+        const label = isJoining ? '⏳ Joining...' : (isConnected ? (muted ? '🔇 '+fav.channelName : '🔊 '+fav.channelName) : '🎙️ '+(fav.channelName||fav.guildName||'Voice'));
+        return h('button', {
+          onClick: () => handleVoiceBtn(fav),
+          style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid '+border,borderRadius:'6px',background:bg,color,cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',transition:'all .2s'}
+        }, label);
       };
 
       return h('div', {className:'panel'},
@@ -2304,24 +2336,24 @@
           )
         ),
         notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
-        muteErr && h('div', {style:{fontSize:'10px',color:'rgba(255,85,85,0.8)',marginBottom:'6px',textAlign:'center'}}, muteErr),
+        voiceErr && h('div', {style:{fontSize:'10px',color:'rgba(255,85,85,0.8)',marginBottom:'6px',textAlign:'center'}}, voiceErr),
+        leaveConfirm && h('div', {style:{marginBottom:'8px',textAlign:'center'}},
+          h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'6px'}}, 'Leave voice channel?'),
+          h('div', {style:{display:'flex',gap:'8px',justifyContent:'center'}},
+            h('button', {onClick:handleLeave, style:{padding:'4px 12px',fontSize:'11px',fontFamily:'var(--font)',border:'1px solid #ff5555',borderRadius:'6px',background:'rgba(255,85,85,0.1)',color:'#ff5555',cursor:'pointer'}}, 'Leave'),
+            h('button', {onClick:()=>setLeaveConfirm(false), style:{padding:'4px 12px',fontSize:'11px',fontFamily:'var(--font)',border:'1px solid var(--border)',borderRadius:'6px',background:'transparent',color:'var(--dim)',cursor:'pointer'}}, 'Stay')
+          )
+        ),
         (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%'}},
           h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}},
-            h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}}, '🎙️ VOICE'),
-            h('button', {
-              onClick: handleMute, title: muted ? 'Unmute mic' : 'Mute mic',
-              style:{background:muted?'rgba(255,85,85,0.15)':'rgba(88,101,242,0.08)',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(88,101,242,0.3)'),borderRadius:'6px',color:muted?'#ff5555':'#5865F2',cursor:'pointer',padding:'3px 8px',fontSize:'13px',fontFamily:'var(--font)'}
+            h('div', {style:{fontSize:'10px',color:connected?'#50fa7b':'var(--dim)',letterSpacing:'1.5px'}}, connected ? '🔊 IN VOICE' : '🎙️ VOICE'),
+            connected && h('button', {
+              onClick: handleMute, title: muted ? 'Unmute' : 'Mute',
+              style:{background:muted?'rgba(255,85,85,0.15)':'transparent',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(255,255,255,0.15)'),borderRadius:'6px',color:muted?'#ff5555':'var(--dim)',cursor:'pointer',padding:'3px 8px',fontSize:'13px',fontFamily:'var(--font)'}
             }, muted ? '🔇' : '🎙️')
           ),
           h('div', {style:{display:'flex',flexWrap:'wrap',gap:'6px',justifyContent:'center'}},
-            fav1 && h('button', {
-              onClick: () => handleJoinVoice(fav1),
-              style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav1.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
-            }, joiningVoice===fav1.id ? '⏳ Joining...' : ('🎙️ '+(fav1.name||fav1))),
-            fav2 && h('button', {
-              onClick: () => handleJoinVoice(fav2),
-              style:{padding:'5px 14px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav2.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',maxWidth:'160px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
-            }, joiningVoice===fav2.id ? '⏳ Joining...' : ('🎙️ '+(fav2.name||fav2)))
+            voiceBtn(fav1), voiceBtn(fav2)
           )
         ),
         h('button', {

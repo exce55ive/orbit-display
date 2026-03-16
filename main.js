@@ -199,13 +199,7 @@ app.on('open-url', (_e, url) => {
 });
 
 app.whenReady().then(() => {
-  // Proactively connect Discord RPC if Discord is configured
-  setTimeout(() => {
-    const cfg = loadOrbitConfig();
-    if (cfg?.integrations?.discord?.clientId && cfg?.integrations?.discord?.accessToken) {
-      connectDiscordRPC().catch(() => {});
-    }
-  }, 4000);
+  // Discord RPC connects on-demand (not proactively) to avoid surprise auth prompts
   const orbitCfg = migrateOrbitConfig(loadOrbitConfig());
   const hasConfig = orbitCfg && orbitCfg.pages && orbitCfg.pages.length > 0;
 
@@ -984,21 +978,23 @@ ipcMain.handle('discord-get-voice-state', async () => {
   } catch (e) { return { error: e.message }; }
 });
 
-ipcMain.handle('discord-join-voice', async (_e, guildId) => {
+// Get voice channels for a guild (used during setup to let user pick a channel)
+ipcMain.handle('discord-get-voice-channels', async (_e, guildId) => {
   try {
     const rpc = await getDiscordRPC();
-    if (!rpc) return { error: 'Discord RPC not available — is Discord running?' };
-    // Get voice channels for this guild
-    let channels;
-    try { channels = await rpc.getChannels(guildId); } catch (e) { return { error: 'Could not fetch channels: ' + e.message }; }
-    const voiceChannels = (channels?.channels || []).filter(c => c.type === 2); // 2 = GUILD_VOICE
-    if (!voiceChannels.length) return { error: 'No voice channels found in that server' };
-    // Prefer channel user is already in (within this guild), otherwise first voice channel
-    let current = null;
-    try { current = await rpc.getSelectedVoiceChannel(); } catch {}
-    const target = (current && current.guild_id === guildId) ? current : voiceChannels[0];
-    await rpc.selectVoiceChannel(target.id, { timeout: 5000, force: true });
-    return { joined: target.name };
+    if (!rpc) return { error: 'Discord must be running to fetch voice channels' };
+    const channels = await rpc.getChannels(guildId);
+    const voiceChannels = (channels?.channels || []).filter(c => c.type === 2);
+    return { channels: voiceChannels.map(c => ({ id: c.id, name: c.name })) };
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('discord-join-voice', async (_e, channelId) => {
+  try {
+    const rpc = await getDiscordRPC();
+    if (!rpc) return { error: 'Discord must be running to join voice' };
+    await rpc.selectVoiceChannel(channelId, { timeout: 5000, force: true });
+    return { joined: true };
   } catch (e) { return { error: e.message }; }
 });
 
