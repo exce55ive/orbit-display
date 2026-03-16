@@ -1087,6 +1087,25 @@ ipcMain.handle('discord-refresh-guilds', async () => {
   } catch (e) { return { error: e.message }; }
 });
 
+// ─── IPC: DISCORD GET CONNECTIONS ─────────────────────────────────────────────
+ipcMain.handle('discord-get-connections', async () => {
+  const cfg = loadOrbitConfig();
+  const token = cfg?.integrations?.discord?.accessToken;
+  if (!token) return { error: 'Not connected' };
+  // Return cached if available
+  if (cfg.integrations.discord.connections) return { connections: cfg.integrations.discord.connections };
+  try {
+    const fetch = await getFetch();
+    const res = await fetch('https://discord.com/api/users/@me/connections', { headers: { Authorization: 'Bearer ' + token } });
+    const raw = await res.json();
+    if (!Array.isArray(raw)) return { error: raw.message || 'Failed' };
+    const connections = raw.map(c => ({ type: c.type, name: c.name, verified: c.verified }));
+    cfg.integrations.discord.connections = connections;
+    saveOrbitConfig(cfg);
+    return { connections };
+  } catch (e) { return { error: e.message }; }
+});
+
 // ─── IPC: DISCORD OAUTH ────────────────────────────────────────────────────
 ipcMain.handle('discord-auth-start', async () => {
   const cfg = loadOrbitConfig();
@@ -1097,7 +1116,7 @@ ipcMain.handle('discord-auth-start', async () => {
   const http = require('http');
   const { shell } = require('electron');
   const redirectUri = 'http://127.0.0.1:8893/callback';
-  const scope = 'identify guilds';
+  const scope = 'identify guilds connections';
   const authUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
   return new Promise((resolve) => {
@@ -1124,12 +1143,15 @@ ipcMain.handle('discord-auth-start', async () => {
         const tokens = await r.json();
         if (tokens.access_token) {
           // Fetch user info and guilds
-          const [userRes, guildsRes] = await Promise.all([
+          const [userRes, guildsRes, connRes] = await Promise.all([
             fetch('https://discord.com/api/users/@me', { headers: { Authorization: 'Bearer ' + tokens.access_token } }),
-            fetch('https://discord.com/api/users/@me/guilds', { headers: { Authorization: 'Bearer ' + tokens.access_token } })
+            fetch('https://discord.com/api/users/@me/guilds', { headers: { Authorization: 'Bearer ' + tokens.access_token } }),
+            fetch('https://discord.com/api/users/@me/connections', { headers: { Authorization: 'Bearer ' + tokens.access_token } })
           ]);
           const user = await userRes.json();
           const guilds = await guildsRes.json();
+          const connectionsRaw = await connRes.json();
+          const connections = Array.isArray(connectionsRaw) ? connectionsRaw.map(c => ({ type: c.type, name: c.name, verified: c.verified })) : [];
 
           const currentCfg = loadOrbitConfig();
           if (!currentCfg.integrations.discord) currentCfg.integrations.discord = {};
@@ -1139,8 +1161,9 @@ ipcMain.handle('discord-auth-start', async () => {
           currentCfg.integrations.discord.user = user;
           currentCfg.integrations.discord.guildCount = Array.isArray(guilds) ? guilds.length : 0;
           currentCfg.integrations.discord.guilds = Array.isArray(guilds) ? guilds.map(g => ({ id: g.id, name: g.name, icon: g.icon })) : [];
+          currentCfg.integrations.discord.connections = connections;
           saveOrbitConfig(currentCfg);
-          resolve({ ok: true, user, guildCount: Array.isArray(guilds) ? guilds.length : 0, guilds: currentCfg.integrations.discord.guilds });
+          resolve({ ok: true, user, guildCount: Array.isArray(guilds) ? guilds.length : 0, guilds: currentCfg.integrations.discord.guilds, connections });
         } else {
           resolve({ error: tokens.error_description || 'Token exchange failed' });
         }
