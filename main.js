@@ -9,7 +9,7 @@ const log = require('electron-log');
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
 autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.autoInstallOnAppQuit = false;
 
 const isDev = !app.isPackaged;
 
@@ -167,6 +167,7 @@ function launchMain(displayId) {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -196,6 +197,7 @@ function showPicker() {
     backgroundColor: '#060a10',
     webPreferences: {
       nodeIntegration: false, contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js')
     }
   });
@@ -232,7 +234,8 @@ app.whenReady().then(() => {
       backgroundColor: '#0a0a0f',
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
-        contextIsolation: true, nodeIntegration: false
+        contextIsolation: true, nodeIntegration: false,
+        sandbox: true
       }
     });
     setupWin.loadFile('setup.html');
@@ -310,7 +313,8 @@ ipcMain.handle('open-setup', async () => {
     alwaysOnTop: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true, nodeIntegration: false
+      contextIsolation: true, nodeIntegration: false,
+      sandbox: true
     }
   });
   setupWin.loadFile('setup.html');
@@ -331,6 +335,7 @@ ipcMain.handle('open-about', async () => {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload-about.js')
     }
   });
@@ -424,21 +429,23 @@ ipcMain.handle('api-get', async (_e, { url, headers, timeout }) => {
   return safeFetch(url, { headers: headers || {}, timeout: timeout || 8000 });
 });
 
-ipcMain.handle('api-post', async (_e, { url, body, headers }) => {
+ipcMain.handle('api-post', async (_e, { url, body, headers, timeout }) => {
   if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
   return safeFetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-    body: typeof body === 'string' ? body : JSON.stringify(body)
+    body: typeof body === 'string' ? body : JSON.stringify(body),
+    timeout: timeout || 8000
   });
 });
 
-ipcMain.handle('api-put', async (_e, { url, body, headers }) => {
+ipcMain.handle('api-put', async (_e, { url, body, headers, timeout }) => {
   if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
   return safeFetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-    body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
+    body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+    timeout: timeout || 8000
   });
 });
 
