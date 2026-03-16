@@ -131,7 +131,7 @@ The setup wizard, settings panel, and about screen are each their own `BrowserWi
 Edit the UI directly — save the file, restart the app, see the change.
 
 > For the full technical breakdown, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-> To add a panel or contribute, see [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md).
+> To add a panel, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the panel lifecycle and `window.orbit` API.
 
 ---
 
@@ -162,7 +162,7 @@ orbit/
 ├── package.json
 └── docs/
     ├── ARCHITECTURE.md
-    └── CONTRIBUTING.md
+    └── ARCHITECTURE.md
 ```
 
 ---
