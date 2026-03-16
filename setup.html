@@ -242,7 +242,7 @@
       return `
         <div class="integration-card${enabled ? ' enabled' : ''}" id="card-${id}">
           <label class="integration-toggle">
-            <input type="checkbox" data-integration="${id}"${enabled ? ' checked' : ''}>
+            <input type="checkbox" data-integration="${id}"${enabled ? ' checked' : ''} onchange="document.getElementById('${id}-fields').classList.toggle('visible',this.checked)">
             <div class="integration-title"><span class="emoji">${emoji}</span> ${title}</div>
           </label>
           <div class="integration-fields${enabled ? ' visible' : ''}" id="${id}-fields">
@@ -337,10 +337,16 @@
               
                 ${testRow('jellyfin')}
               `)}
-              ${integrationCard('links', 'Quick Links', '🔗', `
-                <div id="links-list"></div>
-                <button onclick="addLink()" style="margin-top:4px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">+ Add Link</button>
-              `)}
+              <div class="integration-card enabled" id="card-links">
+                <label class="integration-toggle" style="pointer-events:none;opacity:0.6;">
+                  <span class="emoji">🔗</span>
+                  <div class="integration-title">Quick Links</div>
+                </label>
+                <div class="integration-fields visible" id="links-fields">
+                  <div id="links-list"></div>
+                  <button onclick="addLink()" style="margin-top:4px;padding:6px 14px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.3);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:12px;">+ Add Link</button>
+                </div>
+              </div>
               ${integrationCard('services', 'Services', '📡', `
                 <div class="integration-hint">The Services panel pings all configured integration URLs automatically. Add custom services below.</div>
                 <div id="custom-services-list">${(config.customServices||[]).map((s,i)=>`
