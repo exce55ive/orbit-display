@@ -2552,7 +2552,14 @@
             setConfig(DEFAULT_CONFIG);
           }
         });
-        // config-updated listener removed (settings window removed)
+        // Listen for config updates from settings window
+        const unsub = window.orbit.onConfigUpdated(cfg => {
+          if (cfg) {
+            setConfig(cfg);
+            if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor);
+          }
+        });
+        return unsub;
       }, []);
 
       const pages = config?.pages || DEFAULT_CONFIG.pages;
