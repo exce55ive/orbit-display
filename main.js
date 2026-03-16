@@ -704,15 +704,31 @@ ipcMain.handle('check-services', async (_e, services) => {
   const fetch = await getFetch();
   const results = await Promise.all(services.map(async ({ name, url }) => {
     const start = Date.now();
-    try {
+    // Try HEAD first; fall back to GET if HEAD is not supported (connection reset)
+    async function tryFetch(method) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(url, { method: 'HEAD', signal: controller.signal, redirect: 'manual' });
-      clearTimeout(timer);
+      try {
+        const res = await fetch(url, { method, signal: controller.signal, redirect: 'manual' });
+        clearTimeout(timer);
+        return { ok: true, status: res.status };
+      } catch (e) {
+        clearTimeout(timer);
+        return { ok: false, error: e.message, reset: e.message && (e.message.includes('reset') || e.message.includes('ECONNRESET')) };
+      }
+    }
+    try {
+      let result = await tryFetch('HEAD');
+      // HEAD not supported (connection reset) → try GET
+      if (!result.ok && result.reset) {
+        result = await tryFetch('GET');
+        // GET connection reset also means service is alive but rejecting method
+        if (!result.ok && result.reset) return { name, url, status: 'up', ms: Date.now() - start, code: 'RST' };
+      }
+      if (!result.ok) return { name, url, status: 'down', ms: Date.now() - start, error: result.error };
       const ms = Date.now() - start;
-      // 2xx, 3xx, and 401/403 all count as "up" (service is responding)
-      const up = res.status < 500;
-      return { name, url, status: up ? 'up' : 'down', ms, code: res.status };
+      const up = result.status < 500;
+      return { name, url, status: up ? 'up' : 'down', ms, code: result.status };
     } catch (e) {
       return { name, url, status: 'down', ms: Date.now() - start, error: e.message };
     }
