@@ -846,8 +846,12 @@
       await window.orbit.setupComplete();
     }
 
-    renderProgress();
-    renderStep();
+    try {
+      renderProgress();
+      renderStep();
+    } catch(e) {
+      document.getElementById('step-container').innerHTML = '<div style="color:#ff5555;padding:24px;font-size:12px;font-family:monospace;">RENDER ERROR: ' + e.message + '<br><pre>' + (e.stack||'') + '</pre></div>';
+    }
 
     // ─── HA Entity Browser ───────────────────────────────────────────────────
 
