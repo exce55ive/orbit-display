@@ -419,9 +419,12 @@ ipcMain.handle('fetch-signalrgb', async () => {
     safeFetch(`${base}/api/v1/lighting/effects`).catch(() => ({ data: [] }))
   ]);
   // Merge effects list into state response
+  // SignalRGB effects endpoint returns { data: { items: [{id:'Matrix.html', type:...}] } }
   if (state && state.data) {
-    const rawEffects = effectsList?.data || [];
-    const names = rawEffects.map(e => typeof e === 'string' ? e : (e.name || e.id || String(e)));
+    const rawEffects = effectsList?.data?.items || effectsList?.data || [];
+    const names = Array.isArray(rawEffects)
+      ? rawEffects.map(e => typeof e === 'string' ? e : ((e.id || e.name || String(e)).replace(/\.html$/i, '')))
+      : [];
     if (names.length > 0) state.data.effects = names;
   }
   return state;
