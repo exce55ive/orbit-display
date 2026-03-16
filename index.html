@@ -2289,16 +2289,14 @@
         setVoiceErr('');
         setLeaveConfirm(false);
         setJoiningId(fav.channelId);
-        const r = await window.orbit.discordJoinVoice(fav.channelId);
+        const r = await window.orbit.discordJoinVoice(fav.channelId, fav.guildId);
         setJoiningId('');
         if (r.error) { setVoiceErr(r.error); }
         else { setVoiceState({ channelId: fav.channelId, channelName: fav.channelName, muted: false }); }
       };
 
-      const handleMute = async () => {
-        const r = await window.orbit.discordToggleMute();
-        if (r.error) { setVoiceErr(r.error); return; }
-        setVoiceState(s => s ? { ...s, muted: r.muted } : null);
+      const handleMute = () => {
+        setVoiceState(s => s ? { ...s, muted: !s.muted } : null);
       };
 
       const handleLeave = async () => {

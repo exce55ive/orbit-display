@@ -34,7 +34,7 @@ contextBridge.exposeInMainWorld('orbit', {
   testIntegration: (opts) => ipcRenderer.invoke('test-integration', opts),
   discordToggleMute: () => ipcRenderer.invoke('discord-toggle-mute'),
   discordGetVoiceState: () => ipcRenderer.invoke('discord-get-voice-state'),
-  discordJoinVoice: (guildId) => ipcRenderer.invoke('discord-join-voice', guildId),
+  discordJoinVoice: (channelId, guildId) => ipcRenderer.invoke('discord-join-voice', channelId, guildId),
   signalrgbDetectPort: () => ipcRenderer.invoke('signalrgb-detect-port'),
   discordGetVoiceChannels: (guildId) => ipcRenderer.invoke('discord-get-voice-channels', guildId),
 

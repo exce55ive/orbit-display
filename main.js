@@ -991,11 +991,15 @@ ipcMain.handle('discord-get-voice-channels', async (_e, guildId) => {
   } catch (e) { return { error: 'getChannels failed: ' + e.message }; }
 });
 
-ipcMain.handle('discord-join-voice', async (_e, channelId) => {
+ipcMain.handle('discord-join-voice', async (_e, channelId, guildId) => {
   try {
-    const rpc = await getDiscordRPC();
-    if (!rpc) return { error: 'Discord must be running to join voice' };
-    await rpc.selectVoiceChannel(channelId, { timeout: 5000, force: true });
+    const { shell } = require('electron');
+    // Deep link opens Discord directly at the voice channel — user clicks Join Voice once
+    if (guildId && channelId) {
+      await shell.openExternal(`discord://discord.com/channels/${guildId}/${channelId}`);
+    } else if (channelId) {
+      await shell.openExternal(`discord://discord.com/channels/${channelId}`);
+    }
     return { joined: true };
   } catch (e) { return { error: e.message }; }
 });
