@@ -4,3 +4,4 @@ dist2/
 *.tar.gz
 *.log
 config.local.json
+dist-new/
