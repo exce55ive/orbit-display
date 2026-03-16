@@ -766,6 +766,82 @@ ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
   } catch (e) { return { error: e.message }; }
 });
 
+
+// ─── DISCORD RPC (voice mute / voice channel connect) ─────────────────────────
+let _rpcClient = null;
+let _rpcMuted = false;
+let _rpcConnecting = false;
+
+async function getDiscordRPC() {
+  if (_rpcClient) return _rpcClient;
+  if (_rpcConnecting) return null;
+  const cfg = loadOrbitConfig();
+  const clientId = cfg?.integrations?.discord?.clientId;
+  if (!clientId) return null;
+  _rpcConnecting = true;
+  try {
+    const DiscordRPC = require('discord-rpc');
+    DiscordRPC.register(clientId);
+    const client = new DiscordRPC.Client({ transport: 'ipc' });
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('RPC connect timeout')), 5000);
+      client.on('ready', () => { clearTimeout(t); resolve(); });
+      client.login({ clientId, scopes: ['rpc', 'rpc.voice.read', 'rpc.voice.write'] }).catch(reject);
+    });
+    _rpcClient = client;
+    client.on('disconnected', () => { _rpcClient = null; _rpcConnecting = false; });
+    return client;
+  } catch (e) {
+    _rpcClient = null;
+    return null;
+  } finally {
+    _rpcConnecting = false;
+  }
+}
+
+ipcMain.handle('discord-toggle-mute', async () => {
+  try {
+    const rpc = await getDiscordRPC();
+    if (!rpc) return { error: 'Discord RPC not available — is Discord running?' };
+    const settings = await rpc.getVoiceSettings();
+    const newMute = !settings.mute;
+    await rpc.setVoiceSettings({ mute: newMute });
+    _rpcMuted = newMute;
+    return { muted: newMute };
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('discord-get-voice-state', async () => {
+  try {
+    const rpc = await getDiscordRPC();
+    if (!rpc) return { error: 'Discord RPC not available' };
+    const settings = await rpc.getVoiceSettings();
+    const channel = await rpc.getSelectedVoiceChannel();
+    return { muted: settings.mute, deafened: settings.deaf, channel: channel ? { id: channel.id, name: channel.name, guildId: channel.guild_id } : null };
+  } catch (e) { return { error: e.message }; }
+});
+
+ipcMain.handle('discord-join-voice', async (_e, guildId) => {
+  try {
+    const rpc = await getDiscordRPC();
+    if (!rpc) {
+      // Fallback: open Discord to the guild via deep link
+      const { shell } = require('electron');
+      shell.openExternal(`discord://discord.com/channels/${guildId}`);
+      return { fallback: true };
+    }
+    // Get voice channels for this guild
+    const channels = await rpc.getChannels(guildId);
+    const voiceChannels = (channels?.channels || []).filter(c => c.type === 2); // 2 = GUILD_VOICE
+    if (!voiceChannels.length) return { error: 'No voice channels found in that server' };
+    // Join the first one (or the one user is already in if any)
+    const current = await rpc.getSelectedVoiceChannel();
+    const target = (current && current.guild_id === guildId) ? current : voiceChannels[0];
+    await rpc.selectVoiceChannel(target.id);
+    return { joined: target.name };
+  } catch (e) { return { error: e.message }; }
+});
+
 // ─── IPC: DISCORD REFRESH GUILDS ──────────────────────────────────────────────
 ipcMain.handle('discord-refresh-guilds', async () => {
   const cfg = loadOrbitConfig();

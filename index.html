@@ -2154,6 +2154,24 @@
       const fav1 = dCfg?.favServer1;
       const fav2 = dCfg?.favServer2;
       const [muted, setMuted] = useState(false);
+      const [muteErr, setMuteErr] = useState('');
+      const [joiningVoice, setJoiningVoice] = useState('');
+
+      const handleMute = async () => {
+        setMuteErr('');
+        const r = await window.orbit.discordToggleMute();
+        if (r.error) { setMuteErr(r.error); return; }
+        setMuted(r.muted);
+      };
+
+      const handleJoinVoice = async (srv) => {
+        if (!srv?.id) return;
+        setJoiningVoice(srv.id);
+        const r = await window.orbit.discordJoinVoice(srv.id);
+        setJoiningVoice('');
+        if (r.error) { setMuteErr(r.error); }
+        // r.fallback = opened via deep link (no RPC), r.joined = connected via RPC
+      };
 
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'DISCORD ', h('button',{className:'panel-cog-btn',onClick:()=>openSettingsAt('settings-discord')},'⚙')),
@@ -2171,23 +2189,24 @@
           )
         ),
         notificationsLine && h('div', {style:{fontSize:'12px',color:'var(--amber)',marginBottom:'10px',letterSpacing:'0.5px'}}, notificationsLine),
+        muteErr && h('div', {style:{fontSize:'10px',color:'rgba(255,85,85,0.8)',marginBottom:'6px',textAlign:'center'}}, muteErr),
         (fav1 || fav2) && h('div', {style:{marginBottom:'12px',width:'100%'}},
           h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'6px'}},
             h('div', {style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1.5px'}}, '🎙️ VOICE'),
             h('button', {
-              onClick:()=>setMuted(m=>!m), title: muted ? 'Unmute' : 'Mute',
+              onClick: handleMute, title: muted ? 'Unmute mic' : 'Mute mic',
               style:{background:muted?'rgba(255,85,85,0.15)':'rgba(88,101,242,0.08)',border:'1px solid '+(muted?'rgba(255,85,85,0.5)':'rgba(88,101,242,0.3)'),borderRadius:'6px',color:muted?'#ff5555':'#5865F2',cursor:'pointer',padding:'3px 8px',fontSize:'13px',fontFamily:'var(--font)'}
             }, muted ? '🔇' : '🎙️')
           ),
           h('div', {style:{display:'flex',flexDirection:'column',gap:'4px',width:'100%'}},
             fav1 && h('button', {
-              onClick:()=>window.orbit.openExternal(fav1.id ? 'discord://discord.com/channels/'+fav1.id : 'discord://'),
-              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:muted?0.5:1}
-            }, '🎙️ '+(fav1.name||fav1)),
+              onClick: () => handleJoinVoice(fav1),
+              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav1.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
+            }, joiningVoice===fav1.id ? '⏳ Joining...' : ('🎙️ '+(fav1.name||fav1))),
             fav2 && h('button', {
-              onClick:()=>window.orbit.openExternal(fav2.id ? 'discord://discord.com/channels/'+fav2.id : 'discord://'),
-              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',opacity:muted?0.5:1}
-            }, '🎙️ '+(fav2.name||fav2))
+              onClick: () => handleJoinVoice(fav2),
+              style:{padding:'5px 12px',fontSize:'11px',fontWeight:'600',fontFamily:'var(--font)',border:'1px solid rgba(88,101,242,0.4)',borderRadius:'6px',background:joiningVoice===fav2.id?'rgba(88,101,242,0.2)':'rgba(88,101,242,0.08)',color:'#5865F2',cursor:'pointer',width:'100%',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}
+            }, joiningVoice===fav2.id ? '⏳ Joining...' : ('🎙️ '+(fav2.name||fav2)))
           )
         ),
         h('button', {
