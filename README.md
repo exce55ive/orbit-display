@@ -23,9 +23,23 @@ It runs locally. It talks directly to your LAN services. Config stays on your ma
 
 <div align="center">
 
-![Orbit Dashboard](docs/screenshot.png)
+![Orbit Dashboard](docs/screenshots/dashboard.png)
 
-*Replace `docs/screenshot.png` with an actual screenshot before public release.*
+<details>
+<summary>More screenshots</summary>
+
+<br>
+
+**Boot sequence**
+![Boot](docs/screenshots/boot.png)
+
+**Setup wizard — Welcome**
+![Setup Welcome](docs/screenshots/setup-welcome.png)
+
+**Setup wizard — Pages**
+![Setup Pages](docs/screenshots/setup-pages.png)
+
+</details>
 
 </div>
 
