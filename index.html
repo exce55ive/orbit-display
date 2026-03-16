@@ -566,7 +566,7 @@
     }
 
     // ═══ LIGHTS PANEL ═══
-    function LightsPanel({ config }) {
+    function LightsPanel({ config, onConfigChange }) {
       const { isOn: signalActive } = useContext(SignalRGBContext);
       const [lights, setLights] = useState({});
       // Normalize: handle both old string[] and new {entityId,name}[] formats
@@ -598,16 +598,23 @@
       };
       const [editingEid, setEditingEid] = useState(null);
       const [editValue, setEditValue] = useState('');
+      // Local entity name overrides — updates immediately on save without waiting for config re-render
+      const [localNames, setLocalNames] = useState({});
 
       const saveEntityName = (eid, newName) => {
+        const trimmed = newName.trim();
+        // Update local state immediately for instant UI feedback
+        setLocalNames(prev => ({ ...prev, [eid]: trimmed }));
+        setEditingEid(null);
+        // Persist to config
         const cfg = JSON.parse(JSON.stringify(config));
         const entities = cfg?.integrations?.homeassistant?.entities || [];
         const idx = entities.findIndex(e => (typeof e === 'string' ? e : e.entityId) === eid);
         if (idx >= 0) {
-          cfg.integrations.homeassistant.entities[idx] = { entityId: eid, name: newName.trim() };
+          cfg.integrations.homeassistant.entities[idx] = { entityId: eid, name: trimmed };
         }
         window.orbit.saveConfig(cfg);
-        setEditingEid(null);
+        if (onConfigChange) onConfigChange(cfg);
       };
 
       if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
@@ -616,7 +623,7 @@
         lightEntities.map(({entityId:eid, name:customName}) => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
           const haName = st?.attributes?.friendly_name || eid.replace('light.','').replace(/_/g,' ');
-          const displayName = customName || haName;
+          const displayName = localNames[eid] !== undefined ? localNames[eid] : (customName || haName);
           const isEditing = editingEid === eid;
           return h('div', {key:eid, className:'light-card', style:signalActive?{opacity:0.7}:{}},
             signalActive && h('div', {className:'light-signalrgb-badge', title:'Controlled by SignalRGB'}, '⚡ SignalRGB active'),
@@ -636,7 +643,7 @@
                   )
                 : h('div', {className:'light-name', style:{display:'flex',alignItems:'center',gap:'4px',flex:1}},
                     h('span', null, displayName),
-                    customName && h('span', {title:'Custom name (click ✏️ to edit)', style:{fontSize:'9px',color:'rgba(0,217,255,0.5)',letterSpacing:'1px'}}, '✦'),
+                    (localNames[eid] !== undefined ? localNames[eid] : customName) && h('span', {title:'Custom name (click ✏️ to edit)', style:{fontSize:'9px',color:'rgba(0,217,255,0.5)',letterSpacing:'1px'}}, '✦'),
                     h('button', {
                       onClick:()=>{setEditingEid(eid);setEditValue(customName||haName);},
                       title:'Rename entity',
@@ -2289,13 +2296,13 @@
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key }, child);
     }
-    function renderPanel(panelCfg, config, openSettings) {
+    function renderPanel(panelCfg, config, openSettings, setConfig) {
       const type = panelCfg.type;
       const key = type + '-' + (panelCfg.col || 0);
       switch (type) {
         case 'clock': return wrap(key, h(ClockPanel, {key, config}));
         case 'signalrgb': return null; // Rendered specially in App for context
-        case 'lights': return wrap(key, h(LightsPanel, {key, config}));
+        case 'lights': return wrap(key, h(LightsPanel, {key, config, onConfigChange: setConfig}));
         case 'nowplaying': return wrap(key, h(NowPlayingPanel, {key, config}));
         case 'system': return wrap(key, h(SystemPanel, {key, config}));
         case 'media': return wrap(key, h(MediaPanel, {key, config, openSettings}));
@@ -2483,7 +2490,7 @@
           if (panelCfg.type === 'signalrgb') {
             renderedPanels.push(h(SignalRGBPanel, {key:'signalrgb-'+col, config, onSignalChange: setSignalIsOn}));
           } else {
-            renderedPanels.push(renderPanel(panelCfg, config, openSettings));
+            renderedPanels.push(renderPanel(panelCfg, config, openSettings, setConfig));
           }
         } else {
           renderedPanels.push(h('div', {key:'empty-'+col, className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+')));
