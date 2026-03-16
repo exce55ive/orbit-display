@@ -808,22 +808,38 @@
       if (!guild) return;
       _discordPickedGuild = guild;
       const picker = document.getElementById('discord-guild-picker');
-      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Connecting to Discord RPC...<br><span style="font-size:10px;color:#5865F2;">Check Discord for an authorization popup and click Authorize</span></div>';
+      picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">Fetching voice channels...<br><span style="font-size:10px;color:#5865F2;">Check Discord for an authorization popup → click Authorize</span></div>';
       const r = await window.orbit.discordGetVoiceChannels(guild.id);
-      if (r.error) {
-        picker.innerHTML = '<div style="padding:12px;font-size:11px;color:#ff5555;">'+r.error+'</div>';
-        return;
+      if (!r.error && r.channels?.length) {
+        picker.innerHTML = '<div style="padding:6px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;">SELECT VOICE CHANNEL</div>' +
+          r.channels.map((ch, i) => `
+          <div onclick="selectDiscordVoiceChannel(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
+            🔊 ${ch.name.replace(/</g,'&lt;')}
+          </div>`).join('');
+        picker._channels = r.channels;
+      } else {
+        // RPC fallback — manual channel ID entry
+        picker.innerHTML = `
+          <div style="padding:10px 12px;">
+            <div style="font-size:11px;color:var(--amber);margin-bottom:8px;">${r.error || 'No channels found'}</div>
+            <div style="font-size:10px;color:var(--dim);margin-bottom:8px;">Enter voice channel ID manually:<br>In Discord: Settings → Advanced → Enable Developer Mode, then right-click a voice channel → Copy Channel ID</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="discord-manual-ch-id" class="field-input" placeholder="Channel ID (e.g. 1234567890)" style="flex:1;font-size:12px;padding:6px 10px;">
+              <input id="discord-manual-ch-name" class="field-input" placeholder="Name (e.g. General)" style="flex:1;font-size:12px;padding:6px 10px;">
+            </div>
+            <button onclick="selectDiscordManualChannel()" style="margin-top:8px;padding:5px 14px;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.4);border-radius:6px;color:#5865F2;cursor:pointer;font-family:inherit;font-size:11px;width:100%;">✓ Use This Channel</button>
+          </div>`;
       }
-      if (!r.channels?.length) {
-        picker.innerHTML = '<div style="padding:12px;font-size:11px;color:var(--dim);text-align:center;">No voice channels in that server.</div>';
-        return;
-      }
-      picker.innerHTML = '<div style="padding:6px 12px;font-size:10px;color:var(--dim);letter-spacing:1px;">SELECT VOICE CHANNEL</div>' +
-        r.channels.map((ch, i) => `
-        <div onclick="selectDiscordVoiceChannel(${i})" style="padding:8px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);" onmouseover="this.style.background='rgba(88,101,242,0.1)'" onmouseout="this.style.background=''">
-          🔊 ${ch.name.replace(/</g,'&lt;')}
-        </div>`).join('');
-      picker._channels = r.channels;
+    }
+
+    function selectDiscordManualChannel() {
+      const chId = document.getElementById('discord-manual-ch-id')?.value.trim();
+      const chName = document.getElementById('discord-manual-ch-name')?.value.trim() || 'Voice';
+      if (!chId) return;
+      const fakeChannel = { id: chId, name: chName };
+      const picker = document.getElementById('discord-guild-picker');
+      if (picker) picker._channels = [fakeChannel];
+      selectDiscordVoiceChannel(0);
     }
 
     function selectDiscordVoiceChannel(channelIndex) {
