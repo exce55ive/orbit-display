@@ -987,20 +987,17 @@ ipcMain.handle('discord-get-voice-state', async () => {
 ipcMain.handle('discord-join-voice', async (_e, guildId) => {
   try {
     const rpc = await getDiscordRPC();
-    if (!rpc) {
-      // Fallback: open Discord to the guild via deep link
-      const { shell } = require('electron');
-      shell.openExternal(`discord://discord.com/channels/${guildId}`);
-      return { fallback: true };
-    }
+    if (!rpc) return { error: 'Discord RPC not available — is Discord running?' };
     // Get voice channels for this guild
-    const channels = await rpc.getChannels(guildId);
+    let channels;
+    try { channels = await rpc.getChannels(guildId); } catch (e) { return { error: 'Could not fetch channels: ' + e.message }; }
     const voiceChannels = (channels?.channels || []).filter(c => c.type === 2); // 2 = GUILD_VOICE
     if (!voiceChannels.length) return { error: 'No voice channels found in that server' };
-    // Join the first one (or the one user is already in if any)
-    const current = await rpc.getSelectedVoiceChannel();
+    // Prefer channel user is already in (within this guild), otherwise first voice channel
+    let current = null;
+    try { current = await rpc.getSelectedVoiceChannel(); } catch {}
     const target = (current && current.guild_id === guildId) ? current : voiceChannels[0];
-    await rpc.selectVoiceChannel(target.id);
+    await rpc.selectVoiceChannel(target.id, { timeout: 5000, force: true });
     return { joined: target.name };
   } catch (e) { return { error: e.message }; }
 });
