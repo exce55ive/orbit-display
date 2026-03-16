@@ -73,6 +73,7 @@
     .light-card { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; transition: border-color .15s; }
     .light-card:hover { border-color: rgba(255,255,255,0.12); }
     .light-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .light-card:hover .light-header button[title='Rename entity'] { opacity: 1 !important; }
     .light-name { font-size: 12px; font-weight: 600; flex: 1; text-align: left; color: var(--text); }
     .light-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); transition: all .3s; }
     .light-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
@@ -562,21 +563,56 @@
         setLights(prev => ({ ...prev, [eid]: { ...prev[eid], attributes: { ...prev[eid]?.attributes, brightness: Math.round((pct/100)*255) } } }));
         await window.orbit.haCallService('light', 'turn_on', { entity_id: eid, brightness: Math.round((pct/100)*255) });
       };
+      const [editingEid, setEditingEid] = useState(null);
+      const [editValue, setEditValue] = useState('');
+
+      const saveEntityName = (eid, newName) => {
+        const cfg = JSON.parse(JSON.stringify(config));
+        const entities = cfg?.integrations?.homeassistant?.entities || [];
+        const idx = entities.findIndex(e => (typeof e === 'string' ? e : e.entityId) === eid);
+        if (idx >= 0) {
+          cfg.integrations.homeassistant.entities[idx] = { entityId: eid, name: newName.trim() };
+        }
+        window.orbit.saveConfig(cfg);
+        setEditingEid(null);
+      };
+
       if (!haConfigured) return h('div',{className:'panel panel-unconfigured'}, h('div',{className:'panel-label'},'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')), h('div',{className:'panel-unconfigured-icon'},'💡'), h('div',{className:'panel-unconfigured-text'},'Configure Home Assistant in Settings'));
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'HOME ASSISTANT ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-ha')}, '⚙')),
         lightEntities.map(({entityId:eid, name:customName}) => {
           const st = lights[eid]; const isOn = st?.state === 'on'; const bri = haBrightPct(st?.attributes?.brightness);
-          // Priority: custom name in Orbit > HA friendly_name > entity ID
-          const name = customName || st?.attributes?.friendly_name || eid.replace('light.','').replace(/_/g,' ');
+          const haName = st?.attributes?.friendly_name || eid.replace('light.','').replace(/_/g,' ');
+          const displayName = customName || haName;
+          const isEditing = editingEid === eid;
           return h('div', {key:eid, className:'light-card', style:signalActive?{opacity:0.7}:{}},
             signalActive && h('div', {className:'light-signalrgb-badge', title:'Controlled by SignalRGB'}, '⚡ SignalRGB active'),
             h('div', {className:'light-header'},
               h('div', {className:'light-dot '+(isOn?'on':'')}),
-              h('div', {className:'light-name'}, name),
-              h('button', {className:'light-toggle '+(isOn?'on':'off'), onClick:()=>toggleLight(eid,isOn)}, isOn?'ON':'OFF')
+              isEditing
+                ? h('div', {style:{flex:1,display:'flex',gap:'4px',alignItems:'center'}},
+                    h('input', {
+                      autoFocus:true,
+                      value:editValue,
+                      onChange:e=>setEditValue(e.target.value),
+                      onKeyDown:e=>{if(e.key==='Enter')saveEntityName(eid,editValue);if(e.key==='Escape')setEditingEid(null);},
+                      style:{flex:1,background:'rgba(255,255,255,0.06)',border:'1px solid rgba(0,217,255,0.4)',borderRadius:'4px',color:'var(--text)',fontSize:'11px',padding:'2px 6px',fontFamily:'var(--font)'}
+                    }),
+                    h('button', {onClick:()=>saveEntityName(eid,editValue), title:'Save', style:{background:'rgba(0,217,255,0.1)',border:'1px solid rgba(0,217,255,0.3)',borderRadius:'4px',color:'#00d9ff',cursor:'pointer',padding:'2px 6px',fontSize:'11px'}}, '✓'),
+                    h('button', {onClick:()=>setEditingEid(null), title:'Cancel', style:{background:'none',border:'1px solid rgba(255,255,255,0.1)',borderRadius:'4px',color:'var(--dim)',cursor:'pointer',padding:'2px 6px',fontSize:'11px'}}, '✕')
+                  )
+                : h('div', {className:'light-name', style:{display:'flex',alignItems:'center',gap:'4px',flex:1}},
+                    h('span', null, displayName),
+                    customName && h('span', {title:'Custom name (click ✏️ to edit)', style:{fontSize:'9px',color:'rgba(0,217,255,0.5)',letterSpacing:'1px'}}, '✦'),
+                    h('button', {
+                      onClick:()=>{setEditingEid(eid);setEditValue(customName||haName);},
+                      title:'Rename entity',
+                      style:{background:'none',border:'none',color:'rgba(255,255,255,0.2)',cursor:'pointer',fontSize:'11px',padding:'0 2px',lineHeight:1,opacity:0,transition:'opacity .15s'}
+                    }, '✏️')
+                  ),
+              !isEditing && h('button', {className:'light-toggle '+(isOn?'on':'off'), onClick:()=>toggleLight(eid,isOn)}, isOn?'ON':'OFF')
             ),
-            isOn && h('div', {className:'light-brightness'}, h('input', {type:'range',min:0,max:100,value:bri,onChange:e=>setBrightness(eid,parseInt(e.target.value))}))
+            isOn && !isEditing && h('div', {className:'light-brightness'}, h('input', {type:'range',min:0,max:100,value:bri,onChange:e=>setBrightness(eid,parseInt(e.target.value))}))
           );
         })
       );
