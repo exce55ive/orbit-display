@@ -11,21 +11,33 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
-      - run: npm run build:win
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build NSIS installer
+        run: npx electron-builder --win nsis --x64 --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/upload-artifact@v4
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: List build output
+        run: ls dist/
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: orbit-windows
-          path: dist/*.exe
-      - name: Release
+          name: OrbitSetup-windows
+          path: dist/OrbitSetup-*.exe
+
+      - name: Attach to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/*.exe
+          files: dist/OrbitSetup-*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
