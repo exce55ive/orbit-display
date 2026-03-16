@@ -419,13 +419,19 @@ ipcMain.handle('fetch-signalrgb', async () => {
     safeFetch(`${base}/api/v1/lighting/effects`).catch(() => ({ data: [] }))
   ]);
   // Merge effects list into state response
-  // SignalRGB effects endpoint returns { data: { items: [{id:'Matrix.html', type:...}] } }
+  // SignalRGB effects endpoint: data.items[{id:'<hash>', attributes:{name:'Matrix'}, type:'installed_effect'}]
+  // The id is a hash used for activation; attributes.name is the display name
   if (state && state.data) {
-    const rawEffects = effectsList?.data?.items || effectsList?.data || [];
-    const names = Array.isArray(rawEffects)
-      ? rawEffects.map(e => typeof e === 'string' ? e : ((e.id || e.name || String(e)).replace(/\.html$/i, '')))
+    const rawEffects = effectsList?.data?.items || (Array.isArray(effectsList?.data) ? effectsList.data : []);
+    const effects = Array.isArray(rawEffects)
+      ? rawEffects.map(e => {
+          if (typeof e === 'string') return { id: e, name: e.replace(/\.html$/i, '') };
+          const name = (e.attributes?.name || e.id || '').replace(/\.html$/i, '');
+          const id = e.id || name;
+          return { id, name };
+        }).filter(e => e.name)
       : [];
-    if (names.length > 0) state.data.effects = names;
+    if (effects.length > 0) state.data.effects = effects;
   }
   return state;
 });

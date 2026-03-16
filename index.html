@@ -452,7 +452,9 @@
     function SignalRGBPanel({ config, onSignalChange }) {
       const [state, setState] = useState(null);
       const [search, setSearch] = useState('');
-      const [favorites, setFavorites] = useState(config?.signalrgbFavorites || []);
+      // Migrate old string favorites → will be replaced with {id,name} objects on next save
+      const rawFavs = config?.signalrgbFavorites || [];
+      const [favorites, setFavorites] = useState(rawFavs);
       const [error, setError] = useState(null);
       // Always use direct SignalRGB API — no HA dependency
       useEffect(() => {
@@ -468,7 +470,8 @@
               const isEnabled = attrs.enabled !== false;
               // global_brightness is 0-100; convert to 0-255 for compatibility with haBrightPct()
               const brightness = Math.round(((attrs.global_brightness ?? 100) / 100) * 255);
-              const effs = (r.data.effects||[]).map(e => typeof e === 'string' ? e : ((e.id||e.name||String(e)).replace(/\.html$/i,'')));
+              // effects are {id, name} objects from IPC
+              const effs = (r.data.effects || []);
               setState({ state: isEnabled ? 'on' : 'off', attributes: {
                 brightness, effect: effectName, effect_list: effs
               }});
@@ -481,15 +484,37 @@
       const effectName = state?.attributes?.effect || 'No Effect';
       const brightness = haBrightPct(state?.attributes?.brightness);
       const effectList = state?.attributes?.effect_list || [];
+      // Auto-clean garbled string favorites once we have the real effect list
+      useEffect(() => {
+        if (!effectList.length || !favorites.length) return;
+        // If favorites are old strings that don't match any known effect name, clear them
+        const validNames = new Set(effectList.map(e => typeof e === 'string' ? e : e.name));
+        const cleaned = favorites.filter(f => {
+          const fname = typeof f === 'string' ? f : f.name;
+          return validNames.has(fname);
+        });
+        if (cleaned.length !== favorites.length) {
+          setFavorites(cleaned);
+          if (config) window.orbit.saveConfig({...config, signalrgbFavorites: cleaned});
+        }
+      }, [effectList.length]);
       useEffect(() => { if (onSignalChange) onSignalChange(isOn); }, [isOn]);
       const togglePower = async () => { await window.orbit.signalrgbSetEnabled(!isOn); };
       const selectEffect = async (eff) => { await window.orbit.activateEffect(eff); };
       const toggleFav = (eff) => {
-        const next = favorites.includes(eff) ? favorites.filter(f=>f!==eff) : [...favorites, eff];
+        // eff is {id, name}; favorites stored as {id, name}
+        const effId = typeof eff === 'string' ? eff : eff.id;
+        const isFav = favorites.some(f => (typeof f === 'string' ? f : f.id) === effId);
+        const next = isFav ? favorites.filter(f => (typeof f === 'string' ? f : f.id) !== effId) : [...favorites, eff];
         setFavorites(next);
         if (config) window.orbit.saveConfig({...config, signalrgbFavorites: next});
       };
-      const filtered = search.trim() ? effectList.filter(e => e.toLowerCase().includes(search.toLowerCase())) : effectList.slice(0, 50);
+      const getEffName = (e) => typeof e === 'string' ? e : (e.name || e.id || '');
+      const getEffId = (e) => typeof e === 'string' ? e : (e.id || e.name || '');
+      const isFaved = (e) => favorites.some(f => (typeof f === 'string' ? f : f.id) === getEffId(e));
+      const filtered = search.trim()
+        ? effectList.filter(e => getEffName(e).toLowerCase().includes(search.toLowerCase()))
+        : effectList.slice(0, 50);
       return h('div', {className:'panel'},
         h('div', {className:'panel-label'}, 'SIGNALRGB ', h('button', {className:'panel-cog-btn', onClick:()=>openSettingsAt('settings-signalrgb')}, '⚙')),
         h('div', {className:'effect-name', style:{color:isOn?'var(--accent)':'var(--dim)'}}, effectName),
@@ -500,15 +525,23 @@
           h('div', {className:'brightness-label'}, brightness+'%')
         ),
         favorites.length > 0 && h('div', {className:'fav-pills'},
-          favorites.map(f => h('span', {key:f, className:'fav-pill', onClick:()=>selectEffect(f)}, '⭐ '+f))
+          favorites.map((f,i) => {
+            const fname = typeof f === 'string' ? f : f.name;
+            const fid = typeof f === 'string' ? f : f.id;
+            return h('span', {key:fid||i, className:'fav-pill', onClick:()=>selectEffect(fid), title:fname}, '⭐ '+fname);
+          })
         ),
         h('input', {className:'effect-search', type:'text', placeholder:'Search effects...', value:search, onChange:e=>setSearch(e.target.value)}),
         filtered.length > 0
           ? h('div', {className:'effect-list'},
-              filtered.map(eff => h('div', {key:eff, className:'effect-option'+(eff===effectName?' active':''), onClick:()=>selectEffect(eff)},
-                h('span', {className:'effect-star'+(favorites.includes(eff)?' starred':''), onClick:e=>{e.stopPropagation();toggleFav(eff)}}, '⭐'),
-                h('span', null, eff)
-              ))
+              filtered.map(eff => {
+                const ename = getEffName(eff);
+                const eid = getEffId(eff);
+                return h('div', {key:eid, className:'effect-option'+(ename===effectName?' active':''), onClick:()=>selectEffect(eid)},
+                  h('span', {className:'effect-star'+(isFaved(eff)?' starred':''), onClick:e=>{e.stopPropagation();toggleFav(eff)}}, '⭐'),
+                  h('span', null, ename)
+                );
+              })
             )
           : error
             ? h('div', {style:{fontSize:'11px', color:'var(--amber)', textAlign:'center', padding:'12px'}},
@@ -902,7 +935,7 @@
                   h('span', { style: { fontSize: '12px', color: 'var(--text)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, r.name)
                 ),
                 h('span', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.35)', flexShrink: 0, marginLeft: '8px' } },
-                  r.status === 'up' ? r.ms + 'ms' : (r.error ? 'timeout' : r.code)
+                  r.status === 'up' ? r.ms + 'ms' : (r.code ? String(r.code) : (r.error ? r.error.slice(0,20) : 'down'))
                 )
               )),
               lastCheck && h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.2)', marginTop: '8px', letterSpacing: '1px' } },
