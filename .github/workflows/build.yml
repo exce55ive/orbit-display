@@ -12,6 +12,9 @@ permissions:
 jobs:
   build-windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
     steps:
       - uses: actions/checkout@v4
 
@@ -23,15 +26,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build NSIS installer
-        run: npx electron-builder --win nsis --x64 --publish never
+      - name: Build NSIS installer (${{ matrix.arch }})
+        run: npx electron-builder --win nsis --${{ matrix.arch }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Generate latest.yml
+        if: matrix.arch == 'x64'
         shell: pwsh
         run: |
-          $exe = Get-ChildItem dist\OrbitSetup-*.exe | Select-Object -First 1
+          $exe = Get-ChildItem dist\OrbitSetup-*.exe | Where-Object { $_.Name -notlike '*arm64*' } | Select-Object -First 1
           $hash = (Get-FileHash $exe.FullName -Algorithm SHA512).Hash.ToLower()
           $size = $exe.Length
           $version = (Get-Content package.json | ConvertFrom-Json).version
@@ -54,7 +58,7 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OrbitSetup-windows
+          name: OrbitSetup-windows-${{ matrix.arch }}
           path: dist/OrbitSetup-*.exe
 
       - name: Attach assets to GitHub Release
@@ -63,6 +67,6 @@ jobs:
         with:
           files: |
             dist/OrbitSetup-*.exe
-            dist/latest.yml
+            ${{ matrix.arch == 'x64' && 'dist/latest.yml' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
