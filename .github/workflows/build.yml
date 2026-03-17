@@ -36,10 +36,10 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content package.json | ConvertFrom-Json).version
-          $src = "dist\OrbitSetup-$version.exe"
-          $dst = "dist\OrbitSetup-$version-arm64.exe"
-          Rename-Item $src $dst
-          Write-Host "Renamed $src -> $dst"
+          $srcName = "OrbitSetup-$version.exe"
+          $dstName = "OrbitSetup-$version-arm64.exe"
+          Rename-Item "dist\$srcName" $dstName
+          Write-Host "Renamed $srcName -> $dstName"
 
       - name: Generate latest.yml
         if: matrix.arch == 'x64'
