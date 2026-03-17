@@ -472,7 +472,7 @@
         async function fetchWeather() {
           try {
             const res = await fetch('https://wttr.in/'+encodeURIComponent(city)+'?format=j1');
-            const data = await res.json();
+            const raw = await res.json(); const data = raw.data || raw;
             // Extend forecast to 5 days via Open-Meteo using lat/lon from wttr.in response
             try {
               const lat = data.nearest_area?.[0]?.latitude;

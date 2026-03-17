@@ -5,6 +5,7 @@
 - **Add:** ARM64 build support — new `build:win:arm64` script for native ARM Windows builds.
 - **Fix:** Update check delayed 30s after startup to reduce load. Auto-download disabled — prompts user instead of silently downloading.
 - **Fix:** AutoUpdater error handler hardened to prevent update failures from crashing the app.
+- **Fix:** Weather panel now correctly unwraps wttr.in API response envelope (`data.data` → `data`)
 
 ## v0.0.9
 - **Add:** Settings opens as a dedicated full-size window (1000×700) — no longer a small side overlay
