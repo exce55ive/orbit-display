@@ -31,6 +31,16 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      - name: Rename ARM64 installer to include arch suffix
+        if: matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $src = "dist\OrbitSetup-$version.exe"
+          $dst = "dist\OrbitSetup-$version-arm64.exe"
+          Rename-Item $src $dst
+          Write-Host "Renamed $src -> $dst"
+
       - name: Generate latest.yml
         if: matrix.arch == 'x64'
         shell: pwsh
