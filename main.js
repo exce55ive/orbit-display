@@ -1,5 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, shell, Menu } = require('electron');
-Menu.setApplicationMenu(null);
+const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -8,8 +7,17 @@ const log = require('electron-log');
 // ─── AUTO-UPDATER CONFIG ──────────────────────────────────────────────────────
 autoUpdater.logger = log;
 autoUpdater.logger.transports.file.level = 'info';
-autoUpdater.autoDownload = true;
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
+
+autoUpdater.on('checking-for-update', () => log.info('Checking for update...'));
+
+autoUpdater.on('error', (err) => {
+  log.warn('AutoUpdater error:', err && err.message ? err.message : err);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-error', err && err.message ? err.message : String(err));
+  }
+});
 
 const isDev = !app.isPackaged;
 
@@ -36,12 +44,7 @@ autoUpdater.on('update-downloaded', (info) => {
   }
 });
 
-autoUpdater.on('error', (err) => {
-  log.error('Update error:', err.message);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-error', err.message);
-  }
-});
+
 
 // ─── ORBIT CONFIG ─────────────────────────────────────────────────────────────
 const ORBIT_CONFIG_NAME = 'orbit-config.json';
@@ -251,11 +254,41 @@ app.whenReady().then(() => {
   }
 
   if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify();
+    setTimeout(() => {
+      try { autoUpdater.checkForUpdatesAndNotify(); } catch (e) { log.warn('AutoUpdater check failed:', e.message || e); }
+    }, 30000);
   }
+
+  // ─── DEVTOOLS GLOBAL SHORTCUT ──────────────────────────────────────────────
+  const isMac = process.platform === 'darwin';
+  const devToolsAccelerator = isMac ? 'Cmd+Alt+I' : 'Ctrl+Shift+I';
+  globalShortcut.register(devToolsAccelerator, () => {
+    const w = BrowserWindow.getFocusedWindow();
+    if (w) w.webContents.openDevTools({ mode: 'undocked' });
+  });
+
+  // ─── APPLICATION MENU (Help > Toggle DevTools) ─────────────────────────────
+  const menuTemplate = [
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Toggle DevTools',
+          accelerator: devToolsAccelerator,
+          click: () => {
+            const w = BrowserWindow.getFocusedWindow();
+            if (w) w.webContents.openDevTools({ mode: 'undocked' });
+          }
+        }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 });
 
 app.on('window-all-closed', () => { app.quit(); });
+
+app.on('will-quit', () => { globalShortcut.unregisterAll(); });
 
 // ─── IPC: DISPLAY PICKER ────────────────────────────────────────────────────
 ipcMain.handle('get-displays', () => getDisplayList());

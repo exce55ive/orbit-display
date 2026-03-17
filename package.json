@@ -1,12 +1,13 @@
 {
   "name": "orbit",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "A beautiful, modular desktop dashboard",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64",
     "build:win": "electron-builder --win --x64",
+    "build:win:arm64": "electron-builder --win --arm64",
     "build:portable": "electron-builder --win portable --x64"
   },
   "build": {
@@ -26,13 +27,15 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         }
       ],

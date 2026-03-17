@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.0.10
+- **Add:** DevTools toggle — `Ctrl+Shift+I` (or `Cmd+Option+I` on Mac) opens DevTools on the focused window in any build (packaged or dev). Also available via Help menu.
+- **Add:** ARM64 build support — new `build:win:arm64` script for native ARM Windows builds.
+- **Fix:** Update check delayed 30s after startup to reduce load. Auto-download disabled — prompts user instead of silently downloading.
+- **Fix:** AutoUpdater error handler hardened to prevent update failures from crashing the app.
+
 ## v0.0.9
 - **Add:** Settings opens as a dedicated full-size window (1000×700) — no longer a small side overlay
 - **Add:** Preferences tab — toggle °C/°F temperature unit and 12h/24h clock format
