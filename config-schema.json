@@ -1,7 +1,7 @@
 {
   "defaults": {
     "tautulliUrl": "http://YOUR_PLEX_SERVER:8181",
-    "signalrgbUrl": "http://localhost:16034",
+    "signalrgbUrl": "http://localhost:16038",
     "haUrl": "https://YOUR_HA_INSTANCE"
   },
   "panelTypes": [
@@ -14,6 +14,31 @@
     { "type": "uptimekuma" },
     { "type": "spotify" },
     { "type": "links" },
-    { "type": "jellyfin" }
-  ]
+    { "type": "jellyfin" },
+    { "type": "sonarr" },
+    { "type": "radarr" },
+    { "type": "overseerr" },
+    { "type": "nzbget" },
+    { "type": "services" }
+  ],
+  "requiredFields": {
+    "theme": { "accentColor": "#00d9ff" },
+    "pages": [],
+    "integrations": {},
+    "prefs": { "tempUnit": "C", "timeFormat": "24h" }
+  },
+  "integrationDefaults": {
+    "weather": { "city": "Perth" },
+    "tautulli": { "url": "", "apiKey": "" },
+    "plex": { "url": "", "token": "" },
+    "homeassistant": { "url": "", "token": "", "lights": [] },
+    "signalrgb": { "url": "http://localhost:16038" },
+    "sonarr": { "url": "", "apiKey": "" },
+    "radarr": { "url": "", "apiKey": "" },
+    "overseerr": { "url": "", "apiKey": "" },
+    "nzbget": { "url": "", "username": "", "password": "" },
+    "uptimekuma": { "url": "", "username": "", "password": "" },
+    "spotify": { "clientId": "", "clientSecret": "" },
+    "jellyfin": { "url": "", "apiKey": "" }
+  }
 }

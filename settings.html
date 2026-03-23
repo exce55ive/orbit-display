@@ -491,6 +491,100 @@
     );
   }
 
+  // ── Panels Tab (panel visibility toggles) ─────────────────────────────
+  const PANEL_DEFS = [
+    { key: 'clock', label: 'Clock & Weather', icon: '🕐' },
+    { key: 'weather', label: 'Weather', icon: '🌤️', alias: 'clock' },
+    { key: 'nowplaying', label: 'Plex / Tautulli', icon: '▶' },
+    { key: 'jellyfin', label: 'Jellyfin', icon: '🎞️' },
+    { key: 'sonarr', label: 'Sonarr', icon: '📺' },
+    { key: 'radarr', label: 'Radarr', icon: '🎬' },
+    { key: 'overseerr', label: 'Overseerr', icon: '📋' },
+    { key: 'nzbget', label: 'NZBGet', icon: '📦' },
+    { key: 'signalrgb', label: 'SignalRGB', icon: '⚡' },
+    { key: 'services', label: 'Services', icon: '📡' },
+    { key: 'spotify', label: 'Spotify', icon: '🎵' },
+    { key: 'lights', label: 'Home Assistant', icon: '💡' },
+    { key: 'system', label: 'System Monitor', icon: '💻' },
+  ];
+
+  function PanelsTab({ cfg, setCfg }) {
+    const panels = cfg.panels || {};
+    function toggle(key) {
+      const current = panels[key] !== false; // default true
+      setCfg(c => ({ ...c, panels: { ...(c.panels || {}), [key]: !current } }));
+    }
+    return h('div', null,
+      h('div', {className:'settings-section'}, 'PANEL VISIBILITY'),
+      h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'16px',lineHeight:'1.6',letterSpacing:'0.5px'}},
+        'Hidden panels will not render or poll, saving resources. Changes apply immediately.'
+      ),
+      PANEL_DEFS.filter(p => !p.alias).map(p => {
+        const isVisible = panels[p.key] !== false;
+        return h('div', {key:p.key, style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+          h('div', {style:{display:'flex',alignItems:'center',gap:'10px'}},
+            h('span', {style:{fontSize:'18px',width:'24px',textAlign:'center'}}, p.icon),
+            h('span', {style:{fontSize:'13px',color:'var(--text)',fontWeight:'600'}}, p.label)
+          ),
+          h('button', {
+            onClick:()=>toggle(p.key),
+            style:{
+              width:'42px', height:'22px', borderRadius:'11px', border:'none', cursor:'pointer',
+              background: isVisible ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
+              position:'relative', transition:'background .2s', flexShrink:0
+            }
+          },
+            h('div', {style:{
+              width:'16px', height:'16px', borderRadius:'50%', background:'#fff',
+              position:'absolute', top:'3px', transition:'left .2s',
+              left: isVisible ? '23px' : '3px'
+            }})
+          )
+        );
+      })
+    );
+  }
+
+  // ── SignalRGB Section with Auto-detect ─────────────────────────────────
+  function SignalRGBSection({ cfg, updateIntegration, expanded, toggle }) {
+    const [detecting, setDetecting] = useState(false);
+    const [detectMsg, setDetectMsg] = useState('');
+    const [detectOk, setDetectOk] = useState(false);
+
+    async function detect() {
+      setDetecting(true); setDetectMsg(''); setDetectOk(false);
+      try {
+        const result = await window.orbit.signalrgbDetectPort();
+        if (result && result.port && !result.error) {
+          const url = result.url || ('http://localhost:' + result.port);
+          updateIntegration('signalrgb', 'url', url);
+          setDetectMsg('Detected on port ' + result.port);
+          setDetectOk(true);
+        } else {
+          setDetectMsg(result?.error || 'Could not detect SignalRGB');
+          setDetectOk(false);
+        }
+      } catch (e) {
+        setDetectMsg('Detection failed'); setDetectOk(false);
+      }
+      setDetecting(false);
+    }
+
+    return h('div', {className:'settings-integration'},
+      h('div', {className:'settings-integration-header', onClick:toggle},
+        h('span', null, '⚡ SignalRGB'), h('span', null, expanded?'▼':'▶')
+      ),
+      expanded && h('div', {className:'settings-integration-body'},
+        h('div', {className:'settings-label'}, 'URL'),
+        h('div', {style:{display:'flex',gap:'6px',alignItems:'center'}},
+          h('input', {className:'settings-input', style:{flex:1}, value:cfg.integrations?.signalrgb?.url||'', placeholder:'http://localhost:16038', onChange:e=>updateIntegration('signalrgb','url',e.target.value)}),
+          h('button', {className:'ha-browse-btn', onClick:detect, disabled:detecting, style:{whiteSpace:'nowrap'}}, detecting ? '⏳ Detecting…' : '🔍 Auto-detect')
+        ),
+        detectMsg && h('div', {style:{fontSize:'11px',marginTop:'4px',color:detectOk?'var(--green)':'#ff5555',letterSpacing:'0.5px'}}, (detectOk?'✓ ':'✗ ')+detectMsg)
+      )
+    );
+  }
+
   // ── Main Settings App ─────────────────────────────────────────────────────
   function SettingsApp() {
     const [cfg, setCfg] = useState(null);
@@ -547,7 +641,7 @@
       );
     }
 
-    const TABS = ['pages','prefs','theme','system','about'];
+    const TABS = ['pages','panels','prefs','theme','system','about'];
 
     if (!cfg) return h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--dim)',fontSize:'12px',letterSpacing:'2px'}}, 'LOADING...');
 
@@ -579,7 +673,7 @@
             h('div', {id:'settings-nzbget'}, integrationSection('nzbget','NZBGet','📦',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify','Spotify','🎵',[{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin','Jellyfin','🎞️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-signalrgb'}, integrationSection('signalrgb','SignalRGB','⚡',[{field:'url',label:'URL',placeholder:'http://localhost:16038'}])),
+            h('div', {id:'settings-signalrgb'}, h(SignalRGBSection, {cfg, updateIntegration, expanded:expanded.signalrgb, toggle:()=>toggleExpand('signalrgb')})),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
             h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),
             h('div', {id:'settings-links'},
@@ -595,6 +689,13 @@
               h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginBottom:'8px',marginTop:'8px'}, onClick:()=>{const l=[...(cfg.links||[]),{icon:'🔗',label:'New Link',url:'https://'}];setCfg(c=>({...c,links:l}));}}, '+ ADD LINK')
             )
           ),
+          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
+          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+        ),
+
+        // ── Panels tab ──
+        tab === 'panels' && h('div', null,
+          h(PanelsTab, {cfg, setCfg}),
           h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
           saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
         ),

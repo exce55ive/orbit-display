@@ -56,7 +56,71 @@ function getOrbitConfigPath() {
 function loadOrbitConfig() {
   const p = getOrbitConfigPath();
   if (!fs.existsSync(p)) return null;
-  try { return JSON.parse(fs.readFileSync(p, 'utf-8')); } catch { return null; }
+  try {
+    const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    return validateAndFillDefaults(cfg);
+  } catch (e) {
+    log.warn('Failed to parse orbit-config.json:', e.message);
+    return null;
+  }
+}
+
+function loadConfigSchema() {
+  try {
+    const schemaPath = path.join(__dirname, 'config-schema.json');
+    return JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+  } catch { return null; }
+}
+
+function validateAndFillDefaults(cfg) {
+  if (!cfg || typeof cfg !== 'object') {
+    log.warn('Config is not a valid object, falling back to defaults');
+    return null;
+  }
+  const schema = loadConfigSchema();
+  if (!schema) return cfg; // schema missing — skip validation
+
+  // Fill required top-level fields with defaults
+  if (schema.requiredFields) {
+    for (const [key, defaultVal] of Object.entries(schema.requiredFields)) {
+      if (cfg[key] === undefined || cfg[key] === null) {
+        log.info(`Config missing "${key}", filling with default`);
+        cfg[key] = JSON.parse(JSON.stringify(defaultVal));
+      }
+    }
+  }
+
+  // Ensure integrations sub-keys exist with defaults
+  if (schema.integrationDefaults && cfg.integrations) {
+    for (const [key, defaults] of Object.entries(schema.integrationDefaults)) {
+      if (!cfg.integrations[key]) {
+        cfg.integrations[key] = JSON.parse(JSON.stringify(defaults));
+      } else {
+        // Fill missing fields within each integration
+        for (const [field, val] of Object.entries(defaults)) {
+          if (cfg.integrations[key][field] === undefined) {
+            cfg.integrations[key][field] = val;
+          }
+        }
+      }
+    }
+  }
+
+  // Ensure prefs has defaults
+  if (!cfg.prefs) cfg.prefs = { tempUnit: 'C', timeFormat: '24h' };
+  if (!cfg.prefs.tempUnit) cfg.prefs.tempUnit = 'C';
+  if (!cfg.prefs.timeFormat) cfg.prefs.timeFormat = '24h';
+
+  // Ensure panels key exists (for panel visibility feature) with default true
+  if (!cfg.panels || typeof cfg.panels !== 'object') cfg.panels = {};
+
+  // Log warning for unknown top-level keys
+  const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete']);
+  for (const key of Object.keys(cfg)) {
+    if (!knownKeys.has(key)) log.warn(`Config has unknown key: "${key}" — ignoring`);
+  }
+
+  return cfg;
 }
 
 function migrateOrbitConfig(cfg) {

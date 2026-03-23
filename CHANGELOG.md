@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.0.11
+- **Add:** Error boundaries per panel — if a panel errors, it dims with "⚠ Service unavailable" and auto-retries every 30 seconds. Other panels continue working normally.
+- **Add:** Config schema validation on load — missing required fields are filled with sensible defaults; unknown keys are logged as warnings.
+- **Add:** SignalRGB auto-detect — new "Auto-detect" button in both Setup Wizard and Settings scans local ports for SignalRGB and fills the URL automatically.
+- **Add:** Configurable panel visibility — new "Panels" tab in Settings with toggle switches for each panel. Hidden panels do not render or poll. Saved in `orbit-config.json` under `panels` key.
+- **Add:** First-run onboarding — welcome overlay with Orbit logo, tagline, integration list, and "Open Setup" / "Skip for now" buttons. Only shows once (`firstRunComplete` flag in config).
+- **Add:** Playwright test suite — `npm test` runs Electron integration tests covering config operations, panel visibility, and update flow.
+- **Fix:** `config-schema.json` updated with all panel types, integration defaults, and required field definitions.
+
 ## v0.0.10
 - **Add:** DevTools toggle — `Ctrl+Shift+I` (or `Cmd+Option+I` on Mac) opens DevTools on the focused window in any build (packaged or dev). Also available via Help menu.
 - **Add:** ARM64 build support — new `build:win:arm64` script for native ARM Windows builds.

@@ -293,6 +293,17 @@
     .offline-msg { font-size: 12px; color: rgba(255,255,255,0.25); font-style: italic; letter-spacing: 0.5px; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
     .pulse { animation: pulse 2s ease-in-out infinite; }
+    .welcome-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(6,10,16,0.97); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(12px); }
+    .welcome-card { text-align: center; max-width: 520px; padding: 48px 40px; }
+    .welcome-logo { font-size: 56px; font-weight: 800; letter-spacing: 8px; color: var(--accent); text-shadow: 0 0 40px var(--accent-mid); margin-bottom: 8px; }
+    .welcome-tagline { font-size: 13px; color: var(--dim); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 36px; }
+    .welcome-integrations { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 36px; }
+    .welcome-chip { padding: 6px 14px; font-size: 11px; font-family: var(--font); letter-spacing: 1px; border-radius: 20px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); color: var(--dim); }
+    .welcome-btn { padding: 12px 32px; font-size: 14px; font-weight: 700; font-family: var(--font); letter-spacing: 2px; border-radius: 8px; cursor: pointer; transition: all .2s; }
+    .welcome-btn-primary { background: var(--accent); color: var(--bg); border: none; }
+    .welcome-btn-primary:hover { opacity: 0.9; }
+    .welcome-btn-skip { background: transparent; border: 1px solid var(--border); color: var(--dim); margin-left: 12px; }
+    .welcome-btn-skip:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
     .page-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; cursor: default; }
     .page-row:hover { border-color: var(--accent-mid); }
     .page-row.drag-over { border-color: var(--accent); background: var(--accent-dim); }
@@ -324,21 +335,45 @@
 
     // ═══ ERROR BOUNDARY ═══
     class PanelErrorBoundary extends React.Component {
-      constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+      constructor(props) { super(props); this.state = { hasError: false, error: null }; this._retryTimer = null; }
       static getDerivedStateFromError(err) { return { hasError: true, error: err }; }
-      componentDidCatch(err, info) { console.error('Panel error:', err, info); }
+      componentDidCatch(err, info) { console.error('Panel error (' + (this.props.panelType || 'unknown') + '):', err, info); this._scheduleRetry(); }
+      _scheduleRetry() { clearTimeout(this._retryTimer); this._retryTimer = setTimeout(() => { this.setState({ hasError: false, error: null }); }, 30000); }
+      componentWillUnmount() { clearTimeout(this._retryTimer); }
       render() {
         if (this.state.hasError) {
-          return h('div', { className: 'panel', style: { justifyContent: 'center', alignItems: 'center' } },
-            h('div', { style: { fontSize: '28px', marginBottom: '8px' } }, '⚠️'),
-            h('div', { style: { fontSize: '11px', color: 'var(--dim)', textAlign: 'center', padding: '0 12px' } },
-              'Panel error — check Settings'),
+          return h('div', { className: 'panel', style: { justifyContent: 'center', alignItems: 'center', opacity: 0.5 } },
+            h('div', { className: 'panel-label' }, '⚠ Service unavailable'),
+            h('div', { style: { fontSize: '11px', color: 'var(--dim)', textAlign: 'center', padding: '0 12px', marginTop: '8px' } },
+              'Auto-retrying…'),
             h('button', { className: 'settings-save', style: { marginTop: '12px', fontSize: '10px', padding: '4px 10px' },
-              onClick: () => this.setState({ hasError: false, error: null }) }, 'Retry')
+              onClick: () => { clearTimeout(this._retryTimer); this.setState({ hasError: false, error: null }); } }, 'Retry Now')
           );
         }
         return this.props.children;
       }
+    }
+
+    // Safe async wrapper for panel polling — catches IPC/fetch errors and returns fallback
+    function useSafeAsync(asyncFn, deps, fallback) {
+      const [result, setResult] = useState(fallback);
+      const [error, setError] = useState(null);
+      const retryRef = useRef(null);
+      useEffect(() => {
+        let cancelled = false;
+        async function run() {
+          try {
+            const data = await asyncFn();
+            if (!cancelled) { setResult(data); setError(null); }
+          } catch (e) {
+            console.warn('Panel async error:', e);
+            if (!cancelled) setError(e);
+          }
+        }
+        run();
+        return () => { cancelled = true; };
+      }, deps);
+      return [result, error];
     }
 
     // ═══ BOOT ANIMATION ═══
@@ -2376,7 +2411,7 @@
 
     // ═══ PANEL RENDERER ═══
     function wrap(key, child) {
-      return h(PanelErrorBoundary, { key }, child);
+      return h(PanelErrorBoundary, { key, panelType: key }, child);
     }
     function renderPanel(panelCfg, config, openSettings, setConfig) {
       const type = panelCfg.type;
@@ -2494,6 +2529,44 @@
       );
     }
 
+    // ═══ WELCOME OVERLAY (first-run onboarding) ═══
+    const WELCOME_INTEGRATIONS = [
+      { icon: '▶', name: 'Plex / Tautulli' }, { icon: '🎞️', name: 'Jellyfin' },
+      { icon: '📺', name: 'Sonarr' }, { icon: '🎬', name: 'Radarr' },
+      { icon: '📋', name: 'Overseerr' }, { icon: '📦', name: 'NZBGet' },
+      { icon: '⚡', name: 'SignalRGB' }, { icon: '💡', name: 'Home Assistant' },
+      { icon: '🎵', name: 'Spotify' }, { icon: '💻', name: 'System Monitor' },
+      { icon: '📡', name: 'Services' }, { icon: '🌤️', name: 'Weather' },
+    ];
+
+    function WelcomeOverlay({ onOpenSetup, onSkip }) {
+      return h('div', { className: 'welcome-overlay' },
+        h('div', { className: 'welcome-card' },
+          h('div', { className: 'welcome-logo' }, 'ORBIT'),
+          h('div', { className: 'welcome-tagline' }, 'Your homelab. One screen.'),
+          h('div', { className: 'welcome-integrations' },
+            WELCOME_INTEGRATIONS.map(i => h('div', { key: i.name, className: 'welcome-chip' }, i.icon + ' ' + i.name))
+          ),
+          h('div', null,
+            h('button', { className: 'welcome-btn welcome-btn-primary', onClick: onOpenSetup }, 'OPEN SETUP'),
+            h('button', { className: 'welcome-btn welcome-btn-skip', onClick: onSkip }, 'SKIP FOR NOW')
+          )
+        )
+      );
+    }
+
+    function isFirstRun(cfg) {
+      if (!cfg) return true;
+      if (cfg.firstRunComplete) return false;
+      // Check if any integration has meaningful config
+      const ints = cfg.integrations || {};
+      for (const key of Object.keys(ints)) {
+        const v = ints[key];
+        if (v && (v.url || v.apiKey || v.token || v.clientId || v.city)) return false;
+      }
+      return true;
+    }
+
     function App() {
       const [config, setConfig] = useState(null);
       const [currentPage, setCurrentPage] = useState(0);
@@ -2501,6 +2574,7 @@
       const [showRightArrow, setShowRightArrow] = useState(false);
       const [signalIsOn, setSignalIsOn] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
+      const [showWelcome, setShowWelcome] = useState(false);
       const touchRef = useRef(null);
 
       // Load config + start SignalR
@@ -2508,6 +2582,7 @@
         window.orbit.loadConfig().then(cfg => {
           if (cfg) {
             setConfig(cfg);
+            if (isFirstRun(cfg)) setShowWelcome(true);
             { const t = THEMES.find(t => t.id === cfg.theme?.themeId) || (cfg.theme?.accentColor ? null : THEMES[0]); if (t) applyTheme(t); else if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor); }
             if (window.orbit.startSignalR) {
               window.orbit.startSignalR({
@@ -2519,6 +2594,7 @@
             }
           } else {
             setConfig(DEFAULT_CONFIG);
+            setShowWelcome(true);
           }
         });
         // Listen for config updates from settings window
@@ -2589,13 +2665,16 @@
       const openSettings = () => window.orbit.openSettingsWindow();
       _openSettingsRef = openSettings;
 
-      // Only render configured panels; grid cols = count of panels (max 6)
+      // Only render configured and visible panels; grid cols = count of panels (max 6)
+      const panelVisibility = config?.panels || {};
       const renderedPanels = [];
       const sortedPanels = [...panels].sort((a, b) => a.col - b.col);
       for (const panelCfg of sortedPanels) {
+        // Skip panels marked hidden in config.panels (default is visible)
+        if (panelVisibility[panelCfg.type] === false) continue;
         const col = panelCfg.col;
         if (panelCfg.type === 'signalrgb') {
-          renderedPanels.push(h(SignalRGBPanel, {key:'signalrgb-'+col, config, onSignalChange: setSignalIsOn}));
+          renderedPanels.push(h(PanelErrorBoundary, {key:'signalrgb-'+col, panelType:'signalrgb'}, h(SignalRGBPanel, {config, onSignalChange: setSignalIsOn})));
         } else {
           renderedPanels.push(renderPanel(panelCfg, config, openSettings, setConfig));
         }
@@ -2617,6 +2696,22 @@
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
 
+        // Welcome overlay (first-run onboarding)
+        showWelcome && h(WelcomeOverlay, {
+          onOpenSetup: () => {
+            setShowWelcome(false);
+            const newCfg = { ...(config || DEFAULT_CONFIG), firstRunComplete: true };
+            setConfig(newCfg);
+            window.orbit.saveConfig(newCfg);
+            window.orbit.openSetup();
+          },
+          onSkip: () => {
+            setShowWelcome(false);
+            const newCfg = { ...(config || DEFAULT_CONFIG), firstRunComplete: true };
+            setConfig(newCfg);
+            window.orbit.saveConfig(newCfg);
+          }
+        }),
 
       );
     }

@@ -304,7 +304,7 @@
                 ${testRow('weather')}
               `)}
               ${integrationCard('signalrgb', 'SignalRGB', '🎮', `
-                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="signalrgb-url" placeholder="http://localhost:16038" value="${esc(config.integrations.signalrgb.url)}"></div>
+                <div class="field-group"><div class="field-label">URL</div><div style="display:flex;gap:6px;align-items:center;"><input class="field-input" id="signalrgb-url" placeholder="http://localhost:16038" value="${esc(config.integrations.signalrgb.url)}" style="flex:1;"><button id="signalrgb-detect-btn" onclick="detectSignalRGBPort()" style="padding:5px 12px;background:rgba(255,200,87,0.06);border:1px solid rgba(255,200,87,0.25);border-radius:6px;color:#ffc857;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:0.5px;white-space:nowrap;">🔍 Auto-detect</button></div><span id="signalrgb-detect-result" style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;display:block;"></span></div>
                 ${testRow('signalrgb')}
               `)}
               ${integrationCard('sonarr', 'Sonarr', '📺', `
@@ -762,6 +762,34 @@
         <button onclick="testIntegration('${id}')" style="padding:5px 12px;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.25);border-radius:6px;color:#00d9ff;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:0.5px;">🔌 Test</button>
         <span id="${id}-test-result" style="font-size:11px;color:rgba(255,255,255,0.4);"></span>
       </div>`;
+    }
+
+    async function detectSignalRGBPort() {
+      const btn = document.getElementById('signalrgb-detect-btn');
+      const resultEl = document.getElementById('signalrgb-detect-result');
+      const urlInput = document.getElementById('signalrgb-url');
+      if (!btn || !resultEl) return;
+      btn.disabled = true;
+      btn.textContent = '⏳ Detecting…';
+      resultEl.textContent = '';
+      resultEl.style.color = 'rgba(255,255,255,0.4)';
+      try {
+        const result = await window.orbit.signalrgbDetectPort();
+        if (result && result.port && !result.error) {
+          const detectedUrl = result.url || ('http://localhost:' + result.port);
+          if (urlInput) urlInput.value = detectedUrl;
+          resultEl.textContent = '✓ Detected on port ' + result.port;
+          resultEl.style.color = '#50fa7b';
+        } else {
+          resultEl.textContent = '✗ ' + (result?.error || 'Could not detect SignalRGB');
+          resultEl.style.color = '#ff5555';
+        }
+      } catch (e) {
+        resultEl.textContent = '✗ Detection failed: ' + (e.message || e);
+        resultEl.style.color = '#ff5555';
+      }
+      btn.disabled = false;
+      btn.textContent = '🔍 Auto-detect';
     }
 
     async function testIntegration(type) {
