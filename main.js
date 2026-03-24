@@ -21,8 +21,32 @@ autoUpdater.on('error', (err) => {
 
 const isDev = !app.isPackaged;
 
-let pendingUpdate = null;
-let updateDownloaded = false;
+const PENDING_UPDATE_PATH = path.join(app.getPath('userData'), 'pending-update.json');
+
+function loadPendingUpdateMarker() {
+  try {
+    if (fs.existsSync(PENDING_UPDATE_PATH)) {
+      const data = JSON.parse(fs.readFileSync(PENDING_UPDATE_PATH, 'utf-8'));
+      if (data && data.downloaded) return data;
+    }
+  } catch (e) { log.warn('Failed to read pending-update.json:', e.message); }
+  return null;
+}
+
+function savePendingUpdateMarker(version) {
+  try { fs.writeFileSync(PENDING_UPDATE_PATH, JSON.stringify({ version, downloaded: true })); }
+  catch (e) { log.warn('Failed to write pending-update.json:', e.message); }
+}
+
+function deletePendingUpdateMarker() {
+  try { if (fs.existsSync(PENDING_UPDATE_PATH)) fs.unlinkSync(PENDING_UPDATE_PATH); }
+  catch (e) { log.warn('Failed to delete pending-update.json:', e.message); }
+}
+
+// Restore persisted state from prior session
+const savedMarker = loadPendingUpdateMarker();
+let pendingUpdate = savedMarker ? { version: savedMarker.version, releaseNotes: '' } : null;
+let updateDownloaded = savedMarker ? true : false;
 
 autoUpdater.on('update-available', (info) => {
   log.info('Update available:', info.version);
@@ -42,6 +66,7 @@ autoUpdater.on('download-progress', (progress) => {
 autoUpdater.on('update-downloaded', (info) => {
   log.info('Update downloaded:', info.version);
   updateDownloaded = true;
+  savePendingUpdateMarker(info.version);
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded');
   }
@@ -348,9 +373,17 @@ app.whenReady().then(() => {
   }
 
   if (!isDev) {
-    setTimeout(() => {
-      try { autoUpdater.checkForUpdates(); } catch (e) { log.warn('AutoUpdater check failed:', e.message || e); }
-    }, 30000);
+    function scheduleUpdateCheck(delayMs) {
+      setTimeout(async () => {
+        try {
+          await autoUpdater.checkForUpdates();
+        } catch (e) {
+          log.warn('Update check failed, retrying in 5min:', e.message || e);
+          scheduleUpdateCheck(5 * 60 * 1000);
+        }
+      }, delayMs);
+    }
+    scheduleUpdateCheck(30000);
   }
 
   // ─── DEVTOOLS GLOBAL SHORTCUT ──────────────────────────────────────────────
@@ -1134,6 +1167,7 @@ ipcMain.handle('download-update', async () => {
 });
 
 ipcMain.handle('install-update', () => {
+  deletePendingUpdateMarker();
   autoUpdater.quitAndInstall(false, true);
 });
 

@@ -4258,21 +4258,28 @@
       const [downloading, setDownloading] = useState(false);
       const [progress, setProgress] = useState(0);
       const [downloaded, setDownloaded] = useState(false);
+      const [updateError, setUpdateError] = useState(null);
 
       useEffect(() => {
         window.orbit.getPendingUpdate().then(u => {
           if (u) {
             setUpdate(u);
-            setDownloading(!u.downloaded);
             if (u.downloaded) { setDownloaded(true); setShowConfirm(true); }
+            else { setDownloading(true); }
           }
         });
-        const unsub1 = window.orbit.onUpdateAvailable(info => setUpdate(info));
-        const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
+        // 2s fallback — catches events fired during page load
+        const fallbackTimer = setTimeout(() => {
+          window.orbit.getPendingUpdate().then(u => {
+            if (u?.downloaded && !downloaded) { setDownloaded(true); setShowConfirm(true); setUpdate(u); }
+          });
+        }, 2000);
+        const unsub1 = window.orbit.onUpdateAvailable(info => { setUpdate(info); setUpdateError(null); });
+        const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); setUpdateError(null); });
         const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); setShowConfirm(true); });
-        const unsub4 = window.orbit.onUpdateError(() => setDownloading(false));
+        const unsub4 = window.orbit.onUpdateError((msg) => { setDownloading(false); setUpdateError(msg || 'Update failed'); });
         window.orbit.getAppVersion().then(v => setAppVersion(v)).catch(()=>{});
-        return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+        return () => { clearTimeout(fallbackTimer); unsub1(); unsub2(); unsub3(); unsub4(); };
       }, []);
 
       const hasUpdate = update || downloaded;
@@ -4336,8 +4343,13 @@
             }, 'v'+appVersion),
             downloaded && h('button', {className:'bottom-update-btn', onClick:()=>window.orbit.installUpdate(), title:'Restart to install update'}, '⟳ RESTART'),
             !downloaded && update && h('button', {className:'bottom-update-btn', onClick:()=>setShowConfirm(true), title:'Update available'},
-              downloading ? progress+'%' : '↓ UPDATE'
-            )
+              downloading ? '↓ '+progress+'%' : '↓ UPDATE'
+            ),
+            !downloaded && !update && updateError && h('button', {
+              className:'bottom-update-btn', style:{color:'#ff6b6b',borderColor:'rgba(255,107,107,0.3)'},
+              onClick:()=>{ setUpdateError(null); window.orbit.checkUpdate(); },
+              title:'Update check failed — click to retry'
+            }, '⚠ Retry')
           )
         ),
 
