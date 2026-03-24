@@ -301,17 +301,16 @@
     .quit-btn { position: fixed; top: 12px; right: 12px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
     body:hover .quit-btn { opacity: 1; }
     .quit-btn:hover { color: var(--red); border-color: var(--red); }
-    .layout-picker { position: relative; display: inline-flex; z-index: 59; }
+    .layout-picker { display: inline-flex; align-items: center; gap: 0; z-index: 59; }
     .layout-picker-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 1px; padding: 5px 10px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .layout-picker-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .layout-picker-btn .lp-arrow { font-size: 8px; opacity: 0.5; }
-    .layout-picker-menu { position: absolute; bottom: 0; left: calc(100% + 4px); min-width: 180px; background: var(--panel-bg, rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 0; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); opacity:0; transform:translateX(-8px); pointer-events:none; transition:opacity .2s ease, transform .2s ease; }
-    .layout-picker-menu.open { opacity:1; transform:translateX(0); pointer-events:auto; }
-    .layout-picker-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 11px; color: var(--text); cursor: pointer; transition: background .15s; letter-spacing: 0.5px; border: none; background: none; width: 100%; text-align: left; }
-    .layout-picker-item:hover { background: rgba(255,255,255,0.06); }
-    .layout-picker-item.active { color: var(--accent); }
-    .layout-picker-item .lp-check { font-size: 10px; margin-right: 4px; }
-    .layout-picker-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0; }
+    .layout-picker-btn .lp-arrow { font-size: 8px; opacity: 0.5; display: inline-block; transition: transform .25s ease; }
+    .layout-picker-btn .lp-arrow.rotated { transform: rotate(90deg); }
+    .layout-picker-inline { display: flex; align-items: center; gap: 6px; overflow: hidden; max-width: 0; opacity: 0; transition: max-width .3s ease, opacity .25s ease; padding-left: 0; }
+    .layout-picker-inline.open { max-width: 600px; opacity: 1; padding-left: 6px; }
+    .layout-picker-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 0.5px; padding: 5px 10px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+    .layout-picker-item:hover { border-color: var(--accent); color: var(--accent); }
+    .layout-picker-item.active { color: var(--accent); border-color: var(--accent); }
     .panel-cog-btn { background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 13px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; transition: color .2s; vertical-align: middle; }
     .panel-cog-btn:hover { color: var(--accent); }
     .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
@@ -4091,35 +4090,32 @@
     // ═══ MAIN APP ═══
     // ── LAYOUT PICKER — top-right dropdown for switching layouts ──
     function LayoutPicker({ config, setConfig }) {
-      const [open, setOpen] = useState(false);
+      const [expanded, setExpanded] = useState(false);
       const ref = useRef(null);
 
       useEffect(() => {
-        if (!open) return;
-        function onClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+        if (!expanded) return;
+        function onClick(e) { if (ref.current && !ref.current.contains(e.target)) setExpanded(false); }
         document.addEventListener('mousedown', onClick);
         return () => document.removeEventListener('mousedown', onClick);
-      }, [open]);
+      }, [expanded]);
 
       const all = getAllLayouts(config);
       const currentKey = config?.currentLayout || '_default';
-      const currentName = all[currentKey]?.name || 'Default';
+      const profiles = Object.entries(all).slice(0, 4);
 
       return h('div', { className: 'layout-picker', ref },
-        h('button', { className: 'layout-picker-btn', onClick: () => setOpen(!open) },
-          currentName,
-          h('span', { className: 'lp-arrow' }, open ? '◂' : '▸')
+        h('button', { className: 'layout-picker-btn', onClick: () => setExpanded(!expanded) },
+          '\u229E Layout',
+          h('span', { className: 'lp-arrow' + (expanded ? ' rotated' : '') }, '\u25B8')
         ),
-        h('div', { className: 'layout-picker-menu' + (open ? ' open' : '') },
-          Object.entries(all).map(([key, layout]) => {
+        h('div', { className: 'layout-picker-inline' + (expanded ? ' open' : '') },
+          profiles.map(([key, layout]) => {
             const isActive = key === currentKey;
             return h('button', {
               key, className: 'layout-picker-item' + (isActive ? ' active' : ''),
-              onClick: () => { applyLayout(config, setConfig, key); setOpen(false); }
-            },
-              h('span', null, isActive ? '● ' : '', layout.name),
-              isBuiltinLayout(key) && h('span', { style: { fontSize: '9px', opacity: 0.4, marginLeft: '6px' } }, 'PRESET')
-            );
+              onClick: () => { applyLayout(config, setConfig, key); setExpanded(false); }
+            }, layout.name);
           })
         )
       );
