@@ -72,6 +72,17 @@ On first launch, a setup wizard walks you through connecting your services. Afte
 | 🎵 | **Spotify** | Now playing, progress, queue preview |
 | 🎞️ | **Jellyfin** | Active sessions and playback |
 | 📡 | **Services** | Health monitor for custom HTTP endpoints |
+| 🖥️ | **Proxmox** | VM/container status, node CPU/RAM/storage |
+| 🐳 | **Docker** | Running/stopped containers with CPU and memory stats |
+| 🕳️ | **Pi-hole** | Query stats, block percentage, enable/disable toggle |
+| 🗄️ | **TrueNAS** | Pool status, disk health, system info, recent alerts |
+| 📸 | **Immich** | Photo library stats, recent upload, On This Day |
+| 🚀 | **Speedtest** | Download/upload/ping with history chart |
+| 📅 | **Calendar** | Upcoming events from iCal feeds (Google, Outlook, Nextcloud) |
+| 🌐 | **Network Monitor** | WAN status, ping latency, live speeds, router stats |
+| 🟠 | **Unraid** | Array status, disk temps, VM list, parity check progress |
+| 📊 | **Uptime Kuma** | Service health badges for all monitored endpoints |
+| 🎬 | **Plex** | Active sessions and playback |
 | 🌐 | **Custom / Embed** | Embed any URL as a panel (iframe/webview) |
 
 Up to **6 panels per page**, across multiple pages. Drag‑and‑drop to reorder. Navigate pages via the bottom bar.
@@ -93,8 +104,17 @@ Everything is configured through the built‑in setup wizard — enter a URL and
 | **SignalRGB** | Local HTTP API (default `http://localhost:16034`) |
 | **Spotify** | OAuth flow — local callback at `http://127.0.0.1:8888/callback` |
 | **Jellyfin** | URL + API key |
+| **Proxmox** | URL + API token (`user@realm!tokenid=secret`) |
+| **Docker** | Docker socket or TCP endpoint URL |
+| **Pi-hole** | URL + API key (v5 or v6) |
+| **TrueNAS** | URL + API key |
+| **Immich** | URL + API key |
+| **Speedtest** | No config — uses Cloudflare speed endpoints |
+| **Calendar** | iCal feed URL (Google, Outlook, Nextcloud, Apple Calendar) |
+| **Network Monitor** | Optional router URL (OpenWrt, pfSense, UniFi) + credentials |
+| **Unraid** | URL + API key |
+| **Uptime Kuma** | URL + API key |
 | **Weather** | City name (free — no key required) |
-| **Custom Services** | Any HTTP endpoint for health checks |
 | **Custom / Embed** | Any URL — just paste it in |
 
 ---
