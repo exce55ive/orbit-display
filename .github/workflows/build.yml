@@ -41,15 +41,20 @@ jobs:
           Rename-Item "dist\$srcName" $dstName
           Write-Host "Renamed $srcName -> $dstName"
 
-      - name: Generate latest.yml
-        if: matrix.arch == 'x64'
+      - name: Generate latest.yml (x64) or latest-arm64.yml (arm64)
         shell: pwsh
         run: |
-          $exe = Get-ChildItem dist\OrbitSetup-*.exe | Where-Object { $_.Name -notlike '*arm64*' } | Select-Object -First 1
-          $hash = (Get-FileHash $exe.FullName -Algorithm SHA512).Hash.ToLower()
-          $size = $exe.Length
           $version = (Get-Content package.json | ConvertFrom-Json).version
           $date = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
+          if ("${{ matrix.arch }}" -eq "x64") {
+            $exe = Get-ChildItem dist\OrbitSetup-*.exe | Where-Object { $_.Name -notlike '*arm64*' } | Select-Object -First 1
+            $outFile = "dist\latest.yml"
+          } else {
+            $exe = Get-ChildItem dist\OrbitSetup-*-arm64.exe | Select-Object -First 1
+            $outFile = "dist\latest-arm64.yml"
+          }
+          $hash = (Get-FileHash $exe.FullName -Algorithm SHA512).Hash.ToLower()
+          $size = $exe.Length
           $name = $exe.Name
           @"
           version: $version
@@ -60,7 +65,8 @@ jobs:
           path: $name
           sha512: $hash
           releaseDate: '$date'
-          "@ | Set-Content dist\latest.yml
+          "@ | Set-Content $outFile
+          Write-Host "Generated $outFile for $name"
 
       - name: List build output
         run: ls dist/
@@ -77,7 +83,7 @@ jobs:
         with:
           files: |
             dist/OrbitSetup-*.exe
-            ${{ matrix.arch == 'x64' && 'dist/latest.yml' || '' }}
+            dist/latest*.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
