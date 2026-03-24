@@ -3721,7 +3721,7 @@
         window.orbit.getPendingUpdate().then(u => { if (u) setUpdate(u); });
         const unsub1 = window.orbit.onUpdateAvailable(info => setUpdate(info));
         const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
-        const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
+        const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); setShowConfirm(true); });
         const unsub4 = window.orbit.onUpdateError(() => setDownloading(false));
         window.orbit.getAppVersion().then(v => setAppVersion(v)).catch(()=>{});
         return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
@@ -3789,16 +3789,28 @@
         // Update confirm modal (unchanged logic)
         showConfirm && h('div', {className:'update-confirm-overlay', onClick:e=>{if(e.target===e.currentTarget&&!downloading)setShowConfirm(false)}},
           h('div', {className:'update-confirm-modal'},
-            h('div', {className:'update-confirm-title'}, 'Update Available'),
-            h('div', {className:'update-confirm-version'}, 'v'+(update?.version||'?')),
-            downloading
+            downloaded
               ? h(React.Fragment, null,
-                  h('div', {className:'update-progress-bar'}, h('div', {className:'update-progress-fill', style:{width:progress+'%'}})),
-                  h('div', {className:'update-status-text'}, 'Downloading... '+progress+'%')
+                  h('div', {className:'update-confirm-title'}, '✅ Download Complete'),
+                  h('div', {className:'update-confirm-version'}, 'v'+(update?.version||'?')+' is ready to install'),
+                  h('div', {className:'update-status-text', style:{marginBottom:'16px'}}, 'Orbit will restart to apply the update.'),
+                  h('div', {className:'update-confirm-btns'},
+                    h('button', {className:'update-confirm-btn primary', onClick:()=>window.orbit.installUpdate()}, '⟳ Restart Now'),
+                    h('button', {className:'update-confirm-btn cancel', onClick:()=>setShowConfirm(false)}, 'Later')
+                  )
                 )
-              : h('div', {className:'update-confirm-btns'},
-                  h('button', {className:'update-confirm-btn primary', onClick:()=>{setDownloading(true);window.orbit.downloadUpdate();}}, 'Download'),
-                  h('button', {className:'update-confirm-btn cancel', onClick:()=>setShowConfirm(false)}, 'Later')
+              : h(React.Fragment, null,
+                  h('div', {className:'update-confirm-title'}, 'Update Available'),
+                  h('div', {className:'update-confirm-version'}, 'v'+(update?.version||'?')),
+                  downloading
+                    ? h(React.Fragment, null,
+                        h('div', {className:'update-progress-bar'}, h('div', {className:'update-progress-fill', style:{width:progress+'%'}})),
+                        h('div', {className:'update-status-text'}, 'Downloading... '+progress+'%')
+                      )
+                    : h('div', {className:'update-confirm-btns'},
+                        h('button', {className:'update-confirm-btn primary', onClick:()=>{setDownloading(true);window.orbit.downloadUpdate();}}, 'Download'),
+                        h('button', {className:'update-confirm-btn cancel', onClick:()=>setShowConfirm(false)}, 'Later')
+                      )
                 )
           )
         )
