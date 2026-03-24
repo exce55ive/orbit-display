@@ -152,7 +152,9 @@
         proxmox:{enabled:false, url:'',tokenId:'',tokenSecret:'',node:'pve'},
         docker:{enabled:false, host:'localhost',port:2375,useTLS:false},
         pihole:{enabled:false, url:'',apiKey:''},
-        truenas:{enabled:false, url:'',apiKey:''}
+        truenas:{enabled:false, url:'',apiKey:''},
+        network:{enabled:false, routerUrl:'',routerType:'generic',username:'',password:''},
+        unraid:{enabled:false, url:'',apiKey:''}
       },
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
@@ -208,6 +210,8 @@
       { type: 'docker',     icon: '🐳', name: 'Docker' },
       { type: 'pihole',    icon: '🛡️', name: 'Pi-hole' },
       { type: 'truenas',   icon: '💾', name: 'TrueNAS' },
+      { type: 'network',   icon: '🌐', name: 'Network Monitor' },
+      { type: 'unraid',    icon: '🟠', name: 'Unraid' },
     ];
     const MAX_PANELS = 6;
 
@@ -232,6 +236,8 @@
       docker:      (c) => c.docker?.enabled,
       pihole:      (c) => c.pihole?.enabled && c.pihole?.url,
       truenas:     (c) => c.truenas?.enabled && c.truenas?.url && c.truenas?.apiKey,
+      network:     (c) => c.network?.enabled,
+      unraid:      (c) => c.unraid?.enabled && c.unraid?.url && c.unraid?.apiKey,
       media:       (c) => (c.sonarr?.enabled && c.sonarr?.url) || (c.radarr?.enabled && c.radarr?.url),
     };
 
@@ -382,6 +388,25 @@
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="truenas-key" type="password" value="${esc(config.integrations.truenas.apiKey)}"></div>
 
                 ${testRow('truenas')}
+              `)}
+              ${integrationCard('network', 'Network Monitor', '🌐', `
+                <div class="field-group"><div class="field-label">Router URL</div><input class="field-input" id="network-router-url" placeholder="http://192.168.1.1" value="${esc(config.integrations.network.routerUrl)}"></div>
+                <div class="field-group"><div class="field-label">Router Type</div>
+                  <select class="field-input" id="network-router-type" style="background:var(--bg);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-family:inherit;font-size:12px;">
+                    <option value="generic" ${config.integrations.network.routerType==='generic'?'selected':''}>Generic</option>
+                    <option value="openwrt" ${config.integrations.network.routerType==='openwrt'?'selected':''}>OpenWrt</option>
+                    <option value="pfsense" ${config.integrations.network.routerType==='pfsense'?'selected':''}>pfSense</option>
+                    <option value="unifi" ${config.integrations.network.routerType==='unifi'?'selected':''}>UniFi</option>
+                  </select>
+                </div>
+                <div class="field-group"><div class="field-label">Username</div><input class="field-input" id="network-username" value="${esc(config.integrations.network.username)}"></div>
+                <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="network-password" type="password" value="${esc(config.integrations.network.password)}"></div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px;">Ping + local IP always shown. Router config adds WAN IP, bandwidth & connections.</div>
+              `)}
+              ${integrationCard('unraid', 'Unraid', '🟠', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="unraid-url" placeholder="http://192.168.1.x" value="${esc(config.integrations.unraid.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="unraid-key" type="password" value="${esc(config.integrations.unraid.apiKey)}"></div>
+                ${testRow('unraid')}
               `)}
               <div class="integration-card enabled" id="card-links">
                 <label class="integration-toggle" style="pointer-events:none;opacity:0.6;">
@@ -857,6 +882,7 @@
       else if (type === 'docker') { opts.url = getVal('docker-host') || 'localhost'; opts.port = parseInt(getVal('docker-port')) || 2375; opts.useTLS = document.getElementById('docker-tls')?.checked || false; }
       else if (type === 'pihole') { opts.url = getVal('pihole-url'); opts.apiKey = getVal('pihole-key'); }
       else if (type === 'truenas') { opts.url = getVal('truenas-url'); opts.apiKey = getVal('truenas-key'); }
+      else if (type === 'unraid') { opts.url = getVal('unraid-url'); opts.apiKey = getVal('unraid-key'); }
       else if (type === 'homeassistant') { opts.url = getVal('ha-url'); opts.token = getVal('ha-token'); }
       else if (type === 'weather') opts.url = getVal('weather-city');
       else if (type === 'spotify') { opts.clientId = getVal('spotify-id'); opts.clientSecret = getVal('spotify-secret'); }
@@ -930,6 +956,16 @@
       config.integrations.truenas.enabled = isEnabled('truenas');
       config.integrations.truenas.url = getVal('truenas-url');
       config.integrations.truenas.apiKey = getVal('truenas-key');
+
+      config.integrations.network.enabled = isEnabled('network');
+      config.integrations.network.routerUrl = getVal('network-router-url');
+      config.integrations.network.routerType = document.getElementById('network-router-type')?.value || 'generic';
+      config.integrations.network.username = getVal('network-username');
+      config.integrations.network.password = getVal('network-password');
+
+      config.integrations.unraid.enabled = isEnabled('unraid');
+      config.integrations.unraid.url = getVal('unraid-url');
+      config.integrations.unraid.apiKey = getVal('unraid-key');
 
       // Services panel enabled state
       if (!config.integrations.services) config.integrations.services = {};

@@ -878,6 +878,9 @@
                     ? h('input', {className:'settings-input', type:'password', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
                     : f.type === 'number'
                     ? h('input', {className:'settings-input', type:'number', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,parseInt(e.target.value)||0), placeholder:f.placeholder||''})
+                    : f.type === 'select'
+                    ? h('select', {className:'settings-input', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value)},
+                        (f.options||[]).map(o => h('option', {key:o, value:o}, o.charAt(0).toUpperCase()+o.slice(1))))
                     : h('input', {className:'settings-input', type:'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
                 )
           ))
@@ -921,6 +924,8 @@
             h('div', {id:'settings-docker'}, integrationSection('docker','Docker','🐳',[{field:'host',label:'HOST',placeholder:'localhost'},{field:'port',label:'PORT',type:'number',placeholder:'2375'},{field:'useTLS',label:'USE TLS (HTTPS)',type:'checkbox'}])),
             h('div', {id:'settings-pihole'}, integrationSection('pihole','Pi-hole','🛡️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY'}])),
             h('div', {id:'settings-truenas'}, integrationSection('truenas','TrueNAS','💾',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
+            h('div', {id:'settings-network'}, integrationSection('network','Network Monitor','🌐',[{field:'routerUrl',label:'ROUTER URL',placeholder:'http://192.168.1.1'},{field:'routerType',label:'ROUTER TYPE',type:'select',options:['generic','openwrt','pfsense','unifi']},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
+            h('div', {id:'settings-unraid'}, integrationSection('unraid','Unraid','🟠',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
             h('div', {id:'settings-signalrgb'}, h(SignalRGBSection, {cfg, updateIntegration, expanded:expanded.signalrgb, toggle:()=>toggleExpand('signalrgb')})),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
             h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.0.13
+- **Add:** Demo / Sample Mode — "Try Demo" button on first-run welcome overlay loads realistic fake data across all panels. Explore Orbit's full feature set without configuring any services. Clearly visible "DEMO MODE" badge in bottom bar with one-click exit.
+- **Add:** Network Monitor panel — shows WAN connection status, ping latency to 8.8.8.8, live upload/download speeds, and local IP address. Optional router integration supports OpenWrt, pfSense, and UniFi for WAN IP, bandwidth totals, and active connection count. Polls ping every 5s, router every 30s.
+- **Add:** Unraid panel — array status with colour badge, read/write speeds, disk list with temps/status/usage, VM list with status and memory, parity check progress. Connects via Unraid REST API (`/api/v1/`). Polls every 30s.
+- **Add:** Landing page overhaul — new product page with hero section, dashboard mock preview, feature grid covering all 16+ integrations, highlight cards for drag-and-drop/layouts/notifications/auto-updates, platform download section, and dark theme matching Orbit's aesthetic.
+- **Add:** `config-schema.json` updated with `demoMode`, `network` (routerUrl, routerType, username, password), and `unraid` (url, apiKey) integration defaults.
+- **Add:** Setup Wizard and Settings window updated with Network Monitor and Unraid configuration sections.
+- **Add:** `ping-host` IPC handler for real ICMP ping from main process. `get-sysinfo-fast` now includes local IP address.
+
 ## v0.0.12
 - **Add:** Proxmox panel — live VM/container status, node CPU/RAM/storage usage with colour-coded health badges. Polls every 15s. Supports API token auth and self-signed certs.
 - **Add:** Docker panel — running/stopped container list with per-container CPU and memory stats. Collapsible stopped section. Polls every 10s.

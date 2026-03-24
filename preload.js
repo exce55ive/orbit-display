@@ -65,6 +65,9 @@ contextBridge.exposeInMainWorld('orbit', {
   // Service health check (in-house pinger)
   checkServices: (services) => ipcRenderer.invoke('check-services', services),
 
+  // Network ping
+  pingHost: (host) => ipcRenderer.invoke('ping-host', host),
+
   // Settings persistence
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   loadSettings: () => ipcRenderer.invoke('load-settings'),

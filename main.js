@@ -118,6 +118,8 @@ function validateAndFillDefaults(cfg) {
   if (cfg.panels.docker === undefined) cfg.panels.docker = false;
   if (cfg.panels.pihole === undefined) cfg.panels.pihole = false;
   if (cfg.panels.truenas === undefined) cfg.panels.truenas = false;
+  if (cfg.panels.network === undefined) cfg.panels.network = false;
+  if (cfg.panels.unraid === undefined) cfg.panels.unraid = false;
 
   // Log warning for unknown top-level keys
   const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete','panelOrder','panelCollapsed','layouts','currentLayout','notifications']);
@@ -755,6 +757,17 @@ ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, pas
       if (info.hostname || info.version) return ok('Connected — ' + (info.hostname || 'TrueNAS') + ' ' + (info.version || ''));
       return ok('Connected — TrueNAS API responding');
     }
+    if (type === 'unraid') {
+      if (!url) return fail('URL required');
+      if (!apiKey) return fail('API Key required');
+      const base = url.replace(/\/+$/, '');
+      const r = await safeFetch(`${base}/api/v1/array`, {
+        headers: { Authorization: 'Bearer ' + apiKey },
+        timeout: 8000
+      });
+      if (r.error) return fail(r.error);
+      return ok('Connected — Unraid API responding');
+    }
     if (type === 'services') return ok('Services panel auto-detects configured URLs — no test needed');
     return fail('Unknown integration type');
   } catch (e) {
@@ -929,10 +942,13 @@ ipcMain.handle('get-sysinfo', async (_e, params) => {
 
 ipcMain.handle('get-sysinfo-fast', async () => {
   const si = require('systeminformation');
-  const [cpuLoad, mem, netStats] = await Promise.all([
-    si.currentLoad(), si.mem(), si.networkStats().catch(() => [])
+  const [cpuLoad, mem, netStats, netIfaces] = await Promise.all([
+    si.currentLoad(), si.mem(), si.networkStats().catch(() => []), si.networkInterfaces().catch(() => [])
   ]);
   const net = netStats && netStats[0];
+  // Find best local IP (skip loopback and docker/veth)
+  const ifaces = Array.isArray(netIfaces) ? netIfaces : [];
+  const localIface = ifaces.find(i => i.ip4 && !i.internal && !/^(docker|veth|br-)/.test(i.iface)) || ifaces.find(i => i.ip4 && !i.internal);
   return {
     cpu: { usage: Math.round(cpuLoad.currentLoad || 0) },
     ram: {
@@ -940,7 +956,7 @@ ipcMain.handle('get-sysinfo-fast', async () => {
       usedGB: (mem.used / 1073741824).toFixed(1),
       totalGB: (mem.total / 1073741824).toFixed(1)
     },
-    net: { txSec: net ? net.tx_sec : 0, rxSec: net ? net.rx_sec : 0 }
+    net: { txSec: net ? net.tx_sec : 0, rxSec: net ? net.rx_sec : 0, localIp: localIface?.ip4 || null }
   };
 });
 
@@ -975,6 +991,24 @@ ipcMain.handle('get-sysinfo-slow', async (_e, params) => {
     gpu: gpuResult,
     disk: showDisk && disk ? { usage: Math.round(disk.use), mount: disk.mount } : null
   };
+});
+
+// ─── IPC: NETWORK PING ──────────────────────────────────────────────────────
+ipcMain.handle('ping-host', async (_e, host) => {
+  const target = (host || '8.8.8.8').replace(/[^a-zA-Z0-9.\-:]/g, '');
+  return new Promise(resolve => {
+    const isWin = process.platform === 'win32';
+    const args = isWin ? ['-n', '1', '-w', '3000', target] : ['-c', '1', '-W', '3', target];
+    const { execFile } = require('child_process');
+    const start = Date.now();
+    execFile('ping', args, { timeout: 5000 }, (err, stdout) => {
+      if (err) return resolve({ ok: false, ms: null });
+      const elapsed = Date.now() - start;
+      // Try to parse RTT from output
+      const m = stdout.match(/time[=<](\d+\.?\d*)\s*ms/i);
+      resolve({ ok: true, ms: m ? parseFloat(m[1]) : elapsed });
+    });
+  });
 });
 
 // ─── IPC: UPDATES ───────────────────────────────────────────────────────────

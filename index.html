@@ -330,6 +330,12 @@
     .welcome-btn-primary:hover { opacity: 0.9; }
     .welcome-btn-skip { background: transparent; border: 1px solid var(--border); color: var(--dim); margin-left: 12px; }
     .welcome-btn-skip:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+    .welcome-btn-demo { background: linear-gradient(135deg, rgba(80,250,123,0.15), rgba(0,217,255,0.15)); border: 1px solid rgba(80,250,123,0.4); color: #50fa7b; margin-left: 12px; }
+    .welcome-btn-demo:hover { background: linear-gradient(135deg, rgba(80,250,123,0.25), rgba(0,217,255,0.25)); border-color: #50fa7b; }
+    .demo-mode-badge { display: inline-block; padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 2px; border-radius: 4px; background: rgba(255,200,87,0.15); color: var(--amber); border: 1px solid rgba(255,200,87,0.35); margin-right: 8px; animation: demo-pulse 2s ease-in-out infinite; }
+    @keyframes demo-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .demo-exit-btn { padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 1px; border-radius: 4px; background: rgba(255,85,85,0.12); color: #ff5555; border: 1px solid rgba(255,85,85,0.3); cursor: pointer; font-family: var(--font); margin-right: 8px; transition: all .2s; }
+    .demo-exit-btn:hover { background: rgba(255,85,85,0.25); border-color: #ff5555; }
     .page-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; cursor: default; }
     .page-row:hover { border-color: var(--accent-mid); }
     .page-row.drag-over { border-color: var(--accent); background: var(--accent-dim); }
@@ -462,7 +468,7 @@
       'clock','weather','sonarr','radarr','overseerr','nzbget',
       'signalrgb','services','spotify','discord','homeassistant',
       'sysmon','tautulli','jellyfin','nowplaying','lights','system',
-      'media','uptimekuma','links','proxmox','docker','pihole','truenas'
+      'media','uptimekuma','links','proxmox','docker','pihole','truenas','network','unraid'
     ];
     // Note: order includes alias IDs (weather→clock, homeassistant→lights, sysmon→system, tautulli→nowplaying)
     // plus actual panel type IDs, so any naming convention resolves correctly.
@@ -2863,6 +2869,177 @@
       );
     }
 
+    // ═══ NETWORK MONITOR PANEL ═══
+    function NetworkPanel({ config, openSettings }) {
+      const nCfg = config?.integrations?.network;
+      const routerConfigured = nCfg?.routerUrl && nCfg?.routerType;
+      const [ping, setPing] = useState(null);
+      const [localIp, setLocalIp] = useState(null);
+      const [netSpeed, setNetSpeed] = useState({ tx: 0, rx: 0 });
+      const [routerData, setRouterData] = useState(null);
+      const [routerError, setRouterError] = useState(null);
+
+      // Fast poll: ping + local IP + net speed (every 5s)
+      useEffect(() => {
+        let timer = null;
+        async function pollFast() {
+          try {
+            const [pingRes, sysinfo] = await Promise.all([
+              window.orbit.pingHost('8.8.8.8'),
+              window.orbit.getSysinfoFast()
+            ]);
+            setPing(pingRes);
+            setNetSpeed({ tx: sysinfo?.net?.txSec || 0, rx: sysinfo?.net?.rxSec || 0 });
+            // Extract local IP from sysinfo network interfaces
+            if (sysinfo?.net?.localIp) {
+              setLocalIp(sysinfo.net.localIp);
+            }
+          } catch {}
+          timer = setTimeout(pollFast, 5000);
+        }
+        pollFast();
+        return () => clearTimeout(timer);
+      }, []);
+
+      // Get local IP on mount via systeminformation (separate call)
+      useEffect(() => {
+        async function getLocalIp() {
+          try {
+            const info = await window.orbit.getSysinfoSlow({});
+            // getSysinfoSlow doesn't return net — use apiGet to a known local endpoint? Or just use hostname
+          } catch {}
+        }
+        // Use the network info from getSysinfoFast which includes net stats
+        // Local IP will be available from the OS — we'll extract it in the fast poll above
+      }, []);
+
+      // Router poll (every 30s) — OpenWrt or pfSense
+      useEffect(() => {
+        if (!routerConfigured) return;
+        let timer = null;
+        async function pollRouter() {
+          try {
+            const base = nCfg.routerUrl.replace(/\/+$/, '');
+            const rType = nCfg.routerType;
+            if (rType === 'openwrt') {
+              // OpenWrt luci-rpc JSON API
+              // First authenticate
+              const authRes = await window.orbit.apiPost(base + '/cgi-bin/luci/rpc/auth', { id: 1, method: 'login', params: [nCfg.username || '', nCfg.password || ''] }, { 'Content-Type': 'application/json' });
+              const token = authRes?.result;
+              if (!token) { setRouterError('Auth failed'); timer = setTimeout(pollRouter, 30000); return; }
+              const hdr = { 'Content-Type': 'application/json' };
+              // Get network info
+              const [netRes, connRes] = await Promise.all([
+                window.orbit.apiPost(base + '/cgi-bin/luci/rpc/sys', { id: 2, method: 'exec', params: ['cat /proc/net/dev'] }, hdr),
+                window.orbit.apiPost(base + '/cgi-bin/luci/rpc/sys', { id: 3, method: 'exec', params: ['cat /proc/net/nf_conntrack | wc -l'] }, hdr)
+              ]);
+              // Parse WAN IP via UCI
+              const wanRes = await window.orbit.apiPost(base + '/cgi-bin/luci/rpc/uci', { id: 4, method: 'get_all', params: ['network', 'wan'] }, hdr);
+              const wanIp = wanRes?.result?.ipaddr || wanRes?.result?.proto || null;
+              const conns = parseInt(connRes?.result) || 0;
+              setRouterData({ wanIp: wanIp, connections: conns, type: 'openwrt' });
+              setRouterError(null);
+            } else if (rType === 'pfsense') {
+              // pfSense REST API (with API key)
+              const hdr = { Authorization: 'Bearer ' + (nCfg.password || '') };
+              const [ifRes, stateRes] = await Promise.all([
+                window.orbit.apiGet(base + '/api/v1/interface', hdr, 10000),
+                window.orbit.apiGet(base + '/api/v1/status/system', hdr, 10000)
+              ]);
+              const wanIf = ifRes?.data?.find(i => i.if === 'wan' || i.descr === 'WAN');
+              setRouterData({
+                wanIp: wanIf?.ipaddr || null,
+                connections: stateRes?.data?.mbuf_inuse || 0,
+                type: 'pfsense'
+              });
+              setRouterError(null);
+            } else if (rType === 'unifi') {
+              // UniFi controller API
+              const hdr = { 'Content-Type': 'application/json' };
+              await window.orbit.apiPost(base + '/api/login', { username: nCfg.username || '', password: nCfg.password || '' }, hdr);
+              const healthRes = await window.orbit.apiGet(base + '/api/s/default/stat/health', hdr, 10000);
+              const wan = healthRes?.data?.find(h => h.subsystem === 'wan');
+              setRouterData({
+                wanIp: wan?.wan_ip || null,
+                connections: wan?.num_sta || 0,
+                rxBytes: wan?.rx_bytes || 0,
+                txBytes: wan?.tx_bytes || 0,
+                type: 'unifi'
+              });
+              setRouterError(null);
+            } else {
+              // Generic — just try to reach the router URL
+              const res = await window.orbit.apiGet(base, {}, 5000);
+              setRouterData({ wanIp: null, connections: null, type: 'generic', reachable: !res?.error });
+              setRouterError(null);
+            }
+          } catch (e) { setRouterError(e.message || 'Router unreachable'); }
+          timer = setTimeout(pollRouter, 30000);
+        }
+        pollRouter();
+        return () => clearTimeout(timer);
+      }, [nCfg?.routerUrl, nCfg?.routerType, nCfg?.username, nCfg?.password]);
+
+      const pingOk = ping?.ok;
+      const pingMs = ping?.ms != null ? Math.round(ping.ms) : null;
+      const txStr = formatBytes(netSpeed.tx);
+      const rxStr = formatBytes(netSpeed.rx);
+
+      const rowStyle = { display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)' };
+      const labelStyle = { color: 'var(--dim)', fontSize: '11px', letterSpacing: '1px' };
+      const valStyle = { color: 'var(--text-bright)', fontWeight: '600' };
+
+      return h('div', { className: 'panel panel-top' },
+        h(PanelHeader, { title: 'NETWORK', icon: '🌐', accentColor: '#00D9FF' }),
+        // Connection status
+        h('div', { style: { textAlign: 'center', marginBottom: '12px' } },
+          h('div', { style: { fontSize: '11px', color: pingOk ? '#50fa7b' : '#ff5555', fontWeight: '700', letterSpacing: '2px', marginBottom: '4px' } },
+            pingOk ? '● CONNECTED' : '● OFFLINE'
+          ),
+          pingMs != null && h('div', { style: { fontSize: '24px', fontWeight: '800', color: 'var(--accent)' } }, pingMs + 'ms'),
+          h('div', { style: { fontSize: '10px', color: 'var(--dim)', letterSpacing: '1px' } }, 'PING 8.8.8.8')
+        ),
+        // Speed
+        h('div', { style: { display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '14px' } },
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, '↓ DOWN'),
+            h('div', { style: { fontSize: '18px', fontWeight: '700', color: 'var(--text-bright)' } }, rxStr)
+          ),
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, '↑ UP'),
+            h('div', { style: { fontSize: '18px', fontWeight: '700', color: 'var(--text-bright)' } }, txStr)
+          )
+        ),
+        // Local info
+        h('div', { style: { width: '100%' } },
+          h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '6px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, 'NETWORK INFO'),
+          localIp && h('div', { style: rowStyle },
+            h('span', { style: labelStyle }, 'Local IP'),
+            h('span', { style: valStyle }, localIp)
+          ),
+          routerData?.wanIp && h('div', { style: rowStyle },
+            h('span', { style: labelStyle }, 'WAN IP'),
+            h('span', { style: valStyle }, routerData.wanIp)
+          ),
+          routerData?.connections != null && h('div', { style: rowStyle },
+            h('span', { style: labelStyle }, 'Connections'),
+            h('span', { style: valStyle }, routerData.connections)
+          )
+        ),
+        // Router status
+        !routerConfigured && h('div', { style: { marginTop: 'auto', paddingTop: '12px', textAlign: 'center' } },
+          h('div', { style: { fontSize: '10px', color: 'var(--dim)', letterSpacing: '0.5px', lineHeight: '1.6' } },
+            'Configure your router in Settings for WAN IP, bandwidth totals, and connection count.'
+          ),
+          h('button', {
+            onClick: openSettings,
+            style: { marginTop: '8px', padding: '5px 14px', background: 'var(--accent-bg)', border: '1px solid rgba(0,217,255,0.3)', borderRadius: '6px', color: 'var(--accent)', cursor: 'pointer', fontFamily: 'var(--font)', fontSize: '11px' }
+          }, '⚙ Configure Router')
+        ),
+        routerError && h('div', { style: { fontSize: '11px', color: 'var(--amber)', textAlign: 'center', marginTop: '8px' } }, 'Router: ' + routerError)
+      );
+    }
+
     // ═══ TRUENAS PANEL ═══
     function TrueNASPanel({ config, openSettings }) {
       const tCfg = config?.integrations?.truenas;
@@ -3021,6 +3198,441 @@
       );
     }
 
+    // ═══ UNRAID PANEL ═══
+    function UnraidPanel({ config, openSettings }) {
+      const uCfg = config?.integrations?.unraid;
+      const configured = uCfg?.url && uCfg?.apiKey;
+      const [arrayStatus, setArrayStatus] = useState(null);
+      const [disks, setDisks] = useState([]);
+      const [vms, setVms] = useState([]);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        async function poll() {
+          try {
+            const base = uCfg.url.replace(/\/+$/, '');
+            const hdr = { Authorization: 'Bearer ' + uCfg.apiKey };
+            const [arrRes, diskRes, vmRes] = await Promise.all([
+              window.orbit.apiGet(base + '/api/v1/array', hdr, 10000),
+              window.orbit.apiGet(base + '/api/v1/disks', hdr, 10000),
+              window.orbit.apiGet(base + '/api/v1/vms', hdr, 10000)
+            ]);
+            if (arrRes?.error) { setError(arrRes.error); }
+            else {
+              setError(null);
+              setArrayStatus(arrRes?.data || arrRes);
+              setDisks(Array.isArray(diskRes?.data) ? diskRes.data : (Array.isArray(diskRes) ? diskRes : []));
+              setVms(Array.isArray(vmRes?.data) ? vmRes.data : (Array.isArray(vmRes) ? vmRes : []));
+            }
+          } catch (e) { setError(e.message || 'Unraid unreachable'); }
+          timer = setTimeout(poll, 30000);
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [uCfg?.url, uCfg?.apiKey]);
+
+      if (!configured) return h('div', { className: 'panel panel-unconfigured' },
+        h(PanelHeader, { title: 'UNRAID', icon: '🟠', accentColor: '#FF8C2F' }),
+        h('div', { className: 'panel-unconfigured-icon' }, '🟠'),
+        h('div', { className: 'panel-unconfigured-text', style: { cursor: 'pointer' } }, 'Configure Unraid in Settings'));
+
+      const arrState = arrayStatus?.state || arrayStatus?.status || 'Unknown';
+      const arrColor = /started|online/i.test(arrState) ? '#50fa7b' : /stopped/i.test(arrState) ? 'var(--amber)' : '#ff5555';
+      const parityCheck = arrayStatus?.parity;
+      const parityRunning = parityCheck?.running || parityCheck?.status === 'running';
+      const parityPct = parityCheck?.progress || 0;
+      const readSpeed = arrayStatus?.readSpeed || arrayStatus?.read_speed || null;
+      const writeSpeed = arrayStatus?.writeSpeed || arrayStatus?.write_speed || null;
+      const uptime = arrayStatus?.uptime || null;
+      const cpuTemp = arrayStatus?.cpuTemp || arrayStatus?.cpu_temp || null;
+
+      const sectionLabel = (text) => h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '6px', marginTop: '10px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, text);
+      const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', fontSize: '11px', borderBottom: '1px solid rgba(255,255,255,0.04)' };
+      const badgeStyle = (ok) => ({
+        display: 'inline-block', padding: '1px 6px', borderRadius: '3px', fontSize: '9px', fontWeight: '700', letterSpacing: '0.5px',
+        background: ok ? 'rgba(80,250,123,0.15)' : 'rgba(255,85,85,0.15)',
+        color: ok ? '#50fa7b' : '#ff5555'
+      });
+
+      function fmtBytes(bytes) {
+        if (!bytes) return '0';
+        if (bytes >= 1099511627776) return (bytes / 1099511627776).toFixed(1) + ' TB';
+        if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+        return (bytes / 1048576).toFixed(0) + ' MB';
+      }
+
+      return h('div', { className: 'panel panel-top' },
+        h(PanelHeader, { title: 'UNRAID', icon: '🟠', accentColor: '#FF8C2F' }),
+        error && h('div', { style: { fontSize: '11px', color: 'var(--red)', marginBottom: '8px' } }, 'Error: ' + error),
+        // Array status badge
+        h('div', { style: { textAlign: 'center', marginBottom: '10px' } },
+          h('span', { style: { display: 'inline-block', padding: '4px 16px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', background: arrColor === '#50fa7b' ? 'rgba(80,250,123,0.15)' : arrColor === 'var(--amber)' ? 'rgba(255,200,87,0.15)' : 'rgba(255,85,85,0.15)', color: arrColor } },
+            '● ARRAY ' + arrState.toUpperCase()
+          )
+        ),
+        // Read/write speeds
+        (readSpeed || writeSpeed) && h('div', { style: { display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '10px' } },
+          readSpeed && h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, 'READ'),
+            h('div', { style: { fontSize: '16px', fontWeight: '700', color: 'var(--text-bright)' } }, formatBytes(readSpeed))
+          ),
+          writeSpeed && h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, 'WRITE'),
+            h('div', { style: { fontSize: '16px', fontWeight: '700', color: 'var(--text-bright)' } }, formatBytes(writeSpeed))
+          )
+        ),
+        // Parity check
+        parityRunning && h('div', { style: { marginBottom: '10px' } },
+          sectionLabel('PARITY CHECK'),
+          h('div', { className: 'np-progress-bar' }, h('div', { className: 'np-progress-fill', style: { width: parityPct + '%' } })),
+          h('div', { style: { fontSize: '10px', color: 'var(--dim)', marginTop: '2px' } }, parityPct + '% complete' + (parityCheck?.eta ? ' · ETA ' + parityCheck.eta : ''))
+        ),
+        // Disks
+        disks.length > 0 && h('div', null,
+          sectionLabel('DISKS'),
+          disks.slice(0, 8).map((d, i) => {
+            const name = d.name || d.device || 'Disk ' + i;
+            const temp = d.temp || d.temperature;
+            const status = d.status || 'ok';
+            const used = d.used || d.fsUsed || 0;
+            const total = d.size || d.fsSize || 0;
+            const isOk = /ok|active|normal/i.test(status);
+            return h('div', { key: i, style: rowStyle },
+              h('span', { style: { color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '6px' } }, name),
+              temp && h('span', { style: { fontSize: '10px', color: temp > 45 ? '#ff5555' : temp > 35 ? 'var(--amber)' : 'var(--dim)', marginRight: '6px' } }, temp + '°C'),
+              h('span', { style: badgeStyle(isOk) }, isOk ? 'OK' : status.toUpperCase().slice(0, 4)),
+              total > 0 && h('span', { style: { fontSize: '10px', color: 'var(--dim)', marginLeft: '6px', minWidth: '60px', textAlign: 'right' } }, fmtBytes(used) + '/' + fmtBytes(total))
+            );
+          })
+        ),
+        // VMs
+        vms.length > 0 && h('div', null,
+          sectionLabel('VIRTUAL MACHINES'),
+          vms.map((v, i) => {
+            const isRunning = /running|started/i.test(v.status || v.state || '');
+            return h('div', { key: i, style: rowStyle },
+              h('span', { style: { color: 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, v.name || 'VM ' + i),
+              h('span', { style: badgeStyle(isRunning) }, isRunning ? 'RUN' : 'STOP'),
+              v.memory && h('span', { style: { fontSize: '10px', color: 'var(--dim)', marginLeft: '6px', minWidth: '40px', textAlign: 'right' } }, fmtBytes(v.memory))
+            );
+          })
+        ),
+        // System info footer
+        h('div', { style: { marginTop: 'auto', paddingTop: '10px', fontSize: '10px', color: 'var(--dim)', letterSpacing: '1px', textAlign: 'center' } },
+          [uptime ? 'Up ' + uptime : null, cpuTemp ? 'CPU ' + cpuTemp + '°C' : null, disks.length + ' disk' + (disks.length !== 1 ? 's' : '')].filter(Boolean).join(' · ')
+        )
+      );
+    }
+
+    // ═══ DEMO MODE — fake data panels ═══
+    function renderDemoPanel(type) {
+      const sty = (s) => s; // shorthand
+      const statBox = (label, value, color) => h('div', {style:{textAlign:'center'}},
+        h('div', {style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}}, label),
+        h('div', {style:{fontSize:'26px',fontWeight:'800',color: color || 'var(--accent)'}}, value)
+      );
+      const sectionLabel = (text) => h('div', {style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}}, text);
+      const progBar = (pct) => h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}}));
+      switch (type) {
+        case 'clock': {
+          const now = new Date();
+          const timeStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+          const dateStr = now.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+          return h('div',{className:'panel'},
+            h(PanelHeader,{title:'CLOCK',icon:'🕐',accentColor:'#00D9FF'}),
+            h('div',{className:'clock-time'},timeStr),
+            h('div',{className:'clock-date'},dateStr),
+            h('div',{className:'weather-current'},h('span',{className:'weather-icon'},'☀️'),h('span',{className:'weather-temp'},'24°')),
+            h('div',{className:'weather-desc'},'Sunny'),
+            h('div',{className:'weather-detail'},
+              h('span',null,'🌡 Feels 26°C'),h('span',null,'💧 42% humidity'),h('span',null,'💨 18 km/h SW')
+            ),
+            h('div',{className:'weather-strip'},
+              ['Today','Tue','Wed','Thu','Fri'].map((d,i)=>h('div',{key:i,className:'weather-day'},
+                h('span',{className:'weather-day-name'},d),
+                h('span',{className:'weather-day-icon'},['☀️','🌤️','⛅','☀️','🌧️'][i]),
+                h('span',{className:'weather-day-temps'},h('span',{className:'weather-hi'},['28°','26°','24°','27°','21°'][i]),' ',h('span',{className:'weather-lo'},['18°','17°','16°','18°','15°'][i]))
+              ))
+            )
+          );
+        }
+        case 'nowplaying': {
+          const sessions = [
+            {title:'Oppenheimer',sub:'2023',user:'robby',player:'NVIDIA SHIELD',res:'4K',pct:42,rem:'1h 32m',direct:true},
+            {title:'The Bear',sub:'The Bear · S03E07',user:'sarah',player:'Apple TV',res:'1080p',pct:67,rem:'18m',direct:false}
+          ];
+          return h('div',{className:'panel panel-top'},
+            h(PanelHeader,{title:'NOW PLAYING',icon:'▶',accentColor:'#E5A00D'}),
+            h('div',{className:'source-badge',style:{marginBottom:'8px'}},'PLEX · TAUTULLI'),
+            h('div',{className:'np-streams-count'},'2 STREAMS'),
+            h('div',{className:'np-session-list'},sessions.map((s,i)=>h('div',{key:i,className:'np-session'},
+              h('div',{className:'np-title'},s.title),
+              h('div',{className:'np-subtitle'},s.sub),
+              h('div',{className:'np-progress-wrap'},progBar(s.pct)),
+              h('div',{className:'np-time'},s.rem+' remaining'),
+              h('span',{className:'np-badge '+(s.direct?'np-badge-direct':'np-badge-transcode')},s.direct?'▶ DIRECT':'🔄 TRANSCODE'),
+              h('div',{className:'np-meta'},s.user+' · '+s.res+' · '+s.player)
+            )))
+          );
+        }
+        case 'sonarr': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'SONARR',icon:'📺',accentColor:'#35C5F4'}),
+          h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
+            statBox('LIBRARY','186','var(--accent)'), statBox('IN QUEUE','2','var(--text-bright)')
+          ),
+          sectionLabel('DOWNLOADING'),
+          h('div',{style:{marginBottom:'8px'}},
+            h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'2px',fontWeight:'600'}},'Severance · S02E10'),
+            progBar(73), h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}},'73%')
+          ),
+          sectionLabel('UPCOMING'),
+          [['Today','The Last of Us','S02E06 · Epiphany'],['Tomorrow','Andor','S02E01 · Premiere'],['+3d','Shogun','S02E04 · The Sword']].map(([day,show,ep],i)=>h('div',{key:i,style:{marginBottom:'7px'}},
+            h('div',{style:{display:'flex',gap:'6px',alignItems:'baseline'}},
+              h('span',{style:{fontSize:'10px',color:'var(--accent)',flexShrink:0,minWidth:'60px',fontWeight:'600'}},day),
+              h('div',{style:{fontSize:'13px',color:'var(--text)',fontWeight:'600'}},show)
+            ),
+            h('div',{style:{fontSize:'11px',color:'var(--dim)',paddingLeft:'66px'}},ep)
+          ))
+        );
+        case 'radarr': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'RADARR',icon:'🎬',accentColor:'#FFC230'}),
+          h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
+            statBox('LIBRARY','847','var(--accent)'), statBox('IN QUEUE','1','var(--text-bright)')
+          ),
+          sectionLabel('DOWNLOADING'),
+          h('div',{style:{marginBottom:'8px'}},
+            h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'2px',fontWeight:'600'}},'Dune: Part Three (2026)'),
+            progBar(31), h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}},'31%')
+          ),
+          sectionLabel('RECENTLY ADDED'),
+          ['Interstellar (2014)','The Batman (2022)','Everything Everywhere All at Once (2022)'].map((m,i)=>h('div',{key:i,style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'5px'}},
+            h('span',{style:{color:'#50fa7b',fontSize:'11px'}},'✓'),
+            h('div',{style:{fontSize:'12px',color:'var(--text)'}},m)
+          ))
+        );
+        case 'overseerr': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'OVERSEERR',icon:'🎭',accentColor:'#7B2FBE'}),
+          h('div',{style:{display:'flex',gap:'32px',marginBottom:'14px',justifyContent:'center',width:'100%'}},
+            statBox('PENDING','3','var(--amber)'), statBox('APPROVED','12','#50fa7b')
+          ),
+          sectionLabel('RECENT REQUESTS'),
+          [{n:'Blade Runner 2099',u:'sarah',s:'pending'},{n:'The Penguin S02',u:'dave',s:'approved'},{n:'Alien: Romulus',u:'robby',s:'available'}].map((r,i)=>h('div',{key:i,style:{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',fontSize:'12px'}},
+            h('span',{style:{color:'var(--text)'}},r.n),
+            h('span',{style:{fontSize:'10px',color:r.s==='pending'?'var(--amber)':r.s==='approved'?'#50fa7b':'var(--dim)',textTransform:'uppercase',letterSpacing:'1px'}},r.s)
+          ))
+        );
+        case 'nzbget': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'NZBGET',icon:'⬇',accentColor:'#34A853'}),
+          h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',flex:'1',width:'100%'}},
+            h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px',textAlign:'center'}},
+              h('div',null,h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),h('div',{style:{fontSize:'28px',fontWeight:'800',color:'var(--accent)'}},'42.7 MB/s')),
+              h('div',null,h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'REMAINING'),h('div',{style:{fontSize:'22px',fontWeight:'700'}},'3.2 GB'))
+            ),
+            h('div',{style:{width:'100%'}},
+              sectionLabel('QUEUE'),
+              [{n:'Severance.S02E10.2160p.WEB.H265-DRONE',pct:73,rem:'1.2 GB'},{n:'Dune.Part.Three.2026.2160p.WEB.DV.H265',pct:31,rem:'8.4 GB'},{n:'The.Bear.S03E07.1080p.WEB.H264-GLHF',pct:89,rem:'0.4 GB'}].map((g,i)=>h('div',{key:i,style:{marginBottom:'10px'}},
+                h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},g.n),
+                progBar(g.pct),
+                h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}},g.pct+'% · '+g.rem+' left')
+              ))
+            )
+          )
+        );
+        case 'signalrgb': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'SIGNALRGB',icon:'⚡',accentColor:'#7B2FBE'}),
+          h('div',{className:'effect-name',style:{color:'var(--accent)'}},'Gradient Wave'),
+          h('div',{className:'effect-label'},'ACTIVE'),
+          h('button',{className:'ha-toggle on'},'ON'),
+          h('div',{className:'brightness-wrap'},
+            h('input',{type:'range',min:0,max:100,value:75,readOnly:true,style:{width:'100%',height:'4px',WebkitAppearance:'none',appearance:'none',background:'linear-gradient(to right, var(--accent) 75%, rgba(255,255,255,0.1) 75%)',borderRadius:'2px',outline:'none'}}),
+            h('div',{className:'brightness-label'},'75%')
+          ),
+          h('div',{className:'fav-pills'},
+            ['⭐ Rainbow Cycle','⭐ Aurora','⭐ Ocean Pulse'].map((f,i)=>h('span',{key:i,className:'fav-pill'},f))
+          )
+        );
+        case 'lights': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'HOME ASSISTANT',icon:'💡',accentColor:'#18BCF2'}),
+          [{name:'Desk Lamp',on:true,bri:80},{name:'Monitor Backlight',on:true,bri:45},{name:'Ceiling Light',on:false,bri:0}].map((l,i)=>h('div',{key:i,className:'light-card'},
+            h('div',{className:'light-header'},
+              h('div',{className:'light-dot '+(l.on?'on':'')}),
+              h('div',{className:'light-name'},l.name)
+            ),
+            h('button',{className:'ha-toggle '+(l.on?'on':'off')},l.on?'ON':'OFF'),
+            l.on && h('div',{className:'brightness-wrap'},
+              h('input',{type:'range',min:0,max:100,value:l.bri,readOnly:true,style:{width:'100%',height:'4px',WebkitAppearance:'none',appearance:'none',background:`linear-gradient(to right, var(--accent) ${l.bri}%, rgba(255,255,255,0.1) ${l.bri}%)`,borderRadius:'2px',outline:'none'}}),
+              h('div',{className:'brightness-label'},l.bri+'%')
+            )
+          ))
+        );
+        case 'system': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'SYSTEM',icon:'💻',accentColor:'#50FA7B'}),
+          [{l:'CPU',info:'AMD Ryzen 9 7950X · 42°C',u:23,c:'green'},{l:'GPU',info:'RTX 4090 · 38°C',u:8,c:'green'},{l:'RAM',info:'24.1 / 64.0 GB',u:38,c:'green'},{l:'NET',info:'↑ 2.4 MB/s  ↓ 18.7 MB/s',u:12,c:'green'}].map((r,i)=>{
+            return h('div',{key:i,className:'sys-row'},
+              h('div',{style:{display:'flex',alignItems:'center',gap:'2px',width:'52px',flexShrink:0}},h('div',{className:'sys-label',style:{width:'auto'}},r.l)),
+              h('div',{className:'sys-bar-wrap'},h('div',{className:'sys-info'},r.info),h('div',{className:'sys-bar'},h('div',{className:'sys-bar-fill sys-b-green',style:{width:r.u+'%'}}))),
+              h('div',{className:'sys-value sys-c-green'},r.u+'%')
+            );
+          })
+        );
+        case 'spotify': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'SPOTIFY',icon:'🎵',accentColor:'#1DB954'}),
+          h('div',{style:{textAlign:'center',marginBottom:'8px'}},
+            h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)',marginBottom:'4px'}},'Retrograde'),
+            h('div',{style:{fontSize:'13px',color:'var(--dim)'}},'James Blake'),
+            h('div',{style:{fontSize:'11px',color:'var(--dim)',marginTop:'2px'}},'Overgrown')
+          ),
+          h('div',{style:{width:'100%',margin:'8px 0'}},
+            h('div',{style:{height:'3px',background:'rgba(255,255,255,0.08)',borderRadius:'2px',overflow:'hidden'}},
+              h('div',{style:{width:'62%',height:'100%',background:'#1DB954',borderRadius:'2px'}})
+            ),
+            h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'10px',color:'var(--dim)',marginTop:'4px'}},'2:18','3:42')
+          ),
+          h('div',{style:{display:'flex',justifyContent:'center',gap:'16px',margin:'8px 0'}},
+            h('button',{style:{background:'none',border:'none',color:'var(--dim)',fontSize:'16px',cursor:'default'}},'⏮'),
+            h('button',{style:{background:'none',border:'none',color:'var(--text-bright)',fontSize:'20px',cursor:'default'}},'⏸'),
+            h('button',{style:{background:'none',border:'none',color:'var(--dim)',fontSize:'16px',cursor:'default'}},'⏭')
+          ),
+          sectionLabel('UP NEXT'),
+          ['Limit to Your Love — James Blake','Midnight City — M83','The Less I Know — Tame Impala'].map((t,i)=>h('div',{key:i,style:{fontSize:'11px',color:'var(--dim)',padding:'3px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},t))
+        );
+        case 'services': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'SERVICES',icon:'📡',accentColor:'#00D9FF'}),
+          h('div',{style:{display:'flex',gap:'24px',marginBottom:'12px',paddingBottom:'10px',borderBottom:'1px solid rgba(255,255,255,0.06)',justifyContent:'center',width:'100%'}},
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'28px',fontWeight:800,color:'#50fa7b',lineHeight:1}},'7'),h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginTop:'4px'}},'UP')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'28px',fontWeight:800,color:'#ff5555',lineHeight:1}},'1'),h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginTop:'4px'}},'DOWN'))
+          ),
+          [{n:'Sonarr',up:true,ms:12},{n:'Radarr',up:true,ms:14},{n:'Overseerr',up:true,ms:23},{n:'NZBGet',up:true,ms:8},{n:'Jellyfin',up:true,ms:31},{n:'Tautulli',up:true,ms:18},{n:'Home Assistant',up:true,ms:42},{n:'Nginx Proxy',up:false,ms:0}].map((s,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'6px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+              h('span',{style:{width:'7px',height:'7px',borderRadius:'50%',background:s.up?'#50fa7b':'#ff5555',flexShrink:0,boxShadow:s.up?'0 0 4px #50fa7b':'0 0 4px #ff5555'}}),
+              h('span',{style:{fontSize:'12px',color:'var(--text)'}},s.n)
+            ),
+            h('span',{style:{fontSize:'10px',color:'rgba(255,255,255,0.35)'}},s.up?s.ms+'ms':'down')
+          ))
+        );
+        case 'jellyfin': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'JELLYFIN',icon:'🎞️',accentColor:'#00A4DC'}),
+          h('div',{style:{textAlign:'center',marginBottom:'12px'}},
+            h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'ACTIVE SESSIONS'),
+            h('div',{style:{fontSize:'30px',fontWeight:'800',color:'var(--accent)'}},'1')
+          ),
+          h('div',{style:{padding:'8px',background:'rgba(255,255,255,0.02)',borderRadius:'6px',border:'1px solid var(--border)'}},
+            h('div',{style:{fontSize:'13px',color:'var(--text-bright)',fontWeight:'600'}},'Planet Earth III'),
+            h('div',{style:{fontSize:'11px',color:'var(--dim)',marginTop:'2px'}},'S01E04 · Freshwater'),
+            h('div',{style:{marginTop:'6px'}},progBar(38)),
+            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'4px'}},'dave · Direct Play · 4K HDR')
+          )
+        );
+        case 'links': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'LINKS',icon:'🔗',accentColor:'#FF9500'}),
+          [{l:'Dashboard',i:'🏠'},{l:'GitHub',i:'💻'},{l:'Google',i:'🔍'},{l:'Router',i:'🌐'}].map((lk,i)=>h('button',{key:i,className:'link-btn'},lk.i+' '+lk.l))
+        );
+        case 'proxmox': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'PROXMOX',icon:'🖥️',accentColor:'#E57000'}),
+          h('div',{style:{display:'flex',gap:'24px',marginBottom:'10px',justifyContent:'center',width:'100%'}},
+            statBox('CPU','12.4%','var(--accent)'), statBox('RAM','68.2%','var(--text-bright)'), statBox('UPTIME','42d 7h','var(--dim)')
+          ),
+          sectionLabel('VIRTUAL MACHINES'),
+          [{n:'win11-gaming',s:'running',cpu:'8%',mem:'16.0G'},{n:'ubuntu-dev',s:'running',cpu:'3%',mem:'4.2G'},{n:'haos',s:'running',cpu:'1%',mem:'2.1G'},{n:'win10-old',s:'stopped',cpu:'—',mem:'—'}].map((v,i)=>{
+            const run = v.s==='running';
+            return h('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0',fontSize:'11px',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+              h('span',{style:{color:'var(--text)',flex:1}},v.n),
+              h('span',{style:{display:'inline-block',padding:'1px 6px',borderRadius:'3px',fontSize:'9px',fontWeight:'700',background:run?'rgba(80,250,123,0.15)':'rgba(255,85,85,0.15)',color:run?'#50fa7b':'#ff5555'}},run?'RUN':'STOP'),
+              h('span',{style:{fontFamily:'var(--font)',fontSize:'11px',color:'var(--dim)',minWidth:'42px',textAlign:'right',marginLeft:'8px'}},v.cpu),
+              h('span',{style:{fontFamily:'var(--font)',fontSize:'11px',color:'var(--dim)',minWidth:'42px',textAlign:'right',marginLeft:'4px'}},v.mem)
+            );
+          }),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'3 VMs running')
+        );
+        case 'docker': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'DOCKER',icon:'🐳',accentColor:'#2496ED'}),
+          h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',letterSpacing:'2px',marginBottom:'4px',display:'flex',justifyContent:'space-between'}},
+            h('span',null,'NAME'), h('span',{style:{display:'flex',gap:'6px'}},h('span',{style:{minWidth:'38px',textAlign:'right'}},'CPU'),h('span',{style:{minWidth:'38px',textAlign:'right'}},'MEM'),h('span',{style:{minWidth:'60px',textAlign:'right'}},'STATUS'))
+          ),
+          [{n:'nginx-proxy',cpu:'0.3%',mem:'84M',st:'Up 42 days'},{n:'sonarr',cpu:'1.2%',mem:'312M',st:'Up 42 days'},{n:'radarr',cpu:'0.8%',mem:'285M',st:'Up 42 days'},{n:'plex',cpu:'4.1%',mem:'1.8G',st:'Up 42 days'},{n:'postgres',cpu:'0.5%',mem:'156M',st:'Up 42 days'},{n:'redis',cpu:'0.1%',mem:'24M',st:'Up 42 days'}].map((c,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',padding:'3px 0',fontSize:'11px',borderBottom:'1px solid rgba(255,255,255,0.04)',gap:'6px'}},
+            h('span',{style:{color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},c.n),
+            h('span',{style:{fontFamily:'var(--font)',fontSize:'10px',color:'var(--dim)',minWidth:'38px',textAlign:'right'}},c.cpu),
+            h('span',{style:{fontFamily:'var(--font)',fontSize:'10px',color:'var(--dim)',minWidth:'38px',textAlign:'right'}},c.mem),
+            h('span',{style:{fontSize:'9px',color:'var(--dim)',minWidth:'60px',textAlign:'right'}},c.st)
+          )),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'6 running, 2 stopped')
+        );
+        case 'pihole': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'PI-HOLE',icon:'🛡️',accentColor:'#96060C'}),
+          h('div',{style:{display:'flex',gap:'20px',marginBottom:'14px',justifyContent:'center',width:'100%',flexWrap:'wrap'}},
+            statBox('QUERIES','48,291','var(--accent)'), statBox('BLOCKED','6,847','#ff5555'), statBox('BLOCK %','14.2%','var(--amber)')
+          ),
+          h('div',{style:{textAlign:'center',margin:'8px 0'}},
+            h('span',{style:{display:'inline-block',padding:'4px 16px',borderRadius:'4px',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',background:'rgba(80,250,123,0.15)',color:'#50fa7b'}},'● ENABLED')
+          ),
+          sectionLabel('TOP BLOCKED'),
+          ['ads.google.com','tracking.facebook.com','telemetry.microsoft.com','analytics.tiktok.com'].map((d,i)=>h('div',{key:i,style:{fontSize:'11px',color:'var(--dim)',padding:'3px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},d))
+        );
+        case 'truenas': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'TRUENAS',icon:'💾',accentColor:'#0095D5'}),
+          h('div',{style:{display:'flex',gap:'24px',marginBottom:'10px',justifyContent:'center',width:'100%'}},
+            statBox('POOLS','2','var(--accent)'), statBox('DISKS','8','var(--text-bright)'), statBox('ALERTS','0','#50fa7b')
+          ),
+          sectionLabel('POOLS'),
+          [{n:'tank',used:'12.4 TB',total:'24 TB',pct:52,health:'ONLINE'},{n:'fast',used:'820 GB',total:'2 TB',pct:41,health:'ONLINE'}].map((p,i)=>h('div',{key:i,style:{marginBottom:'10px'}},
+            h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'4px'}},
+              h('span',{style:{color:'var(--text)',fontWeight:'600'}},p.n),
+              h('span',{style:{color:'#50fa7b',fontSize:'10px',fontWeight:'700'}},p.health)
+            ),
+            progBar(p.pct),
+            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}},p.used+' / '+p.total)
+          )),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'2 pools, 8 disks')
+        );
+        case 'unraid': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'UNRAID',icon:'🟠',accentColor:'#FF8C2F'}),
+          h('div',{style:{textAlign:'center',marginBottom:'10px'}},
+            h('span',{style:{display:'inline-block',padding:'4px 16px',borderRadius:'4px',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',background:'rgba(80,250,123,0.15)',color:'#50fa7b'}},'● ARRAY STARTED')
+          ),
+          h('div',{style:{display:'flex',gap:'20px',justifyContent:'center',marginBottom:'10px'}},
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'READ'),h('div',{style:{fontSize:'16px',fontWeight:'700',color:'var(--text-bright)'}},'124.5 MB/s')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'WRITE'),h('div',{style:{fontSize:'16px',fontWeight:'700',color:'var(--text-bright)'}},'87.3 MB/s'))
+          ),
+          sectionLabel('DISKS'),
+          [{n:'Disk 1',t:32,s:'ok',u:'3.2 TB',to:'8 TB'},{n:'Disk 2',t:34,s:'ok',u:'5.1 TB',to:'8 TB'},{n:'Disk 3',t:31,s:'ok',u:'2.8 TB',to:'8 TB'},{n:'Parity',t:35,s:'ok',u:'—',to:'8 TB'},{n:'Cache',t:38,s:'ok',u:'420 GB',to:'1 TB'}].map((d,i)=>h('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0',fontSize:'11px',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+            h('span',{style:{color:'var(--text)',flex:1}},d.n),
+            h('span',{style:{fontSize:'10px',color:'var(--dim)',marginRight:'6px'}},d.t+'°C'),
+            h('span',{style:{display:'inline-block',padding:'1px 6px',borderRadius:'3px',fontSize:'9px',fontWeight:'700',background:'rgba(80,250,123,0.15)',color:'#50fa7b'}},'OK'),
+            h('span',{style:{fontSize:'10px',color:'var(--dim)',marginLeft:'6px',minWidth:'60px',textAlign:'right'}},d.u+'/'+d.to)
+          )),
+          sectionLabel('VIRTUAL MACHINES'),
+          [{n:'Windows 11',run:true,mem:'16 GB'},{n:'Ubuntu Server',run:true,mem:'4 GB'},{n:'macOS Ventura',run:false,mem:'8 GB'}].map((v,i)=>h('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'3px 0',fontSize:'11px',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+            h('span',{style:{color:'var(--text)',flex:1}},v.n),
+            h('span',{style:{display:'inline-block',padding:'1px 6px',borderRadius:'3px',fontSize:'9px',fontWeight:'700',background:v.run?'rgba(80,250,123,0.15)':'rgba(255,85,85,0.15)',color:v.run?'#50fa7b':'#ff5555'}},v.run?'RUN':'STOP'),
+            h('span',{style:{fontSize:'10px',color:'var(--dim)',marginLeft:'6px'}},v.mem)
+          )),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'Up 18d 4h · CPU 42°C · 5 disks')
+        );
+        case 'network': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'NETWORK',icon:'🌐',accentColor:'#00D9FF'}),
+          h('div',{style:{textAlign:'center',marginBottom:'12px'}},
+            h('div',{style:{fontSize:'11px',color:'#50fa7b',fontWeight:'700',letterSpacing:'2px',marginBottom:'4px'}},'● CONNECTED'),
+            h('div',{style:{fontSize:'24px',fontWeight:'800',color:'var(--accent)'}},'14ms'),
+            h('div',{style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'1px'}},'PING 8.8.8.8')
+          ),
+          h('div',{style:{display:'flex',gap:'20px',justifyContent:'center',marginBottom:'14px'}},
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'↓ DOWN'),h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)'}},'94.2 MB/s')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'↑ UP'),h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)'}},'11.8 MB/s'))
+          ),
+          h('div',{style:{width:'100%'}},
+            sectionLabel('NETWORK INFO'),
+            [{l:'Local IP',v:'192.168.1.42'},{l:'WAN IP',v:'203.45.67.89'},{l:'Connections',v:'847'},{l:'Router',v:'OpenWrt 23.05'}].map((r,i)=>h('div',{key:i,style:{display:'flex',justifyContent:'space-between',padding:'5px 0',fontSize:'12px',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+              h('span',{style:{color:'var(--dim)',fontSize:'11px',letterSpacing:'1px'}},r.l),
+              h('span',{style:{color:'var(--text-bright)',fontWeight:'600'}},r.v)
+            ))
+          )
+        );
+        default: return null;
+      }
+    }
+
     // ═══ PANEL RENDERER ═══
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key, panelType: key }, child);
@@ -3028,6 +3640,11 @@
     function renderPanel(panelCfg, config, openSettings, setConfig) {
       const type = panelCfg.type;
       const key = type + '-' + (panelCfg.col || 0);
+      // Demo mode — render fake data panels
+      if (config?.demoMode) {
+        const demo = renderDemoPanel(type);
+        if (demo) return wrap(key, demo);
+      }
       switch (type) {
         case 'clock': return wrap(key, h(ClockPanel, {key, config}));
         case 'signalrgb': return null; // Rendered specially in App for context
@@ -3048,6 +3665,8 @@
         case 'docker': return wrap(key, h(DockerPanel, {key, config, openSettings}));
         case 'pihole': return wrap(key, h(PiholePanel, {key, config, openSettings}));
         case 'truenas': return wrap(key, h(TrueNASPanel, {key, config, openSettings}));
+        case 'network': return wrap(key, h(NetworkPanel, {key, config, openSettings}));
+        case 'unraid': return wrap(key, h(UnraidPanel, {key, config, openSettings}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
@@ -3148,8 +3767,13 @@
             h('div', {className:'page-name-label'}, page?.name || '')
           ),
 
-          // Right — update badge when available
+          // Right — demo badge + update badge when available
           h('div', {className:'bottom-bar-right'},
+            config?.demoMode && h('span', {className:'demo-mode-badge'}, 'DEMO MODE'),
+            config?.demoMode && h('button', {className:'demo-exit-btn', onClick:() => {
+              const newCfg = {...config}; delete newCfg.demoMode;
+              window.orbit.saveConfig(newCfg).then(() => location.reload());
+            }}, '✕ Exit Demo'),
             appVersion && h('span', {
               onClick:()=>window.orbit.openAbout(),
               title:'About Orbit',
@@ -3191,7 +3815,7 @@
       { icon: '📡', name: 'Services' }, { icon: '🌤️', name: 'Weather' },
     ];
 
-    function WelcomeOverlay({ onOpenSetup, onSkip }) {
+    function WelcomeOverlay({ onOpenSetup, onSkip, onTryDemo }) {
       return h('div', { className: 'welcome-overlay' },
         h('div', { className: 'welcome-card' },
           h('div', { className: 'welcome-logo' }, 'ORBIT'),
@@ -3201,6 +3825,7 @@
           ),
           h('div', null,
             h('button', { className: 'welcome-btn welcome-btn-primary', onClick: onOpenSetup }, 'OPEN SETUP'),
+            h('button', { className: 'welcome-btn welcome-btn-demo', onClick: onTryDemo }, '▶ TRY DEMO'),
             h('button', { className: 'welcome-btn welcome-btn-skip', onClick: onSkip }, 'SKIP FOR NOW')
           )
         )
@@ -3247,7 +3872,7 @@
             setConfig(cfg);
             if (isFirstRun(cfg)) setShowWelcome(true);
             { const t = THEMES.find(t => t.id === cfg.theme?.themeId) || (cfg.theme?.accentColor ? null : THEMES[0]); if (t) applyTheme(t); else if (cfg.theme?.accentColor) document.documentElement.style.setProperty('--accent', cfg.theme.accentColor); }
-            if (window.orbit.startSignalR) {
+            if (window.orbit.startSignalR && !cfg.demoMode) {
               window.orbit.startSignalR({
                 sonarrUrl: cfg.integrations?.sonarr?.url || '',
                 sonarrKey: cfg.integrations?.sonarr?.apiKey || '',
@@ -3282,7 +3907,7 @@
       // ── Toast notifications: Sonarr / Radarr SignalR + NZBGet status ──
       const nzbPrevRef = useRef({});
       useEffect(() => {
-        if (!config) return;
+        if (!config || config.demoMode) return;
         const notifCfg = config.notifications || { sonarr: true, radarr: true, nzbget: true };
 
         // Sonarr grab/download events
@@ -3469,7 +4094,14 @@
         };
         const wrapperClass = 'panel-drag-wrapper' + (isCollapsed ? ' collapsed' : '');
         const collapseVal = { collapsed: isCollapsed, onToggleCollapse: () => toggleCollapse(panelCfg.type) };
-        if (panelCfg.type === 'signalrgb') {
+        if (panelCfg.type === 'signalrgb' && config?.demoMode) {
+          const demoSignal = renderDemoPanel('signalrgb');
+          renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:wrapperClass, ...dragProps},
+            h(CollapseContext.Provider, {value: collapseVal},
+              h(PanelErrorBoundary, {panelType:'signalrgb'}, demoSignal)
+            )
+          ));
+        } else if (panelCfg.type === 'signalrgb') {
           renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:wrapperClass, ...dragProps},
             h(CollapseContext.Provider, {value: collapseVal},
               h(PanelErrorBoundary, {panelType:'signalrgb'}, h(SignalRGBPanel, {config, onSignalChange: setSignalIsOn}))
@@ -3512,6 +4144,25 @@
             setConfig(newCfg);
             window.orbit.saveConfig(newCfg);
             window.orbit.openSetup();
+          },
+          onTryDemo: () => {
+            setShowWelcome(false);
+            const base = config || DEFAULT_CONFIG;
+            const demoCfg = { ...base, demoMode: true, firstRunComplete: true,
+              pages: [
+                { id: 'demo1', name: 'Overview', panels: [
+                  {type:'clock',col:1},{type:'nowplaying',col:2},{type:'sonarr',col:3},{type:'nzbget',col:4},{type:'system',col:5},{type:'services',col:6}
+                ]},
+                { id: 'demo2', name: 'Media', panels: [
+                  {type:'radarr',col:1},{type:'overseerr',col:2},{type:'jellyfin',col:3},{type:'spotify',col:4},{type:'signalrgb',col:5},{type:'lights',col:6}
+                ]},
+                { id: 'demo3', name: 'Infra', panels: [
+                  {type:'proxmox',col:1},{type:'docker',col:2},{type:'pihole',col:3},{type:'truenas',col:4},{type:'links',col:5},{type:'clock',col:6}
+                ]}
+              ]
+            };
+            setConfig(demoCfg);
+            window.orbit.saveConfig(demoCfg);
           },
           onSkip: () => {
             setShowWelcome(false);

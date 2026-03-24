@@ -23,7 +23,9 @@
     { "type": "proxmox" },
     { "type": "docker" },
     { "type": "pihole" },
-    { "type": "truenas" }
+    { "type": "truenas" },
+    { "type": "network" },
+    { "type": "unraid" }
   ],
   "configKeys": {
     "panelOrder": "Array of panel IDs defining display order",
@@ -31,7 +33,8 @@
     "layouts": "Object of saved layout configurations",
     "currentLayout": "String ID of the active layout",
     "notifications": "Object with notification preferences",
-    "panels": "Object mapping panel IDs to visibility (boolean)"
+    "panels": "Object mapping panel IDs to visibility (boolean)",
+    "demoMode": "Boolean — when true, all panels show realistic fake data without making API calls"
   },
   "requiredFields": {
     "theme": { "accentColor": "#00d9ff" },
@@ -55,6 +58,8 @@
     "proxmox": { "url": "", "tokenId": "", "tokenSecret": "", "node": "pve" },
     "docker": { "host": "localhost", "port": 2375, "useTLS": false },
     "pihole": { "url": "", "apiKey": "" },
-    "truenas": { "url": "", "apiKey": "" }
+    "truenas": { "url": "", "apiKey": "" },
+    "network": { "routerUrl": "", "routerType": "generic", "username": "", "password": "" },
+    "unraid": { "url": "", "apiKey": "" }
   }
 }
