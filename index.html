@@ -30,7 +30,7 @@
     }
     html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; user-select: none; cursor: default; }
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
-    #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(var(--panel-cols, 6), 1fr); gap: 0; }
+    #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(var(--panel-cols, 6), minmax(0, 1fr)); gap: 0; }
     .panel { height: calc(100vh - 52px); padding: 60px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
     .panel-drag-wrapper > .panel { height: calc(100vh - 52px); }
     .panel:last-child { border-right: none; }
@@ -38,7 +38,7 @@
     .panel-drag-handle { cursor: grab; color: rgba(255,255,255,0.12); font-size: 11px; letter-spacing: 1px; transition: color .2s; user-select: none; line-height: 1; }
     .panel-drag-handle:hover { color: rgba(255,255,255,0.35); }
     .panel-drag-handle:active { cursor: grabbing; }
-    .panel-drag-wrapper { position: relative; }
+    .panel-drag-wrapper { position: relative; min-width: 0; overflow: hidden; }
     .panel-drag-wrapper > .panel { height: 100%; }
     .panel-drag-wrapper.drag-over-left { box-shadow: inset 3px 0 0 0 var(--accent); }
     .panel-drag-wrapper.drag-over-right { box-shadow: inset -3px 0 0 0 var(--accent); }
@@ -124,8 +124,7 @@
     .panel-collapse-btn:hover { color:rgba(255,255,255,0.45); }
     .panel-collapse-btn.collapsed { transform:rotate(-90deg); }
     .panel-drag-wrapper .panel { transition:height .2s ease; overflow:hidden; }
-    .panel-drag-wrapper.collapsed .panel { height:45px !important; min-height:45px; overflow:hidden; }
-    .panel-drag-wrapper.collapsed { align-self:start; }
+    .panel-drag-wrapper.collapsed { display:none; }
     .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
     .np-progress-fill.no-transition { transition: none !important; }
     .np-time { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
@@ -300,12 +299,11 @@
     .quit-btn { position: fixed; top: 12px; right: 12px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
     body:hover .quit-btn { opacity: 1; }
     .quit-btn:hover { color: var(--red); border-color: var(--red); }
-    .layout-picker { position: fixed; top: 12px; right: 48px; z-index: 59; opacity: 0; transition: opacity .2s; }
-    body:hover .layout-picker { opacity: 1; }
+    .layout-picker { position: relative; display: inline-flex; z-index: 59; }
     .layout-picker-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 1px; padding: 5px 10px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .layout-picker-btn:hover { border-color: var(--accent); color: var(--accent); }
     .layout-picker-btn .lp-arrow { font-size: 8px; opacity: 0.5; }
-    .layout-picker-menu { position: absolute; top: calc(100% + 4px); right: 0; min-width: 180px; background: var(--panel-bg, rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 0; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .layout-picker-menu { position: absolute; bottom: calc(100% + 4px); left: 0; min-width: 180px; background: var(--panel-bg, rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 0; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
     .layout-picker-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 11px; color: var(--text); cursor: pointer; transition: background .15s; letter-spacing: 0.5px; border: none; background: none; width: 100%; text-align: left; }
     .layout-picker-item:hover { background: rgba(255,255,255,0.06); }
     .layout-picker-item.active { color: var(--accent); }
@@ -4168,7 +4166,8 @@
               });
             }),
             h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙'),
-            h('button', {className:'bottom-gear', onClick:onOpenSpotlight, title:'Search (Ctrl+K)', style:{marginLeft:'2px'}}, '🔍')
+            h('button', {className:'bottom-gear', onClick:onOpenSpotlight, title:'Search (Ctrl+K)', style:{marginLeft:'2px'}}, '🔍'),
+            h(LayoutPicker, {config, setConfig})
           ),
 
           // Centre — page dots + name (only if multiple pages)
@@ -4692,7 +4691,8 @@
       if (renderedPanels.length === 0) {
         renderedPanels.push(h('div', {key:'empty', className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+' )));
       }
-      const panelCols = Math.min(Math.max(renderedPanels.length, 1), 6);
+      const visibleCount = orderedPanels.filter(p => !panelCollapsed[p.type]).length;
+      const panelCols = Math.min(Math.max(visibleCount, 1), 6);
 
       return h(SignalRGBContext.Provider, {value: {isOn: signalIsOn}},
         h('div', {id:'app', style:{'--panel-cols': panelCols}}, ...renderedPanels),
@@ -4702,9 +4702,6 @@
         h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight: () => setShowSpotlight(true)}),
 
 
-
-        // Layout picker (top-right, next to quit)
-        h(LayoutPicker, {config, setConfig}),
 
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
