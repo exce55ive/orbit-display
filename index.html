@@ -298,9 +298,6 @@
     #boot-lines { font-size: 13px; color: var(--dim); letter-spacing: 2px; text-align: left; display: inline-block; line-height: 2; }
     #boot-cursor { font-size: 17px; color: var(--accent); animation: blink 0.8s step-end infinite; }
     @keyframes blink { 50% { opacity: 0; } }
-    .quit-btn { position: fixed; top: 12px; right: 12px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
-    body:hover .quit-btn { opacity: 1; }
-    .quit-btn:hover { color: var(--red); border-color: var(--red); }
     .layout-picker { display: inline-flex; align-items: center; gap: 0; z-index: 59; }
     .layout-picker-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 1px; padding: 5px 10px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .layout-picker-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -4194,6 +4191,10 @@
               const newCfg = {...config}; delete newCfg.demoMode;
               window.orbit.saveConfig(newCfg).then(() => location.reload());
             }}, '✕ Exit Demo'),
+            h('button', {
+              onClick:()=>window.orbit.quitApp(),
+              style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',cursor:'pointer',letterSpacing:'0.5px',marginRight:'8px',background:'none',border:'none',padding:0,fontFamily:'inherit'}
+            }, 'Exit Orbit'),
             appVersion && h('span', {
               onClick:()=>window.orbit.openAbout(),
               title:'About Orbit',
@@ -4711,8 +4712,6 @@
 
 
 
-        // Quit button (keep top-right)
-        h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
 
         // Spotlight search overlay
         h(SpotlightSearch, { config, open: showSpotlight, onClose: () => setShowSpotlight(false) }),

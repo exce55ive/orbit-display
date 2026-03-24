@@ -375,6 +375,8 @@ app.on('window-all-closed', () => { app.quit(); });
 
 app.on('will-quit', () => { globalShortcut.unregisterAll(); });
 
+ipcMain.on('quit-app', () => { app.quit(); });
+
 // ─── IPC: DISPLAY PICKER ────────────────────────────────────────────────────
 ipcMain.handle('get-displays', () => getDisplayList());
 

@@ -49,6 +49,9 @@ contextBridge.exposeInMainWorld('orbit', {
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
+  // Quit
+  quitApp: () => ipcRenderer.send('quit-app'),
+
   // Settings window
   openSettingsWindow: () => ipcRenderer.invoke('open-settings-window'),
   onSettingsClosed: (cb) => { const h = () => cb(); ipcRenderer.on('settings-window-closed', h); return () => ipcRenderer.removeListener('settings-window-closed', h); },
