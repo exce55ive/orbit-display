@@ -3238,6 +3238,7 @@
       const [showSettings, setShowSettings] = useState(false);
       const [showWelcome, setShowWelcome] = useState(false);
       const touchRef = useRef(null);
+      const dragIdxRef = useRef(null);
 
       // Load config + start SignalR
       useEffect(() => {
@@ -3405,9 +3406,6 @@
       }
       inOrder.sort((a, b) => orderMap[a.type] - orderMap[b.type]);
       const orderedPanels = [...inOrder, ...notInOrder];
-
-      // Drag-and-drop reorder state
-      const dragIdxRef = useRef(null);
 
       function clearDragClasses() {
         document.querySelectorAll('.panel-drag-wrapper').forEach(el => el.classList.remove('dragging', 'drag-over-left', 'drag-over-right'));
