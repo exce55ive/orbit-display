@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -113,9 +113,14 @@ function validateAndFillDefaults(cfg) {
 
   // Ensure panels key exists (for panel visibility feature) with default true
   if (!cfg.panels || typeof cfg.panels !== 'object') cfg.panels = {};
+  // Panels that default to hidden (opt-in)
+  if (cfg.panels.proxmox === undefined) cfg.panels.proxmox = false;
+  if (cfg.panels.docker === undefined) cfg.panels.docker = false;
+  if (cfg.panels.pihole === undefined) cfg.panels.pihole = false;
+  if (cfg.panels.truenas === undefined) cfg.panels.truenas = false;
 
   // Log warning for unknown top-level keys
-  const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete']);
+  const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete','panelOrder','panelCollapsed','layouts','currentLayout','notifications']);
   for (const key of Object.keys(cfg)) {
     if (!knownKeys.has(key)) log.warn(`Config has unknown key: "${key}" — ignoring`);
   }
@@ -172,7 +177,15 @@ async function safeFetch(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeout || 8000);
   try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
+    const fetchOpts = { ...options, signal: controller.signal };
+    // Support rejectUnauthorized: false for self-signed certs (e.g. Proxmox)
+    if (options.rejectUnauthorized === false && url.startsWith('https')) {
+      const https = require('https');
+      fetchOpts.agent = new https.Agent({ rejectUnauthorized: false });
+    }
+    delete fetchOpts.rejectUnauthorized;
+    delete fetchOpts.timeout;
+    const res = await fetch(url, fetchOpts);
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = text; }
@@ -580,9 +593,9 @@ ipcMain.handle('fetch-tautulli', async () => {
 });
 
 // ─── IPC: GENERIC API PROXY ─────────────────────────────────────────────────
-ipcMain.handle('api-get', async (_e, { url, headers, timeout }) => {
+ipcMain.handle('api-get', async (_e, { url, headers, timeout, rejectUnauthorized }) => {
   if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
-  return safeFetch(url, { headers: headers || {}, timeout: timeout || 8000 });
+  return safeFetch(url, { headers: headers || {}, timeout: timeout || 8000, rejectUnauthorized });
 });
 
 ipcMain.handle('api-post', async (_e, { url, body, headers, timeout }) => {
@@ -608,7 +621,7 @@ ipcMain.handle('api-put', async (_e, { url, body, headers, timeout }) => {
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
 
 // ─── IPC: TEST INTEGRATION ─────────────────────────────────────────────────────
-ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, password, token }) => {
+ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, password, token, tokenId, tokenSecret, node }) => {
   const fetch = await getFetch();
   const ok = (msg, detail='') => ({ ok: true, message: msg, detail });
   const fail = (msg) => ({ ok: false, message: msg });
@@ -688,6 +701,59 @@ ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, pas
       const r = await headGet(`https://wttr.in/${encodeURIComponent(url)}?format=j1`);
       if (r.ok) return ok(`Weather available for "${url}"`);
       return fail(`Location not found`);
+    }
+    if (type === 'proxmox') {
+      if (!url || !tokenId || !tokenSecret) return fail('URL, Token ID and Token Secret required');
+      const base = url.replace(/\/+$/, '');
+      const n = node || 'pve';
+      const r = await safeFetch(`${base}/api2/json/nodes/${n}/status`, {
+        headers: { Authorization: 'PVEAPIToken=' + tokenId + '=' + tokenSecret },
+        rejectUnauthorized: false,
+        timeout: 5000
+      });
+      if (r.error) return fail(r.error);
+      if (r.data?.uptime) return ok('Connected — node ' + n + ', uptime ' + Math.floor(r.data.uptime/3600) + 'h');
+      return ok('Connected — Proxmox API responding');
+    }
+    if (type === 'docker') {
+      const host = url || 'localhost';
+      const port = opts.port || 2375;
+      const proto = opts.useTLS ? 'https' : 'http';
+      const r = await safeFetch(`${proto}://${host}:${port}/containers/json?all=true&limit=1`, { timeout: 5000 });
+      if (r.error) return fail(r.error);
+      return ok('Connected — Docker Engine API responding');
+    }
+    if (type === 'pihole') {
+      if (!url) return fail('URL required');
+      const base = url.replace(/\/+$/, '');
+      // Try v6 first
+      try {
+        const v6 = await safeFetch(`${base}/api/stats/summary`, {
+          headers: { 'X-Pi-Hole-Authenticate': apiKey || '' },
+          timeout: 5000
+        });
+        if (v6 && !v6.error && (v6.queries !== undefined || v6.dns_queries_today !== undefined)) {
+          return ok('Connected — Pi-hole v6 API');
+        }
+      } catch {}
+      // Fall back to v5
+      const v5 = await safeFetch(`${base}/admin/api.php?summaryRaw&auth=${apiKey || ''}`, { timeout: 5000 });
+      if (v5.error) return fail(v5.error);
+      if (v5.dns_queries_today !== undefined) return ok('Connected — Pi-hole v5 API');
+      return fail('Unexpected response — check URL and API key');
+    }
+    if (type === 'truenas') {
+      if (!url) return fail('URL required');
+      if (!apiKey) return fail('API Key required');
+      const base = url.replace(/\/+$/, '');
+      const r = await safeFetch(`${base}/api/v2.0/system/info`, {
+        headers: { Authorization: 'Bearer ' + apiKey },
+        timeout: 8000
+      });
+      if (r.error) return fail(r.error);
+      const info = r.data || r;
+      if (info.hostname || info.version) return ok('Connected — ' + (info.hostname || 'TrueNAS') + ' ' + (info.version || ''));
+      return ok('Connected — TrueNAS API responding');
     }
     if (type === 'services') return ok('Services panel auto-detects configured URLs — no test needed');
     return fail('Unknown integration type');
@@ -1072,6 +1138,11 @@ ipcMain.handle('start-signalr', (_e, { sonarrUrl, sonarrKey, radarrUrl, radarrKe
   if (sonarrUrl && sonarrKey) _signalRConnections.sonarr = startSignalRConnection('sonarr', sonarrUrl, sonarrKey);
   if (radarrUrl && radarrKey) _signalRConnections.radarr = startSignalRConnection('radarr', radarrUrl, radarrKey);
   return { ok: true };
+});
+
+// ─── IPC: NATIVE NOTIFICATIONS ──────────────────────────────────────────────
+ipcMain.handle('orbit:notify', (_e, { title, body }) => {
+  new Notification({ title, body }).show();
 });
 
 

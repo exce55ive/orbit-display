@@ -19,8 +19,20 @@
     { "type": "radarr" },
     { "type": "overseerr" },
     { "type": "nzbget" },
-    { "type": "services" }
+    { "type": "services" },
+    { "type": "proxmox" },
+    { "type": "docker" },
+    { "type": "pihole" },
+    { "type": "truenas" }
   ],
+  "configKeys": {
+    "panelOrder": "Array of panel IDs defining display order",
+    "panelCollapsed": "Object mapping panel IDs to collapsed state (boolean)",
+    "layouts": "Object of saved layout configurations",
+    "currentLayout": "String ID of the active layout",
+    "notifications": "Object with notification preferences",
+    "panels": "Object mapping panel IDs to visibility (boolean)"
+  },
   "requiredFields": {
     "theme": { "accentColor": "#00d9ff" },
     "pages": [],
@@ -39,6 +51,10 @@
     "nzbget": { "url": "", "username": "", "password": "" },
     "uptimekuma": { "url": "", "username": "", "password": "" },
     "spotify": { "clientId": "", "clientSecret": "" },
-    "jellyfin": { "url": "", "apiKey": "" }
+    "jellyfin": { "url": "", "apiKey": "" },
+    "proxmox": { "url": "", "tokenId": "", "tokenSecret": "", "node": "pve" },
+    "docker": { "host": "localhost", "port": 2375, "useTLS": false },
+    "pihole": { "url": "", "apiKey": "" },
+    "truenas": { "url": "", "apiKey": "" }
   }
 }

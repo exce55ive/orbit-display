@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld('orbit', {
   signalrgbDetectPort: () => ipcRenderer.invoke('signalrgb-detect-port'),
 
   // Generic API proxy
-  apiGet: (url, headers, timeout) => ipcRenderer.invoke('api-get', { url, headers, timeout }),
+  apiGet: (url, headers, timeout, opts) => ipcRenderer.invoke('api-get', { url, headers, timeout, ...(opts || {}) }),
   apiPost: (url, body, headers) => ipcRenderer.invoke('api-post', { url, body, headers }),
   apiPut: (url, body, headers) => ipcRenderer.invoke('api-put', { url, body, headers }),
   startSignalR: (opts) => ipcRenderer.invoke('start-signalr', opts),
@@ -42,6 +42,9 @@ contextBridge.exposeInMainWorld('orbit', {
   onConfigUpdated: (cb) => { const h = (_e, cfg) => cb(cfg); ipcRenderer.on('config-updated', h); return () => ipcRenderer.removeListener('config-updated', h); },
   onSonarrEvent: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('sonarr-signalr-event', h); return () => ipcRenderer.removeListener('sonarr-signalr-event', h); },
   onRadarrEvent: (cb) => { const h = (_e, d) => cb(d); ipcRenderer.on('radarr-signalr-event', h); return () => ipcRenderer.removeListener('radarr-signalr-event', h); },
+
+  // Notifications
+  notify: (title, body) => ipcRenderer.invoke('orbit:notify', { title, body }),
 
   // Shell
   openExternal: (url) => ipcRenderer.invoke('open-external', url),

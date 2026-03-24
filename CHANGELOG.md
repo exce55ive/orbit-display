@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.0.12
+- **Add:** Proxmox panel — live VM/container status, node CPU/RAM/storage usage with colour-coded health badges. Polls every 15s. Supports API token auth and self-signed certs.
+- **Add:** Docker panel — running/stopped container list with per-container CPU and memory stats. Collapsible stopped section. Polls every 10s.
+- **Add:** Pi-hole panel — query/blocked stats, block percentage bar, domain count, and enable/disable toggle. Auto-detects Pi-hole v5 and v6 APIs.
+- **Add:** TrueNAS panel — pool list with status badges and usage bars, disk health summary, system info (hostname, version, uptime), and recent alerts with severity badges. Polls every 60s. Supports CORE and SCALE via REST API v2.0.
+- **Add:** Drag-and-drop panel reordering — grab the ⠿ handle to rearrange panels. Order saved to config automatically.
+- **Add:** Collapsible panels — click the ▼ arrow on any panel header to collapse/expand. State saved per-panel in config.
+- **Add:** Layout system — save, switch, and manage named layouts (panel order, visibility, collapsed state). Built-in "Default" layout plus user-created presets. Layout picker in top-right corner.
+- **Add:** Native OS notifications — panels can fire desktop notifications (e.g. NZBGet download complete, Sonarr new episode). Debounced to prevent spam.
+- **Fix:** `config-schema.json` updated with all new config keys: `panelOrder`, `panelCollapsed`, `layouts`, `currentLayout`, `notifications`, `panels`, and integration defaults for Proxmox, Docker, Pi-hole, and TrueNAS.
+- **Fix:** `api-get` IPC handler supports `rejectUnauthorized: false` for self-signed TLS certificates.
+- **Fix:** `test-integration` IPC handler added for Proxmox, Docker, Pi-hole, and TrueNAS connection testing from Setup Wizard and Settings.
+
 ## v0.0.11
 - **Add:** Error boundaries per panel — if a panel errors, it dims with "⚠ Service unavailable" and auto-retries every 30 seconds. Other panels continue working normally.
 - **Add:** Config schema validation on load — missing required fields are filled with sensible defaults; unknown keys are logged as warnings.

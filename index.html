@@ -32,8 +32,17 @@
     body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px); }
     #app { position: relative; z-index: 1; width: 100vw; height: 100vh; display: grid; grid-template-columns: repeat(var(--panel-cols, 6), 1fr); gap: 0; }
     .panel { height: calc(100vh - 52px); padding: 60px 20px 16px; border-right: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; position: relative; }
+    .panel-drag-wrapper > .panel { height: calc(100vh - 52px); }
     .panel:last-child { border-right: none; }
-    .panel-label { font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+    .panel-label { font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 12px; position: absolute; top: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .panel-drag-handle { cursor: grab; color: rgba(255,255,255,0.12); font-size: 11px; letter-spacing: 1px; transition: color .2s; user-select: none; line-height: 1; }
+    .panel-drag-handle:hover { color: rgba(255,255,255,0.35); }
+    .panel-drag-handle:active { cursor: grabbing; }
+    .panel-drag-wrapper { position: relative; }
+    .panel-drag-wrapper > .panel { height: 100%; }
+    .panel-drag-wrapper.drag-over-left { box-shadow: inset 3px 0 0 0 var(--accent); }
+    .panel-drag-wrapper.drag-over-right { box-shadow: inset -3px 0 0 0 var(--accent); }
+    .panel-drag-wrapper.dragging { opacity: 0.35; }
     .source-badge { display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: 700; letter-spacing: 1px; border-radius: 3px; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-glow); text-transform: uppercase; }
     .clock-time { font-size: 77px; font-weight: 300; color: var(--text-bright); letter-spacing: 3px; line-height: 1; margin-bottom: 6px; text-shadow: 0 0 30px var(--accent-glow); }
     .clock-date { font-size: 14px; font-weight: 500; letter-spacing: 2px; color: rgba(255,255,255,0.35); margin-bottom: 16px; }
@@ -111,6 +120,12 @@
     .panel-header-title { font-size: 13px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); flex:1; text-align:center; }
     .panel-header-cog { background:none; border:none; color:rgba(255,255,255,0.2); cursor:pointer; font-size: 16px; padding:0; line-height:1; transition:color .15s; flex-shrink:0; }
     .panel-header-cog:hover { color:rgba(255,255,255,0.65); }
+    .panel-collapse-btn { background:none; border:none; color:rgba(255,255,255,0.15); cursor:pointer; font-size:10px; padding:0 2px; line-height:1; transition:color .2s, transform .2s; flex-shrink:0; display:flex; align-items:center; }
+    .panel-collapse-btn:hover { color:rgba(255,255,255,0.45); }
+    .panel-collapse-btn.collapsed { transform:rotate(-90deg); }
+    .panel-drag-wrapper .panel { transition:height .2s ease; overflow:hidden; }
+    .panel-drag-wrapper.collapsed .panel { height:45px !important; min-height:45px; overflow:hidden; }
+    .panel-drag-wrapper.collapsed { align-self:start; }
     .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
     .np-progress-fill.no-transition { transition: none !important; }
     .np-time { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
@@ -285,6 +300,17 @@
     .quit-btn { position: fixed; top: 12px; right: 12px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--dim); background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; transition: all .2s; z-index: 60; opacity: 0; }
     body:hover .quit-btn { opacity: 1; }
     .quit-btn:hover { color: var(--red); border-color: var(--red); }
+    .layout-picker { position: fixed; top: 12px; right: 48px; z-index: 59; opacity: 0; transition: opacity .2s; }
+    body:hover .layout-picker { opacity: 1; }
+    .layout-picker-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 1px; padding: 5px 10px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .layout-picker-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .layout-picker-btn .lp-arrow { font-size: 8px; opacity: 0.5; }
+    .layout-picker-menu { position: absolute; top: calc(100% + 4px); right: 0; min-width: 180px; background: var(--panel-bg, rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 0; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .layout-picker-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 11px; color: var(--text); cursor: pointer; transition: background .15s; letter-spacing: 0.5px; border: none; background: none; width: 100%; text-align: left; }
+    .layout-picker-item:hover { background: rgba(255,255,255,0.06); }
+    .layout-picker-item.active { color: var(--accent); }
+    .layout-picker-item .lp-check { font-size: 10px; margin-right: 4px; }
+    .layout-picker-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0; }
     .panel-cog-btn { background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 13px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; transition: color .2s; vertical-align: middle; }
     .panel-cog-btn:hover { color: var(--accent); }
     .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
@@ -428,8 +454,67 @@
       },
       customServices: [],
       signalrgbFavorites: [],
+      notifications: { sonarr: true, radarr: true, nzbget: true },
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
     };
+
+    const DEFAULT_PANEL_ORDER = [
+      'clock','weather','sonarr','radarr','overseerr','nzbget',
+      'signalrgb','services','spotify','discord','homeassistant',
+      'sysmon','tautulli','jellyfin','nowplaying','lights','system',
+      'media','uptimekuma','links','proxmox','docker','pihole','truenas'
+    ];
+    // Note: order includes alias IDs (weather→clock, homeassistant→lights, sysmon→system, tautulli→nowplaying)
+    // plus actual panel type IDs, so any naming convention resolves correctly.
+
+    // ═══ LAYOUT PRESETS ═══
+    const BUILTIN_LAYOUTS = {
+      _default: {
+        name: 'Default',
+        panelOrder: [...DEFAULT_PANEL_ORDER],
+        panels: {},           // all visible (default true)
+        panelCollapsed: {}    // all expanded
+      },
+      _gaming: {
+        name: 'Gaming',
+        panelOrder: ['signalrgb','discord','spotify','system','services','lights','clock','weather'],
+        panels: {
+          signalrgb: true, discord: true, spotify: true, system: true, services: true, lights: true, clock: true, weather: true,
+          nowplaying: false, jellyfin: false, sonarr: false, radarr: false, overseerr: false, nzbget: false
+        },
+        panelCollapsed: {}
+      },
+      _media: {
+        name: 'Media',
+        panelOrder: ['nowplaying','jellyfin','sonarr','radarr','overseerr','nzbget','clock','weather','services','lights','system'],
+        panels: {
+          nowplaying: true, jellyfin: true, sonarr: true, radarr: true, overseerr: true, nzbget: true, clock: true, weather: true, services: true, lights: true, system: true,
+          signalrgb: false, discord: false, spotify: false
+        },
+        panelCollapsed: {}
+      }
+    };
+
+    function isBuiltinLayout(key) { return key && key.startsWith('_'); }
+
+    function getAllLayouts(config) {
+      return { ...BUILTIN_LAYOUTS, ...(config?.layouts || {}) };
+    }
+
+    function applyLayout(config, setConfig, layoutKey) {
+      const all = getAllLayouts(config);
+      const layout = all[layoutKey];
+      if (!layout) return;
+      const newCfg = {
+        ...config,
+        panelOrder: [...layout.panelOrder],
+        panels: { ...layout.panels },
+        panelCollapsed: { ...layout.panelCollapsed },
+        currentLayout: layoutKey
+      };
+      setConfig(newCfg);
+      window.orbit.saveConfig(newCfg);
+    }
 
     const SignalRGBContext = createContext({ isOn: false });
 
@@ -441,8 +526,12 @@
       if (window.orbit && window.orbit.openSetup) window.orbit.openSetup();
     }
 
+    const CollapseContext = React.createContext({ collapsed: false, onToggleCollapse: () => {} });
     function PanelHeader({ title, icon, accentColor }) {
+      const { collapsed, onToggleCollapse } = React.useContext(CollapseContext);
       return h('div', { className:'panel-header' },
+        h('span', { className:'panel-drag-handle', title:'Drag to reorder' }, '⠿'),
+        h('button', { className:'panel-collapse-btn' + (collapsed ? ' collapsed' : ''), onClick:onToggleCollapse, title:collapsed ? 'Expand panel' : 'Collapse panel' }, '▼'),
         h('div', { className:'panel-header-accent', style:{ background: accentColor || 'var(--accent)' } }),
         h('span', { className:'panel-header-icon' }, icon),
         h('span', { className:'panel-header-title' }, title)
@@ -1856,10 +1945,16 @@
             fields.map(f => h(React.Fragment, {key:f.field},
               f.type === 'ha-entities'
                 ? h(HAEntitiesEditor, {integrationKey:key})
-                : h(React.Fragment, null,
+                : f.type === 'checkbox'
+                  ? h('label', {style:{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',marginTop:'4px'}},
+                      h('input', {type:'checkbox', checked:!!cfg.integrations?.[key]?.[f.field], onChange:e=>updateIntegration(key,f.field,e.target.checked), style:{accentColor:'var(--accent)',width:'16px',height:'16px'}}),
+                      h('span', {className:'settings-label', style:{margin:0}}, f.label))
+                  : h(React.Fragment, null,
                     h('div', {className:'settings-label'}, f.label),
                     f.type === 'textarea'
                       ? h('textarea', {className:'settings-textarea', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value.split('\n').filter(Boolean)), placeholder:f.placeholder||''})
+                      : f.type === 'number'
+                      ? h('input', {className:'settings-input', type:'number', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,parseInt(e.target.value)||0), placeholder:f.placeholder||''})
                       : h('input', {className:'settings-input', type:f.type||'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
                   )
             ))
@@ -1892,6 +1987,8 @@
             h('div', {id:'settings-nzbget'}, integrationSection('nzbget', 'NZBGet', '📦', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify', 'Spotify', '🎵', [{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin', 'Jellyfin', '🎞️', [{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-proxmox'}, integrationSection('proxmox', 'Proxmox', '🖥️', [{field:'url',label:'URL',placeholder:'https://192.168.1.x:8006'},{field:'tokenId',label:'API TOKEN ID',placeholder:'user@pam!token-name'},{field:'tokenSecret',label:'API TOKEN SECRET',type:'password'},{field:'node',label:'NODE NAME',placeholder:'pve'}])),
+            h('div', {id:'settings-docker'}, integrationSection('docker', 'Docker', '🐳', [{field:'host',label:'HOST',placeholder:'localhost'},{field:'port',label:'PORT',type:'number',placeholder:'2375'},{field:'useTLS',label:'USE TLS (HTTPS)',type:'checkbox'}])),
             h('div', {id:'settings-signalrgb'}, integrationSection('signalrgb', 'SignalRGB', '⚡', [{field:'url',label:'URL',placeholder:'http://localhost:16038'}])),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant', 'Home Assistant', '🏠', [
               {field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},
@@ -2409,6 +2506,521 @@
       );
     }
 
+    // ═══ PROXMOX PANEL ═══
+    function ProxmoxPanel({ config, openSettings }) {
+      const pCfg = config?.integrations?.proxmox;
+      const configured = pCfg?.url && pCfg?.tokenId && pCfg?.tokenSecret;
+      const [nodeStatus, setNodeStatus] = useState(null);
+      const [vms, setVms] = useState([]);
+      const [cts, setCts] = useState([]);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        async function poll() {
+          try {
+            const base = pCfg.url.replace(/\/+$/, '');
+            const node = pCfg.node || 'pve';
+            const authHdr = { Authorization: 'PVEAPIToken=' + pCfg.tokenId + '=' + pCfg.tokenSecret };
+            const fetchOpts = { rejectUnauthorized: false };
+            const [status, vmList, ctList] = await Promise.all([
+              window.orbit.apiGet(base + '/api2/json/nodes/' + node + '/status', authHdr, 10000, fetchOpts),
+              window.orbit.apiGet(base + '/api2/json/nodes/' + node + '/qemu', authHdr, 10000, fetchOpts),
+              window.orbit.apiGet(base + '/api2/json/nodes/' + node + '/lxc', authHdr, 10000, fetchOpts)
+            ]);
+            if (status?.error || vmList?.error || ctList?.error) {
+              setError(status?.error || vmList?.error || ctList?.error);
+            } else {
+              setError(null);
+              setNodeStatus(status?.data || status);
+              setVms(Array.isArray(vmList?.data) ? vmList.data : (Array.isArray(vmList) ? vmList : []));
+              setCts(Array.isArray(ctList?.data) ? ctList.data : (Array.isArray(ctList) ? ctList : []));
+            }
+          } catch (e) { setError(e.message); }
+          timer = setTimeout(poll, 15000);
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [pCfg?.url, pCfg?.tokenId, pCfg?.tokenSecret, pCfg?.node]);
+
+      if (!configured) return h('div', {className:'panel panel-unconfigured'},
+        h(PanelHeader, {title:'PROXMOX', icon:'🖥️', accentColor:'#E57000', onSettings:()=>openSettingsAt('settings-proxmox')}),
+        h('div', {className:'panel-unconfigured-icon'}, '🖥️'),
+        h('div', {className:'panel-unconfigured-text', style:{cursor:'pointer'}}, 'Configure Proxmox in Settings'));
+
+      const cpuPct = nodeStatus ? (nodeStatus.cpu * 100).toFixed(1) : '…';
+      const memPct = nodeStatus ? ((nodeStatus.memory?.used || 0) / (nodeStatus.memory?.total || 1) * 100).toFixed(1) : '…';
+      const uptimeSec = nodeStatus?.uptime || 0;
+      const uptimeDays = Math.floor(uptimeSec / 86400);
+      const uptimeHrs = Math.floor((uptimeSec % 86400) / 3600);
+      const uptimeStr = uptimeDays > 0 ? uptimeDays + 'd ' + uptimeHrs + 'h' : uptimeHrs + 'h ' + Math.floor((uptimeSec % 3600) / 60) + 'm';
+
+      const runningVMs = vms.filter(v => v.status === 'running').length;
+      const runningCTs = cts.filter(c => c.status === 'running').length;
+
+      const badgeStyle = (running) => ({
+        display:'inline-block', padding:'1px 6px', borderRadius:'3px', fontSize:'9px', fontWeight:'700', letterSpacing:'0.5px',
+        background: running ? 'rgba(80,250,123,0.15)' : 'rgba(255,85,85,0.15)',
+        color: running ? '#50fa7b' : '#ff5555'
+      });
+
+      const rowStyle = {display:'flex', justifyContent:'space-between', alignItems:'center', padding:'3px 0', fontSize:'11px', borderBottom:'1px solid rgba(255,255,255,0.04)'};
+      const nameStyle = {color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, marginRight:'8px'};
+      const monoStyle = {fontFamily:'var(--font)', fontSize:'11px', color:'var(--dim)', minWidth:'42px', textAlign:'right'};
+
+      function fmtMem(bytes) {
+        if (!bytes) return '0';
+        if (bytes >= 1073741824) return (bytes/1073741824).toFixed(1)+'G';
+        return (bytes/1048576).toFixed(0)+'M';
+      }
+
+      function renderRow(item) {
+        const isRunning = item.status === 'running';
+        const cpu = isRunning ? ((item.cpu||0)*100).toFixed(0)+'%' : '—';
+        const mem = isRunning ? fmtMem(item.mem||item.memory||0) : '—';
+        return h('div', {key:item.vmid, style:rowStyle},
+          h('span', {style:nameStyle}, item.name || 'VM '+item.vmid),
+          h('span', {style:badgeStyle(isRunning)}, isRunning ? 'RUN' : 'STOP'),
+          h('span', {style:{...monoStyle, marginLeft:'8px'}}, cpu),
+          h('span', {style:{...monoStyle, marginLeft:'4px'}}, mem)
+        );
+      }
+
+      const sectionLabelStyle = {fontSize:'9px', color:'rgba(255,255,255,0.25)', letterSpacing:'2px', marginBottom:'6px', marginTop:'10px', paddingBottom:'4px', borderBottom:'1px solid rgba(255,255,255,0.06)'};
+
+      return h('div', {className:'panel panel-top'},
+        h(PanelHeader, {title:'PROXMOX', icon:'🖥️', accentColor:'#E57000', onSettings:()=>openSettingsAt('settings-proxmox')}),
+        error && h('div', {style:{fontSize:'11px', color:'var(--red)', marginBottom:'8px'}}, 'Error: '+error),
+        // Node stats
+        h('div', {style:{display:'flex', gap:'24px', marginBottom:'10px', justifyContent:'center', width:'100%'}},
+          h('div', {style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'CPU'), h('div',{style:{fontSize:'26px',fontWeight:'800',color:'var(--accent)'}}, cpuPct+'%')),
+          h('div', {style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'RAM'), h('div',{style:{fontSize:'26px',fontWeight:'800',color:'var(--text-bright)'}}, memPct+'%')),
+          h('div', {style:{textAlign:'center'}}, h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',marginBottom:'4px',letterSpacing:'2px'}},'UPTIME'), h('div',{style:{fontSize:'26px',fontWeight:'800',color:'var(--dim)'}}, uptimeStr))
+        ),
+        // VMs
+        vms.length > 0 && h('div', null,
+          h('div', {style:sectionLabelStyle}, 'VIRTUAL MACHINES'),
+          vms.sort((a,b) => (b.status==='running'?1:0)-(a.status==='running'?1:0) || (a.name||'').localeCompare(b.name||'')).map(renderRow)
+        ),
+        // Containers
+        cts.length > 0 && h('div', null,
+          h('div', {style:sectionLabelStyle}, 'CONTAINERS'),
+          cts.sort((a,b) => (b.status==='running'?1:0)-(a.status==='running'?1:0) || (a.name||'').localeCompare(b.name||'')).map(renderRow)
+        ),
+        // Summary
+        h('div', {style:{marginTop:'auto', paddingTop:'10px', fontSize:'10px', color:'var(--dim)', letterSpacing:'1px', textAlign:'center'}},
+          runningVMs + ' VM' + (runningVMs !== 1 ? 's' : '') + ' / ' + runningCTs + ' CT' + (runningCTs !== 1 ? 's' : '') + ' running'
+        )
+      );
+    }
+
+    // ═══ DOCKER PANEL ═══
+    function DockerPanel({ config, openSettings }) {
+      const dCfg = config?.integrations?.docker;
+      const configured = dCfg?.host;
+      const [containers, setContainers] = useState([]);
+      const [error, setError] = useState(null);
+      const [stoppedOpen, setStoppedOpen] = useState(false);
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        async function poll() {
+          try {
+            const proto = dCfg.useTLS ? 'https' : 'http';
+            const base = proto + '://' + (dCfg.host || 'localhost') + ':' + (dCfg.port || 2375);
+            const listRes = await window.orbit.apiGet(base + '/containers/json?all=true', {}, 10000);
+            if (listRes?.error) { setError(listRes.error); timer = setTimeout(poll, 10000); return; }
+            const list = Array.isArray(listRes) ? listRes : (Array.isArray(listRes?.data) ? listRes.data : []);
+            // Fetch stats for running containers
+            const running = list.filter(c => c.State === 'running');
+            const statsMap = {};
+            await Promise.all(running.map(async c => {
+              try {
+                const s = await window.orbit.apiGet(base + '/containers/' + c.Id + '/stats?stream=false', {}, 8000);
+                if (s && !s.error) statsMap[c.Id] = s.data || s;
+              } catch (_) {}
+            }));
+            setContainers(list.map(c => {
+              const st = statsMap[c.Id];
+              let cpuPct = 0, memUsage = 0;
+              if (st) {
+                const cpuDelta = (st.cpu_stats?.cpu_usage?.total_usage || 0) - (st.precpu_stats?.cpu_usage?.total_usage || 0);
+                const sysDelta = (st.cpu_stats?.system_cpu_usage || 0) - (st.precpu_stats?.system_cpu_usage || 0);
+                const cpuCount = st.cpu_stats?.online_cpus || st.cpu_stats?.cpu_usage?.percpu_usage?.length || 1;
+                if (sysDelta > 0) cpuPct = (cpuDelta / sysDelta) * cpuCount * 100;
+                memUsage = st.memory_stats?.usage || 0;
+              }
+              const names = (c.Names || []).map(n => n.replace(/^\//, ''));
+              return { id: c.Id, name: names[0] || c.Id.slice(0,12), image: c.Image, state: c.State, status: c.Status, cpuPct, memUsage };
+            }));
+            setError(null);
+          } catch (e) { setError(e.message); }
+          timer = setTimeout(poll, 10000);
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [dCfg?.host, dCfg?.port, dCfg?.useTLS]);
+
+      if (!configured) return h('div', {className:'panel panel-unconfigured'},
+        h(PanelHeader, {title:'DOCKER', icon:'🐳', accentColor:'#2496ED', onSettings:()=>openSettingsAt('settings-docker')}),
+        h('div', {className:'panel-unconfigured-icon'}, '🐳'),
+        h('div', {className:'panel-unconfigured-text'}, 'Not configured'),
+        h('div', {style:{fontSize:'10px',color:'var(--dim)',textAlign:'center',marginTop:'8px',lineHeight:'1.6'}},
+          'Enable Docker TCP API:', h('br'), h('code', {style:{color:'var(--amber)'}}, '-H tcp://0.0.0.0:2375')));
+
+      function fmtMem(bytes) {
+        if (!bytes) return '0';
+        if (bytes >= 1073741824) return (bytes/1073741824).toFixed(1)+'G';
+        return (bytes/1048576).toFixed(0)+'M';
+      }
+
+      const runningList = containers.filter(c => c.state === 'running');
+      const stoppedList = containers.filter(c => c.state !== 'running');
+
+      const rowStyle = {display:'flex', alignItems:'center', padding:'3px 0', fontSize:'11px', borderBottom:'1px solid rgba(255,255,255,0.04)', gap:'6px'};
+      const nameStyle = {color:'var(--text)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1};
+      const monoStyle = {fontFamily:'var(--font)', fontSize:'10px', color:'var(--dim)', minWidth:'38px', textAlign:'right'};
+
+      function renderContainer(c, dimmed) {
+        const opacity = dimmed ? 0.4 : 1;
+        return h('div', {key:c.id, style:{...rowStyle, opacity}},
+          h('span', {style:nameStyle, title:c.image}, c.name),
+          !dimmed && h('span', {style:monoStyle}, c.cpuPct.toFixed(1)+'%'),
+          !dimmed && h('span', {style:monoStyle}, fmtMem(c.memUsage)),
+          h('span', {style:{fontSize:'9px',color:'var(--dim)',minWidth:'60px',textAlign:'right',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, c.status)
+        );
+      }
+
+      return h('div', {className:'panel panel-top'},
+        h(PanelHeader, {title:'DOCKER', icon:'🐳', accentColor:'#2496ED', onSettings:()=>openSettingsAt('settings-docker')}),
+        error && h('div', {style:{fontSize:'11px', color:'var(--red)', marginBottom:'8px'}}, 'Error: '+error),
+        // Running containers
+        runningList.length > 0 && h('div', null,
+          h('div', {style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',letterSpacing:'2px',marginBottom:'4px',display:'flex',justifyContent:'space-between'}},
+            h('span', null, 'NAME'),
+            h('span', {style:{display:'flex',gap:'6px'}}, h('span',{style:{minWidth:'38px',textAlign:'right'}},'CPU'), h('span',{style:{minWidth:'38px',textAlign:'right'}},'MEM'), h('span',{style:{minWidth:'60px',textAlign:'right'}},'STATUS'))
+          ),
+          runningList.map(c => renderContainer(c, false))
+        ),
+        // Stopped containers (collapsible)
+        stoppedList.length > 0 && h('div', {style:{marginTop:'8px'}},
+          h('div', {style:{fontSize:'10px',color:'var(--dim)',cursor:'pointer',userSelect:'none',display:'flex',alignItems:'center',gap:'4px'}, onClick:()=>setStoppedOpen(o=>!o)},
+            h('span', null, stoppedOpen ? '▼' : '▶'), h('span', null, stoppedList.length + ' stopped')),
+          stoppedOpen && stoppedList.map(c => renderContainer(c, true))
+        ),
+        // Summary
+        h('div', {style:{marginTop:'auto', paddingTop:'10px', fontSize:'10px', color:'var(--dim)', letterSpacing:'1px', textAlign:'center'}},
+          runningList.length + ' running, ' + stoppedList.length + ' stopped')
+      );
+    }
+
+    // ═══ PI-HOLE PANEL ═══
+    function PiholePanel({ config, openSettings }) {
+      const pCfg = config?.integrations?.pihole;
+      const configured = pCfg?.url;
+      const [data, setData] = useState(null);
+      const [error, setError] = useState(null);
+      const [apiVersion, setApiVersion] = useState(null);
+      const [toggling, setToggling] = useState(false);
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        const base = pCfg.url.replace(/\/+$/, '');
+        const key = pCfg.apiKey || '';
+
+        async function poll() {
+          try {
+            // Try v6 first
+            if (apiVersion !== 'v5') {
+              const v6 = await window.orbit.apiGet(base + '/api/stats/summary', { 'X-Pi-Hole-Authenticate': key }, 8000);
+              if (v6 && !v6.error && (v6.queries !== undefined || v6.dns_queries_today !== undefined)) {
+                setApiVersion('v6');
+                // v6 may use different field names — normalise
+                setData({
+                  dns_queries_today: v6.queries?.total ?? v6.dns_queries_today ?? 0,
+                  ads_blocked_today: v6.queries?.blocked ?? v6.ads_blocked_today ?? 0,
+                  ads_percentage_today: v6.queries?.percent_blocked ?? v6.ads_percentage_today ?? 0,
+                  domains_being_blocked: v6.gravity?.domains_being_blocked ?? v6.domains_being_blocked ?? 0,
+                  status: v6.status ?? (v6.blocking === 'enabled' ? 'enabled' : v6.blocking === 'disabled' ? 'disabled' : v6.status) ?? 'unknown'
+                });
+                setError(null);
+                timer = setTimeout(poll, 30000);
+                return;
+              }
+            }
+            // Fall back to v5
+            const v5 = await window.orbit.apiGet(base + '/admin/api.php?summaryRaw&auth=' + key, {}, 8000);
+            if (v5 && !v5.error && v5.dns_queries_today !== undefined) {
+              setApiVersion('v5');
+              setData({
+                dns_queries_today: v5.dns_queries_today ?? 0,
+                ads_blocked_today: v5.ads_blocked_today ?? 0,
+                ads_percentage_today: v5.ads_percentage_today ?? 0,
+                domains_being_blocked: v5.domains_being_blocked ?? 0,
+                status: v5.status ?? 'unknown'
+              });
+              setError(null);
+            } else {
+              setError(v5?.error || 'Unexpected response');
+            }
+          } catch (e) { setError(e.message); }
+          timer = setTimeout(poll, 30000);
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [pCfg?.url, pCfg?.apiKey]);
+
+      async function toggleBlocking() {
+        if (!data || toggling) return;
+        setToggling(true);
+        const base = pCfg.url.replace(/\/+$/, '');
+        const key = pCfg.apiKey || '';
+        const wantEnabled = data.status !== 'enabled';
+        try {
+          if (apiVersion === 'v6') {
+            await window.orbit.apiPost(base + '/api/dns/blocking', JSON.stringify({ blocking: wantEnabled }), { 'Content-Type': 'application/json', 'X-Pi-Hole-Authenticate': key });
+          } else {
+            const action = wantEnabled ? 'enable' : 'disable';
+            await window.orbit.apiGet(base + '/admin/api.php?' + action + '&auth=' + key, {}, 8000);
+          }
+          setData(d => ({ ...d, status: wantEnabled ? 'enabled' : 'disabled' }));
+        } catch (e) { setError(e.message); }
+        setToggling(false);
+      }
+
+      if (!configured) return h('div', {className:'panel panel-unconfigured'},
+        h(PanelHeader, {title:'PI-HOLE', icon:'🛡️', accentColor:'#96060C', onSettings:()=>openSettingsAt('settings-pihole')}),
+        h('div', {className:'panel-unconfigured-icon'}, '🛡️'),
+        h('div', {className:'panel-unconfigured-text'}, 'Not configured'),
+        h('div', {style:{fontSize:'10px',color:'var(--dim)',textAlign:'center',marginTop:'8px',lineHeight:'1.6'}},
+          'Add your Pi-hole URL and API key', h('br'), 'in Settings → Integrations'));
+
+      const isEnabled = data?.status === 'enabled';
+      const blocked = Number(data?.ads_blocked_today || 0);
+      const total = Number(data?.dns_queries_today || 0);
+      const pct = Number(data?.ads_percentage_today || 0);
+      const domains = Number(data?.domains_being_blocked || 0);
+      const barPct = total > 0 ? (blocked / total) * 100 : 0;
+
+      const statStyle = {display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',flex:1};
+      const statNum = {fontSize:'20px',fontWeight:700,color:'var(--text-bright)',lineHeight:1};
+      const statLabel = {fontSize:'9px',color:'var(--dim)',letterSpacing:'1.5px',textTransform:'uppercase'};
+
+      return h('div', {className:'panel'},
+        h(PanelHeader, {title:'PI-HOLE', icon:'🛡️', accentColor:'#96060C', onSettings:()=>openSettingsAt('settings-pihole')}),
+        error && h('div', {style:{fontSize:'11px', color:'var(--red)', marginBottom:'8px'}}, 'Error: ' + error),
+        !data && !error && h('div', {style:{fontSize:'12px',color:'var(--dim)'}}, 'Loading...'),
+        data && h(React.Fragment, null,
+          // Status + toggle
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',gap:'10px',marginBottom:'16px'}},
+            h('span', {style:{fontSize:'11px',fontWeight:600,color: isEnabled ? '#50fa7b' : '#ff5555',letterSpacing:'1px'}},
+              isEnabled ? 'ENABLED' : 'DISABLED'),
+            h('button', {
+              onClick: toggleBlocking,
+              disabled: toggling,
+              style:{
+                padding:'4px 12px',fontSize:'10px',fontWeight:600,letterSpacing:'1px',
+                border:'1px solid ' + (isEnabled ? 'rgba(255,85,85,0.4)' : 'rgba(80,250,123,0.4)'),
+                background: isEnabled ? 'rgba(255,85,85,0.1)' : 'rgba(80,250,123,0.1)',
+                color: isEnabled ? '#ff5555' : '#50fa7b',
+                borderRadius:'4px',cursor: toggling ? 'wait' : 'pointer',
+                fontFamily:'var(--font)',transition:'all .2s'
+              }
+            }, toggling ? '...' : (isEnabled ? 'DISABLE' : 'ENABLE'))
+          ),
+          // Stats row
+          h('div', {style:{display:'flex',gap:'8px',width:'100%',marginBottom:'16px'}},
+            h('div', {style:statStyle},
+              h('span', {style:statNum}, total.toLocaleString()),
+              h('span', {style:statLabel}, 'Queries')
+            ),
+            h('div', {style:statStyle},
+              h('span', {style:{...statNum, color:'#ff5555'}}, blocked.toLocaleString()),
+              h('span', {style:statLabel}, 'Blocked')
+            ),
+            h('div', {style:statStyle},
+              h('span', {style:{...statNum, color:'var(--amber)'}}, pct.toFixed(1) + '%'),
+              h('span', {style:statLabel}, 'Blocked')
+            )
+          ),
+          // Blocked vs allowed bar
+          h('div', {style:{width:'100%',marginBottom:'16px'}},
+            h('div', {style:{width:'100%',height:'8px',borderRadius:'4px',background:'rgba(255,255,255,0.06)',overflow:'hidden'}},
+              h('div', {style:{width: barPct + '%',height:'100%',borderRadius:'4px',background:'linear-gradient(90deg, #ff5555, #ff7979)',transition:'width .5s ease'}})
+            ),
+            h('div', {style:{display:'flex',justifyContent:'space-between',marginTop:'4px',fontSize:'9px',color:'var(--dim)'}},
+              h('span', null, 'Blocked: ' + barPct.toFixed(1) + '%'),
+              h('span', null, 'Allowed: ' + (100 - barPct).toFixed(1) + '%')
+            )
+          ),
+          // Domains on blocklist
+          h('div', {style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},
+            domains.toLocaleString() + ' domains on blocklist')
+        )
+      );
+    }
+
+    // ═══ TRUENAS PANEL ═══
+    function TrueNASPanel({ config, openSettings }) {
+      const tCfg = config?.integrations?.truenas;
+      const configured = tCfg?.url;
+      const [pools, setPools] = useState([]);
+      const [disks, setDisks] = useState([]);
+      const [alerts, setAlerts] = useState([]);
+      const [sysInfo, setSysInfo] = useState(null);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        async function poll() {
+          try {
+            const base = tCfg.url.replace(/\/+$/, '');
+            const hdrs = { Authorization: 'Bearer ' + (tCfg.apiKey || '') };
+            const [poolRes, diskRes, alertRes, infoRes] = await Promise.all([
+              window.orbit.apiGet(base + '/api/v2.0/pool', hdrs, 10000),
+              window.orbit.apiGet(base + '/api/v2.0/disk', hdrs, 10000),
+              window.orbit.apiGet(base + '/api/v2.0/alert/list', hdrs, 10000),
+              window.orbit.apiGet(base + '/api/v2.0/system/info', hdrs, 10000)
+            ]);
+            if (poolRes?.error) { setError(poolRes.error); timer = setTimeout(poll, 60000); return; }
+            const poolList = Array.isArray(poolRes) ? poolRes : (Array.isArray(poolRes?.data) ? poolRes.data : []);
+            const diskList = Array.isArray(diskRes) ? diskRes : (Array.isArray(diskRes?.data) ? diskRes.data : []);
+            const alertList = Array.isArray(alertRes) ? alertRes : (Array.isArray(alertRes?.data) ? alertRes.data : []);
+            const info = infoRes?.data || infoRes || {};
+            setPools(poolList);
+            setDisks(diskList);
+            setAlerts(alertList);
+            setSysInfo(info);
+            setError(null);
+          } catch (e) { setError(e.message); }
+          timer = setTimeout(poll, 60000);
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [tCfg?.url, tCfg?.apiKey]);
+
+      if (!configured) return h('div', {className:'panel panel-unconfigured'},
+        h(PanelHeader, {title:'TRUENAS', icon:'💾', accentColor:'#0095D5', onSettings:()=>openSettingsAt('settings-truenas')}),
+        h('div', {className:'panel-unconfigured-icon'}, '💾'),
+        h('div', {className:'panel-unconfigured-text'}, 'Not configured'),
+        h('div', {style:{fontSize:'10px',color:'var(--dim)',textAlign:'center',marginTop:'8px',lineHeight:'1.6'}},
+          'Add your TrueNAS URL and API key', h('br'), 'in Settings → Integrations'));
+
+      function fmtBytes(bytes) {
+        if (!bytes) return '0';
+        if (bytes >= 1099511627776) return (bytes/1099511627776).toFixed(1)+' TB';
+        if (bytes >= 1073741824) return (bytes/1073741824).toFixed(1)+' GB';
+        return (bytes/1048576).toFixed(0)+' MB';
+      }
+
+      function fmtUptime(seconds) {
+        if (!seconds) return '—';
+        const d = Math.floor(seconds / 86400);
+        const h = Math.floor((seconds % 86400) / 3600);
+        if (d > 0) return d + 'd ' + h + 'h';
+        const m = Math.floor((seconds % 3600) / 60);
+        return h + 'h ' + m + 'm';
+      }
+
+      const statusColor = (s) => {
+        const st = (s || '').toUpperCase();
+        if (st === 'ONLINE' || st === 'HEALTHY') return '#50fa7b';
+        if (st === 'DEGRADED') return 'var(--amber)';
+        return '#ff5555';
+      };
+
+      const severityColor = (s) => {
+        const sv = (s || '').toUpperCase();
+        if (sv === 'CRITICAL' || sv === 'ERROR') return '#ff5555';
+        if (sv === 'WARNING') return 'var(--amber)';
+        return 'var(--dim)';
+      };
+
+      const healthyDisks = disks.filter(d => !(d.alerts || []).length);
+      const alertDisks = disks.length - healthyDisks.length;
+      const recentAlerts = alerts.slice(0, 3);
+
+      const statStyle = {display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',flex:1};
+      const statNum = {fontSize:'18px',fontWeight:700,color:'var(--text-bright)',lineHeight:1};
+      const statLabel = {fontSize:'9px',color:'var(--dim)',letterSpacing:'1.5px',textTransform:'uppercase'};
+
+      return h('div', {className:'panel'},
+        h(PanelHeader, {title:'TRUENAS', icon:'💾', accentColor:'#0095D5', onSettings:()=>openSettingsAt('settings-truenas')}),
+        error && h('div', {style:{fontSize:'11px', color:'var(--red)', marginBottom:'8px'}}, 'Error: ' + error),
+        !pools.length && !error && h('div', {style:{fontSize:'12px',color:'var(--dim)'}}, 'Loading...'),
+
+        // System info
+        sysInfo && h('div', {style:{marginBottom:'12px',fontSize:'10px',color:'var(--dim)',textAlign:'center',lineHeight:'1.6'}},
+          sysInfo.hostname && h('div', {style:{fontSize:'12px',color:'var(--text-bright)',fontWeight:600,letterSpacing:'1px'}}, sysInfo.hostname),
+          h('span', null, (sysInfo.version || 'TrueNAS')),
+          sysInfo.uptime_seconds && h('span', null, ' • up ' + fmtUptime(sysInfo.uptime_seconds))
+        ),
+
+        // Pools
+        pools.length > 0 && h('div', {style:{marginBottom:'10px'}},
+          h('div', {style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',letterSpacing:'2px',marginBottom:'4px'}}, 'POOLS'),
+          pools.map((p, i) => {
+            const total = p.topology ? (p.size || 0) : 0;
+            const used = p.topology ? (p.used || 0) : 0;
+            // Some TrueNAS versions use allocated/size on pool object
+            const poolTotal = total || p.size || 0;
+            const poolUsed = used || p.used || p.allocated || 0;
+            const pct = poolTotal > 0 ? (poolUsed / poolTotal) * 100 : 0;
+            const free = poolTotal - poolUsed;
+            const status = (p.status || p.healthy ? 'ONLINE' : 'UNKNOWN').toUpperCase();
+            return h('div', {key:p.name||i, style:{marginBottom:'8px'}},
+              h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'3px'}},
+                h('span', {style:{fontSize:'11px',color:'var(--text)',fontWeight:600}}, p.name),
+                h('span', {style:{fontSize:'9px',fontWeight:700,color:statusColor(status),letterSpacing:'1px',padding:'1px 6px',borderRadius:'3px',background:'rgba(255,255,255,0.04)'}}, status)
+              ),
+              poolTotal > 0 && h('div', null,
+                h('div', {style:{width:'100%',height:'6px',borderRadius:'3px',background:'rgba(255,255,255,0.06)',overflow:'hidden',marginBottom:'3px'}},
+                  h('div', {style:{width: Math.min(pct,100) + '%',height:'100%',borderRadius:'3px',background: pct > 90 ? '#ff5555' : pct > 75 ? 'var(--amber)' : '#0095D5',transition:'width .5s ease'}})
+                ),
+                h('div', {style:{display:'flex',justifyContent:'space-between',fontSize:'9px',color:'var(--dim)'}},
+                  h('span', null, fmtBytes(poolUsed) + ' / ' + fmtBytes(poolTotal)),
+                  h('span', null, fmtBytes(free) + ' free')
+                )
+              )
+            );
+          })
+        ),
+
+        // Disk summary
+        disks.length > 0 && h('div', {style:{display:'flex',gap:'8px',width:'100%',marginBottom:'12px'}},
+          h('div', {style:statStyle},
+            h('span', {style:{...statNum, color:'#50fa7b'}}, healthyDisks.length),
+            h('span', {style:statLabel}, 'Healthy')
+          ),
+          alertDisks > 0 && h('div', {style:statStyle},
+            h('span', {style:{...statNum, color:'#ff5555'}}, alertDisks),
+            h('span', {style:statLabel}, 'With Alerts')
+          ),
+          h('div', {style:statStyle},
+            h('span', {style:statNum}, disks.length),
+            h('span', {style:statLabel}, 'Total Disks')
+          )
+        ),
+
+        // Recent alerts
+        recentAlerts.length > 0 && h('div', {style:{marginBottom:'8px'}},
+          h('div', {style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',letterSpacing:'2px',marginBottom:'4px'}}, 'ALERTS'),
+          recentAlerts.map((a, i) => h('div', {key:i, style:{fontSize:'10px',padding:'4px 0',borderBottom:'1px solid rgba(255,255,255,0.04)',display:'flex',gap:'6px',alignItems:'flex-start'}},
+            h('span', {style:{fontSize:'9px',fontWeight:700,color:severityColor(a.level || a.severity),letterSpacing:'1px',flexShrink:0,padding:'1px 4px',borderRadius:'2px',background:'rgba(255,255,255,0.04)'}}, (a.level || a.severity || 'INFO').toUpperCase().slice(0,4)),
+            h('span', {style:{color:'var(--text)',lineHeight:'1.4',overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}, a.formatted || a.message || a.text || 'Alert')
+          ))
+        ),
+
+        // Footer
+        h('div', {style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},
+          pools.length + ' pool' + (pools.length !== 1 ? 's' : '') + ', ' + disks.length + ' disk' + (disks.length !== 1 ? 's' : ''))
+      );
+    }
+
     // ═══ PANEL RENDERER ═══
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key, panelType: key }, child);
@@ -2432,11 +3044,51 @@
         case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
         case 'links': return wrap(key, h(LinksPanel, {key, config}));
         case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
+        case 'proxmox': return wrap(key, h(ProxmoxPanel, {key, config, openSettings}));
+        case 'docker': return wrap(key, h(DockerPanel, {key, config, openSettings}));
+        case 'pihole': return wrap(key, h(PiholePanel, {key, config, openSettings}));
+        case 'truenas': return wrap(key, h(TrueNASPanel, {key, config, openSettings}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
 
     // ═══ MAIN APP ═══
+    // ── LAYOUT PICKER — top-right dropdown for switching layouts ──
+    function LayoutPicker({ config, setConfig }) {
+      const [open, setOpen] = useState(false);
+      const ref = useRef(null);
+
+      useEffect(() => {
+        if (!open) return;
+        function onClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
+        document.addEventListener('mousedown', onClick);
+        return () => document.removeEventListener('mousedown', onClick);
+      }, [open]);
+
+      const all = getAllLayouts(config);
+      const currentKey = config?.currentLayout || '_default';
+      const currentName = all[currentKey]?.name || 'Default';
+
+      return h('div', { className: 'layout-picker', ref },
+        h('button', { className: 'layout-picker-btn', onClick: () => setOpen(!open) },
+          currentName,
+          h('span', { className: 'lp-arrow' }, open ? '▲' : '▼')
+        ),
+        open && h('div', { className: 'layout-picker-menu' },
+          Object.entries(all).map(([key, layout]) => {
+            const isActive = key === currentKey;
+            return h('button', {
+              key, className: 'layout-picker-item' + (isActive ? ' active' : ''),
+              onClick: () => { applyLayout(config, setConfig, key); setOpen(false); }
+            },
+              h('span', null, isActive ? '● ' : '', layout.name),
+              isBuiltinLayout(key) && h('span', { style: { fontSize: '9px', opacity: 0.4, marginLeft: '6px' } }, 'PRESET')
+            );
+          })
+        )
+      );
+    }
+
     // ── BOTTOM BAR — bumper strip with settings, page dots, update badge ──
     function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig }) {
       const [update, setUpdate] = useState(null);
@@ -2567,6 +3219,16 @@
       return true;
     }
 
+    // ═══ NOTIFICATION DEBOUNCE ═══
+    const _notifyRecent = {};
+    function orbitNotify(title, body) {
+      const key = title + '\x00' + body;
+      const now = Date.now();
+      if (_notifyRecent[key] && now - _notifyRecent[key] < 5000) return;
+      _notifyRecent[key] = now;
+      window.orbit.notify(title, body);
+    }
+
     function App() {
       const [config, setConfig] = useState(null);
       const [currentPage, setCurrentPage] = useState(0);
@@ -2615,6 +3277,66 @@
         });
         return () => { unsub(); unsubSettings(); };
       }, []);
+
+      // ── Toast notifications: Sonarr / Radarr SignalR + NZBGet status ──
+      const nzbPrevRef = useRef({});
+      useEffect(() => {
+        if (!config) return;
+        const notifCfg = config.notifications || { sonarr: true, radarr: true, nzbget: true };
+
+        // Sonarr grab/download events
+        const unsubSonarr = (notifCfg.sonarr !== false) ? window.orbit.onSonarrEvent(ev => {
+          const name = ev.name || ev.eventType || '';
+          if (/grab|download/i.test(name)) {
+            const series = ev.series?.title || ev.body?.series?.title || 'Unknown';
+            const ep = ev.episodes?.[0] || ev.body?.episodes?.[0];
+            const epStr = ep ? ' S' + String(ep.seasonNumber||0).padStart(2,'0') + 'E' + String(ep.episodeNumber||0).padStart(2,'0') : '';
+            orbitNotify('Sonarr', series + epStr + (/grab/i.test(name) ? ' grabbed' : ' downloaded'));
+          }
+        }) : null;
+
+        // Radarr grab/download events
+        const unsubRadarr = (notifCfg.radarr !== false) ? window.orbit.onRadarrEvent(ev => {
+          const name = ev.name || ev.eventType || '';
+          if (/grab|download/i.test(name)) {
+            const movie = ev.movie?.title || ev.body?.movie?.title || 'Unknown';
+            orbitNotify('Radarr', movie + (/grab/i.test(name) ? ' grabbed' : ' downloaded'));
+          }
+        }) : null;
+
+        // NZBGet: detect SUCCESS transitions by polling
+        let nzbTimer = null;
+        const nCfg = config.integrations?.nzbget;
+        if (notifCfg.nzbget !== false && nCfg?.url && nCfg?.username) {
+          const auth = btoa(nCfg.username + ':' + (nCfg.password || ''));
+          async function pollNzb() {
+            try {
+              const resp = await window.orbit.apiPost(nCfg.url + '/jsonrpc', { version: '1.1', method: 'history', params: [20], id: 99 }, { Authorization: 'Basic ' + auth });
+              const items = Array.isArray(resp?.result) ? resp.result : [];
+              const prev = nzbPrevRef.current;
+              for (const item of items) {
+                const id = item.NZBID || item.ID;
+                if (!id) continue;
+                if (prev[id] && prev[id] !== 'SUCCESS' && item.Status === 'SUCCESS') {
+                  orbitNotify('NZBGet', (item.NZBNicename || item.NZBFilename || 'Download') + ' complete');
+                }
+              }
+              const next = {};
+              for (const item of items) { const id = item.NZBID || item.ID; if (id) next[id] = item.Status; }
+              nzbPrevRef.current = next;
+            } catch {}
+            nzbTimer = setTimeout(pollNzb, 15000);
+          }
+          pollNzb();
+        }
+
+        return () => {
+          if (unsubSonarr) unsubSonarr();
+          if (unsubRadarr) unsubRadarr();
+          if (nzbTimer) clearTimeout(nzbTimer);
+        };
+      }, [config?.notifications?.sonarr, config?.notifications?.radarr, config?.notifications?.nzbget,
+          config?.integrations?.nzbget?.url, config?.integrations?.nzbget?.username]);
 
       const pages = config?.pages || DEFAULT_CONFIG.pages;
       const page = pages[currentPage] || pages[0];
@@ -2667,18 +3389,103 @@
 
       // Only render configured and visible panels; grid cols = count of panels (max 6)
       const panelVisibility = config?.panels || {};
-      const renderedPanels = [];
-      const sortedPanels = [...panels].sort((a, b) => a.col - b.col);
-      for (const panelCfg of sortedPanels) {
-        // Skip panels marked hidden in config.panels (default is visible)
-        if (panelVisibility[panelCfg.type] === false) continue;
-        const col = panelCfg.col;
-        if (panelCfg.type === 'signalrgb') {
-          renderedPanels.push(h(PanelErrorBoundary, {key:'signalrgb-'+col, panelType:'signalrgb'}, h(SignalRGBPanel, {config, onSignalChange: setSignalIsOn})));
-        } else {
-          renderedPanels.push(renderPanel(panelCfg, config, openSettings, setConfig));
-        }
+      const visiblePanels = [...panels].sort((a, b) => a.col - b.col).filter(p => panelVisibility[p.type] !== false);
+
+      // Apply saved panel order from config.panelOrder (fall back to default)
+      const panelOrder = Array.isArray(config?.panelOrder) && config.panelOrder.length > 0
+        ? config.panelOrder
+        : DEFAULT_PANEL_ORDER;
+      const orderMap = {};
+      panelOrder.forEach((id, i) => { orderMap[id] = i; });
+      const inOrder = [];
+      const notInOrder = [];
+      for (const p of visiblePanels) {
+        if (orderMap[p.type] !== undefined) inOrder.push(p);
+        else notInOrder.push(p);
       }
+      inOrder.sort((a, b) => orderMap[a.type] - orderMap[b.type]);
+      const orderedPanels = [...inOrder, ...notInOrder];
+
+      // Drag-and-drop reorder state
+      const dragIdxRef = useRef(null);
+
+      function clearDragClasses() {
+        document.querySelectorAll('.panel-drag-wrapper').forEach(el => el.classList.remove('dragging', 'drag-over-left', 'drag-over-right'));
+      }
+      function onPanelDragStart(e, idx) {
+        dragIdxRef.current = idx;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(idx));
+        setTimeout(() => {
+          const wrappers = document.querySelectorAll('#app > .panel-drag-wrapper');
+          if (wrappers[idx]) wrappers[idx].classList.add('dragging');
+        }, 0);
+      }
+      function onPanelDragEnd() {
+        dragIdxRef.current = null;
+        clearDragClasses();
+      }
+      function onPanelDragOver(e, idx) {
+        e.preventDefault();
+        const from = dragIdxRef.current;
+        if (from === null || from === idx) return;
+        clearDragClasses();
+        const wrappers = document.querySelectorAll('#app > .panel-drag-wrapper');
+        if (wrappers[from]) wrappers[from].classList.add('dragging');
+        if (wrappers[idx]) wrappers[idx].classList.add(from < idx ? 'drag-over-right' : 'drag-over-left');
+      }
+      function onPanelDrop(e, idx) {
+        e.preventDefault();
+        const from = dragIdxRef.current;
+        if (from === null || from === idx) return;
+        const newOrder = orderedPanels.map(p => p.type);
+        const [moved] = newOrder.splice(from, 1);
+        newOrder.splice(idx, 0, moved);
+        const newCfg = { ...config, panelOrder: newOrder };
+        setConfig(newCfg);
+        window.orbit.saveConfig(newCfg);
+        dragIdxRef.current = null;
+        clearDragClasses();
+      }
+
+      // Collapse state
+      const panelCollapsed = config?.panelCollapsed || {};
+      function toggleCollapse(type) {
+        const newCollapsed = { ...panelCollapsed, [type]: !panelCollapsed[type] };
+        const newCfg = { ...config, panelCollapsed: newCollapsed };
+        setConfig(newCfg);
+        window.orbit.saveConfig(newCfg);
+      }
+
+      const renderedPanels = [];
+      orderedPanels.forEach((panelCfg, idx) => {
+        const col = panelCfg.col;
+        const isCollapsed = !!panelCollapsed[panelCfg.type];
+        const dragProps = {
+          draggable: true,
+          onDragStart: e => onPanelDragStart(e, idx),
+          onDragEnd: onPanelDragEnd,
+          onDragOver: e => onPanelDragOver(e, idx),
+          onDragLeave: e => { e.currentTarget.classList.remove('drag-over-left', 'drag-over-right'); },
+          onDrop: e => onPanelDrop(e, idx),
+        };
+        const wrapperClass = 'panel-drag-wrapper' + (isCollapsed ? ' collapsed' : '');
+        const collapseVal = { collapsed: isCollapsed, onToggleCollapse: () => toggleCollapse(panelCfg.type) };
+        if (panelCfg.type === 'signalrgb') {
+          renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:wrapperClass, ...dragProps},
+            h(CollapseContext.Provider, {value: collapseVal},
+              h(PanelErrorBoundary, {panelType:'signalrgb'}, h(SignalRGBPanel, {config, onSignalChange: setSignalIsOn}))
+            )
+          ));
+        } else {
+          const panel = renderPanel(panelCfg, config, openSettings, setConfig);
+          if (panel) {
+            renderedPanels.push(h('div', {key:panelCfg.type+'-drag-'+col, className:wrapperClass, ...dragProps},
+              h(CollapseContext.Provider, {value: collapseVal}, panel)
+            ));
+          }
+        }
+      });
       if (renderedPanels.length === 0) {
         renderedPanels.push(h('div', {key:'empty', className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+' )));
       }
@@ -2692,6 +3499,9 @@
         h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig}),
 
 
+
+        // Layout picker (top-right, next to quit)
+        h(LayoutPicker, {config, setConfig}),
 
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),

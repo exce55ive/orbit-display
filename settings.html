@@ -97,6 +97,23 @@
     .settings-update-btn:hover { background: var(--accent-bg); }
     .settings-changelog { font-size: 12px; color: var(--dim); margin-top: 12px; line-height: 1.7; white-space: pre-wrap; }
 
+    /* ── Layouts tab ── */
+    .layout-row { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 6px; transition: border-color .15s; }
+    .layout-row:hover { border-color: rgba(255,255,255,0.12); }
+    .layout-row.active { border-color: var(--accent); background: var(--accent-dim); }
+    .layout-row-name { flex: 1; font-size: 13px; color: var(--text); font-weight: 600; }
+    .layout-row-badge { font-size: 9px; color: var(--dim); letter-spacing: 1px; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; }
+    .layout-row-actions { display: flex; gap: 4px; }
+    .layout-action-btn { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 4px; transition: all .15s; font-family: var(--font); }
+    .layout-action-btn:hover { color: var(--accent); background: rgba(255,255,255,0.04); }
+    .layout-action-btn.danger:hover { color: var(--red); background: rgba(255,85,85,0.08); }
+    .layout-rename-input { flex: 1; padding: 4px 8px; font-family: var(--font); font-size: 13px; background: rgba(255,255,255,0.06); border: 1px solid var(--accent); border-radius: 4px; color: var(--text-bright); outline: none; }
+    .layout-save-row { display: flex; gap: 8px; margin-top: 12px; }
+    .layout-save-input { flex: 1; padding: 8px 12px; font-size: 12px; font-family: var(--font); background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; color: var(--text); outline: none; transition: border-color .2s; }
+    .layout-save-input:focus { border-color: var(--accent); }
+    .layout-save-btn { padding: 8px 16px; font-size: 11px; font-weight: 700; font-family: var(--font); letter-spacing: 1.5px; border-radius: 6px; cursor: pointer; background: transparent; border: 1px solid var(--accent); color: var(--accent); transition: all .2s; white-space: nowrap; }
+    .layout-save-btn:hover { background: var(--accent-bg); }
+
     /* ── HA browser ── */
     .ha-browse-btn { padding: 5px 12px; background: var(--accent-bg); border: 1px solid var(--accent-mid); border-radius: 6px; color: var(--accent); cursor: pointer; font-family: var(--font); font-size: 11px; letter-spacing: 0.5px; transition: background .15s; }
     .ha-browse-btn:hover { background: rgba(0,217,255,0.18); }
@@ -288,7 +305,8 @@
       const add = (name, url) => { if (url) list.push({name,url}); };
       add('NZBGet', i.nzbget?.url); add('Home Assistant', i.homeassistant?.url);
       add('Sonarr', i.sonarr?.url); add('Radarr', i.radarr?.url);
-      add('Overseerr', i.overseerr?.url); add('Jellyfin', i.jellyfin?.url);
+      add('Overseerr', i.overseerr?.url); add('Jellyfin', i.jellyfin?.url); add('Proxmox', i.proxmox?.url); add('Pi-hole', i.pihole?.url);
+      if (i.docker?.host) add('Docker', (i.docker.useTLS?'https':'http')+'://'+i.docker.host+':'+(i.docker.port||2375));
       add('Tautulli', i.tautulli?.url);
       return list;
     }, [cfg]);
@@ -326,8 +344,8 @@
     const [editingIndex, setEditingIndex] = useState(-1);
     const [editingValue, setEditingValue] = useState('');
     const [dragOverIndex, setDragOverIndex] = useState(-1);
-    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡'};
-    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant'};
+    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡',proxmox:'🖥️',docker:'🐳',pihole:'🛡️',truenas:'💾'};
+    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant',proxmox:'Proxmox',docker:'Docker',pihole:'Pi-hole',truenas:'TrueNAS'};
 
     return h('div', null,
       h('div', {className:'settings-section'}, 'PAGES'),
@@ -437,9 +455,11 @@
   function PrefsTab({ cfg, setCfg }) {
     const tempUnit = cfg?.prefs?.tempUnit || 'C';
     const timeFormat = cfg?.prefs?.timeFormat || '24h';
+    const notif = cfg?.notifications || { sonarr: true, radarr: true, nzbget: true };
 
     function setTempUnit(v) { setCfg(c=>({...c,prefs:{...(c.prefs||{}),tempUnit:v}})); }
     function setTimeFormat(v) { setCfg(c=>({...c,prefs:{...(c.prefs||{}),timeFormat:v}})); }
+    function setNotif(key, v) { setCfg(c=>({...c,notifications:{...(c.notifications||{sonarr:true,radarr:true,nzbget:true}),[key]:v}})); }
 
     return h('div', null,
       h('div', {className:'settings-section'}, 'PREFERENCES'),
@@ -463,6 +483,41 @@
         h('div', {className:'pref-toggle-group'},
           h('button', {className:'pref-toggle-btn'+(timeFormat==='24h'?' active':''), onClick:()=>setTimeFormat('24h')}, '24H'),
           h('button', {className:'pref-toggle-btn'+(timeFormat==='12h'?' active':''), onClick:()=>setTimeFormat('12h')}, '12H')
+        )
+      ),
+
+      h('div', {className:'settings-section', style:{marginTop:'24px'}}, 'NOTIFICATIONS'),
+
+      h('div', {className:'pref-row'},
+        h('div', null,
+          h('div', {className:'pref-label'}, 'Sonarr'),
+          h('div', {className:'pref-hint'}, 'Notify on grab & download events via SignalR')
+        ),
+        h('div', {className:'pref-toggle-group'},
+          h('button', {className:'pref-toggle-btn'+(notif.sonarr!==false?' active':''), onClick:()=>setNotif('sonarr',true)}, 'ON'),
+          h('button', {className:'pref-toggle-btn'+(notif.sonarr===false?' active':''), onClick:()=>setNotif('sonarr',false)}, 'OFF')
+        )
+      ),
+
+      h('div', {className:'pref-row'},
+        h('div', null,
+          h('div', {className:'pref-label'}, 'Radarr'),
+          h('div', {className:'pref-hint'}, 'Notify on grab & download events via SignalR')
+        ),
+        h('div', {className:'pref-toggle-group'},
+          h('button', {className:'pref-toggle-btn'+(notif.radarr!==false?' active':''), onClick:()=>setNotif('radarr',true)}, 'ON'),
+          h('button', {className:'pref-toggle-btn'+(notif.radarr===false?' active':''), onClick:()=>setNotif('radarr',false)}, 'OFF')
+        )
+      ),
+
+      h('div', {className:'pref-row'},
+        h('div', null,
+          h('div', {className:'pref-label'}, 'NZBGet'),
+          h('div', {className:'pref-hint'}, 'Notify when a download completes')
+        ),
+        h('div', {className:'pref-toggle-group'},
+          h('button', {className:'pref-toggle-btn'+(notif.nzbget!==false?' active':''), onClick:()=>setNotif('nzbget',true)}, 'ON'),
+          h('button', {className:'pref-toggle-btn'+(notif.nzbget===false?' active':''), onClick:()=>setNotif('nzbget',false)}, 'OFF')
         )
       )
     );
@@ -506,13 +561,25 @@
     { key: 'spotify', label: 'Spotify', icon: '🎵' },
     { key: 'lights', label: 'Home Assistant', icon: '💡' },
     { key: 'system', label: 'System Monitor', icon: '💻' },
+    { key: 'proxmox', label: 'Proxmox', icon: '🖥️' },
+    { key: 'docker', label: 'Docker', icon: '🐳' },
+    { key: 'pihole', label: 'Pi-hole', icon: '🛡️' },
+    { key: 'truenas', label: 'TrueNAS', icon: '💾' },
   ];
 
   function PanelsTab({ cfg, setCfg }) {
     const panels = cfg.panels || {};
     function toggle(key) {
       const current = panels[key] !== false; // default true
-      setCfg(c => ({ ...c, panels: { ...(c.panels || {}), [key]: !current } }));
+      const newPanels = { ...(cfg.panels || {}), [key]: !current };
+      // When re-enabling a panel, append it to the end of panelOrder
+      let newOrder = cfg.panelOrder ? [...cfg.panelOrder] : undefined;
+      if (!current && newOrder) {
+        // Becoming visible — remove any stale entry then append to end
+        newOrder = newOrder.filter(id => id !== key);
+        newOrder.push(key);
+      }
+      setCfg(c => ({ ...c, panels: newPanels, ...(newOrder ? { panelOrder: newOrder } : {}) }));
     }
     return h('div', null,
       h('div', {className:'settings-section'}, 'PANEL VISIBILITY'),
@@ -542,6 +609,177 @@
           )
         );
       })
+    );
+  }
+
+  // ── Layouts Tab (layout profiles) ────────────────────────────────────
+  const PANEL_DEFS_ALL = PANEL_DEFS.filter(p => !p.alias);
+
+  const DEFAULT_PANEL_ORDER = [
+    'clock','weather','sonarr','radarr','overseerr','nzbget',
+    'signalrgb','services','spotify','discord','homeassistant',
+    'sysmon','tautulli','jellyfin','nowplaying','lights','system',
+    'media','uptimekuma','links','proxmox','docker','pihole','truenas'
+  ];
+
+  const BUILTIN_LAYOUTS = {
+    _default: {
+      name: 'Default',
+      panelOrder: [...DEFAULT_PANEL_ORDER],
+      panels: {},
+      panelCollapsed: {}
+    },
+    _gaming: {
+      name: 'Gaming',
+      panelOrder: ['signalrgb','discord','spotify','system','services','lights','clock','weather'],
+      panels: {
+        signalrgb: true, discord: true, spotify: true, system: true, services: true, lights: true, clock: true, weather: true,
+        nowplaying: false, jellyfin: false, sonarr: false, radarr: false, overseerr: false, nzbget: false
+      },
+      panelCollapsed: {}
+    },
+    _media: {
+      name: 'Media',
+      panelOrder: ['nowplaying','jellyfin','sonarr','radarr','overseerr','nzbget','clock','weather','services','lights','system'],
+      panels: {
+        nowplaying: true, jellyfin: true, sonarr: true, radarr: true, overseerr: true, nzbget: true, clock: true, weather: true, services: true, lights: true, system: true,
+        signalrgb: false, discord: false, spotify: false
+      },
+      panelCollapsed: {}
+    }
+  };
+
+  function isBuiltinLayout(key) { return key && key.startsWith('_'); }
+
+  function getAllLayouts(cfg) {
+    return { ...BUILTIN_LAYOUTS, ...(cfg?.layouts || {}) };
+  }
+
+  function LayoutsTab({ cfg, setCfg }) {
+    const [saveName, setSaveName] = useState('');
+    const [renaming, setRenaming] = useState(null);
+    const [renameVal, setRenameVal] = useState('');
+    const [msg, setMsg] = useState('');
+
+    const allLayouts = getAllLayouts(cfg);
+    const currentKey = cfg.currentLayout || '_default';
+
+    function flashMsg(text) { setMsg(text); setTimeout(() => setMsg(''), 2000); }
+
+    function saveCurrentAsLayout() {
+      const name = saveName.trim();
+      if (!name) return;
+      // generate a unique key from the name
+      const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      if (!key || isBuiltinLayout('_' + key)) { flashMsg('Cannot use reserved name'); return; }
+      const finalKey = key.startsWith('_') ? key.slice(1) : key;
+      const layout = {
+        name,
+        panelOrder: cfg.panelOrder ? [...cfg.panelOrder] : [...DEFAULT_PANEL_ORDER],
+        panels: { ...(cfg.panels || {}) },
+        panelCollapsed: { ...(cfg.panelCollapsed || {}) }
+      };
+      const newLayouts = { ...(cfg.layouts || {}), [finalKey]: layout };
+      setCfg(c => ({ ...c, layouts: newLayouts, currentLayout: finalKey }));
+      setSaveName('');
+      flashMsg('Layout saved');
+    }
+
+    function loadLayout(key) {
+      const layout = allLayouts[key];
+      if (!layout) return;
+      setCfg(c => ({
+        ...c,
+        panelOrder: [...layout.panelOrder],
+        panels: { ...layout.panels },
+        panelCollapsed: { ...layout.panelCollapsed },
+        currentLayout: key
+      }));
+      flashMsg('Layout loaded');
+    }
+
+    function deleteLayout(key) {
+      if (isBuiltinLayout(key)) return;
+      const newLayouts = { ...(cfg.layouts || {}) };
+      delete newLayouts[key];
+      const newCurrent = currentKey === key ? '_default' : currentKey;
+      // If we deleted the active layout, also apply Default
+      if (currentKey === key) {
+        const def = BUILTIN_LAYOUTS._default;
+        setCfg(c => ({
+          ...c, layouts: newLayouts, currentLayout: newCurrent,
+          panelOrder: [...def.panelOrder], panels: { ...def.panels }, panelCollapsed: { ...def.panelCollapsed }
+        }));
+      } else {
+        setCfg(c => ({ ...c, layouts: newLayouts, currentLayout: newCurrent }));
+      }
+      flashMsg('Layout deleted');
+    }
+
+    function startRename(key) {
+      setRenaming(key);
+      setRenameVal(allLayouts[key]?.name || '');
+    }
+
+    function commitRename(key) {
+      const name = renameVal.trim();
+      if (!name || isBuiltinLayout(key)) { setRenaming(null); return; }
+      const newLayouts = { ...(cfg.layouts || {}) };
+      if (newLayouts[key]) {
+        newLayouts[key] = { ...newLayouts[key], name };
+      }
+      setCfg(c => ({ ...c, layouts: newLayouts }));
+      setRenaming(null);
+      flashMsg('Layout renamed');
+    }
+
+    return h('div', null,
+      h('div', {className:'settings-section'}, 'LAYOUTS'),
+      h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'16px',lineHeight:'1.6',letterSpacing:'0.5px'}},
+        'Save and switch between different panel arrangements. Layouts capture panel order, visibility, and collapsed state.'
+      ),
+
+      // Layout list
+      Object.entries(allLayouts).map(([key, layout]) => {
+        const isActive = key === currentKey;
+        const isPreset = isBuiltinLayout(key);
+        const isRenaming = renaming === key;
+
+        return h('div', {key, className:'layout-row' + (isActive ? ' active' : '')},
+          isRenaming
+            ? h('input', {
+                className: 'layout-rename-input',
+                value: renameVal,
+                onChange: e => setRenameVal(e.target.value),
+                onKeyDown: e => { if (e.key === 'Enter') commitRename(key); if (e.key === 'Escape') setRenaming(null); },
+                autoFocus: true
+              })
+            : h('span', {className:'layout-row-name'}, (isActive ? '● ' : '') + layout.name),
+          isPreset && h('span', {className:'layout-row-badge'}, 'PRESET'),
+          h('div', {className:'layout-row-actions'},
+            !isActive && h('button', {className:'layout-action-btn', onClick:()=>loadLayout(key), title:'Load layout'}, '↗'),
+            !isPreset && !isRenaming && h('button', {className:'layout-action-btn', onClick:()=>startRename(key), title:'Rename'}, '✎'),
+            isRenaming && h('button', {className:'layout-action-btn', onClick:()=>commitRename(key), title:'Confirm'}, '✓'),
+            !isPreset && !isRenaming && h('button', {className:'layout-action-btn danger', onClick:()=>deleteLayout(key), title:'Delete'}, '✕')
+          )
+        );
+      }),
+
+      // Save current layout section
+      h('div', {className:'settings-section', style:{marginTop:'24px'}}, 'SAVE CURRENT LAYOUT'),
+      h('div', {className:'layout-save-row'},
+        h('input', {
+          className: 'layout-save-input',
+          placeholder: 'Layout name...',
+          value: saveName,
+          onChange: e => setSaveName(e.target.value),
+          onKeyDown: e => { if (e.key === 'Enter') saveCurrentAsLayout(); }
+        }),
+        h('button', {className:'layout-save-btn', onClick:saveCurrentAsLayout}, 'SAVE')
+      ),
+
+      // Flash message
+      msg && h('div', {style:{fontSize:'12px',color:'var(--green)',marginTop:'8px',letterSpacing:'1px'}}, msg)
     );
   }
 
@@ -630,10 +868,16 @@
           fields.map(f => h(React.Fragment, {key:f.field},
             f.type === 'ha-entities'
               ? h(HAEntitiesEditor, {integrationKey:key, cfg, updateIntegration})
-              : h(React.Fragment, null,
+              : f.type === 'checkbox'
+                ? h('label', {style:{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',marginTop:'4px'}},
+                    h('input', {type:'checkbox', checked:!!cfg.integrations?.[key]?.[f.field], onChange:e=>updateIntegration(key,f.field,e.target.checked), style:{accentColor:'var(--accent)',width:'16px',height:'16px'}}),
+                    h('span', {className:'settings-label', style:{margin:0}}, f.label))
+                : h(React.Fragment, null,
                   h('div', {className:'settings-label'}, f.label),
                   f.type === 'password'
                     ? h('input', {className:'settings-input', type:'password', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
+                    : f.type === 'number'
+                    ? h('input', {className:'settings-input', type:'number', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,parseInt(e.target.value)||0), placeholder:f.placeholder||''})
                     : h('input', {className:'settings-input', type:'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
                 )
           ))
@@ -641,7 +885,7 @@
       );
     }
 
-    const TABS = ['pages','panels','prefs','theme','system','about'];
+    const TABS = ['pages','panels','layouts','prefs','theme','system','about'];
 
     if (!cfg) return h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--dim)',fontSize:'12px',letterSpacing:'2px'}}, 'LOADING...');
 
@@ -673,6 +917,10 @@
             h('div', {id:'settings-nzbget'}, integrationSection('nzbget','NZBGet','📦',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
             h('div', {id:'settings-spotify'}, integrationSection('spotify','Spotify','🎵',[{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
             h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin','Jellyfin','🎞️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-proxmox'}, integrationSection('proxmox','Proxmox','🖥️',[{field:'url',label:'URL',placeholder:'https://192.168.1.x:8006'},{field:'tokenId',label:'API TOKEN ID',placeholder:'user@pam!token-name'},{field:'tokenSecret',label:'API TOKEN SECRET',type:'password'},{field:'node',label:'NODE NAME',placeholder:'pve'}])),
+            h('div', {id:'settings-docker'}, integrationSection('docker','Docker','🐳',[{field:'host',label:'HOST',placeholder:'localhost'},{field:'port',label:'PORT',type:'number',placeholder:'2375'},{field:'useTLS',label:'USE TLS (HTTPS)',type:'checkbox'}])),
+            h('div', {id:'settings-pihole'}, integrationSection('pihole','Pi-hole','🛡️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY'}])),
+            h('div', {id:'settings-truenas'}, integrationSection('truenas','TrueNAS','💾',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
             h('div', {id:'settings-signalrgb'}, h(SignalRGBSection, {cfg, updateIntegration, expanded:expanded.signalrgb, toggle:()=>toggleExpand('signalrgb')})),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
             h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),
@@ -696,6 +944,13 @@
         // ── Panels tab ──
         tab === 'panels' && h('div', null,
           h(PanelsTab, {cfg, setCfg}),
+          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
+          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+        ),
+
+        // ── Layouts tab ──
+        tab === 'layouts' && h('div', null,
+          h(LayoutsTab, {cfg, setCfg}),
           h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
           saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
         ),

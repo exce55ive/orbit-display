@@ -148,7 +148,11 @@
         signalrgb:{enabled:false, url:'http://localhost:16038'},
         sonarr:{enabled:false, url:'',apiKey:''}, radarr:{enabled:false, url:'',apiKey:''}, overseerr:{enabled:false, url:'',apiKey:''},
         nzbget:{enabled:false, url:'',username:'',password:''}, uptimekuma:{enabled:false, url:'',username:'',password:''},
-        spotify:{enabled:false, clientId:'',clientSecret:''}, jellyfin:{enabled:false, url:'',apiKey:''}
+        spotify:{enabled:false, clientId:'',clientSecret:''}, jellyfin:{enabled:false, url:'',apiKey:''},
+        proxmox:{enabled:false, url:'',tokenId:'',tokenSecret:'',node:'pve'},
+        docker:{enabled:false, host:'localhost',port:2375,useTLS:false},
+        pihole:{enabled:false, url:'',apiKey:''},
+        truenas:{enabled:false, url:'',apiKey:''}
       },
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
@@ -200,6 +204,10 @@
       { type: 'services',   icon: '📡', name: 'Services' },
       { type: 'spotify',    icon: '🎵', name: 'Spotify' },
       { type: 'jellyfin',   icon: '🎞', name: 'Jellyfin' },
+      { type: 'proxmox',    icon: '🖥️', name: 'Proxmox' },
+      { type: 'docker',     icon: '🐳', name: 'Docker' },
+      { type: 'pihole',    icon: '🛡️', name: 'Pi-hole' },
+      { type: 'truenas',   icon: '💾', name: 'TrueNAS' },
     ];
     const MAX_PANELS = 6;
 
@@ -220,6 +228,10 @@
       services:    null,                                    // always available (auto-detects from integrations)
       spotify:     (c) => c.spotify?.enabled && c.spotify?.clientId && c.spotify?.clientSecret,
       jellyfin:    (c) => c.jellyfin?.enabled && c.jellyfin?.url && c.jellyfin?.apiKey,
+      proxmox:     (c) => c.proxmox?.enabled && c.proxmox?.url && c.proxmox?.tokenId && c.proxmox?.tokenSecret,
+      docker:      (c) => c.docker?.enabled,
+      pihole:      (c) => c.pihole?.enabled && c.pihole?.url,
+      truenas:     (c) => c.truenas?.enabled && c.truenas?.url && c.truenas?.apiKey,
       media:       (c) => (c.sonarr?.enabled && c.sonarr?.url) || (c.radarr?.enabled && c.radarr?.url),
     };
 
@@ -335,8 +347,41 @@
               ${integrationCard('jellyfin', 'Jellyfin', '🎵', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="jellyfin-url" placeholder="http://192.168.1.x:8096" value="${esc(config.integrations.jellyfin.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="jellyfin-key" value="${esc(config.integrations.jellyfin.apiKey)}"></div>
-              
+
                 ${testRow('jellyfin')}
+              `)}
+              ${integrationCard('proxmox', 'Proxmox', '🖥️', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="proxmox-url" placeholder="https://192.168.1.x:8006" value="${esc(config.integrations.proxmox.url)}"></div>
+                <div class="field-group"><div class="field-label">API Token ID</div><input class="field-input" id="proxmox-tokenid" placeholder="user@pam!token-name" value="${esc(config.integrations.proxmox.tokenId)}"></div>
+                <div class="field-group"><div class="field-label">API Token Secret</div><input class="field-input" id="proxmox-secret" type="password" value="${esc(config.integrations.proxmox.tokenSecret)}"></div>
+                <div class="field-group"><div class="field-label">Node Name</div><input class="field-input" id="proxmox-node" placeholder="pve" value="${esc(config.integrations.proxmox.node || 'pve')}"></div>
+
+                ${testRow('proxmox')}
+              `)}
+              ${integrationCard('docker', 'Docker', '🐳', `
+                <div class="field-group"><div class="field-label">Host</div><input class="field-input" id="docker-host" placeholder="localhost" value="${esc(config.integrations.docker.host || 'localhost')}"></div>
+                <div class="field-group"><div class="field-label">Port</div><input class="field-input" id="docker-port" type="number" placeholder="2375" value="${config.integrations.docker.port || 2375}"></div>
+                <div class="field-group">
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="docker-tls" ${config.integrations.docker.useTLS ? 'checked' : ''} style="accent-color:var(--accent);width:16px;height:16px;">
+                    <span class="field-label" style="margin:0;">Use TLS (HTTPS)</span>
+                  </label>
+                </div>
+                <div class="field-hint" style="color:var(--amber);">Enable Docker TCP API: add <code>-H tcp://0.0.0.0:2375</code> to dockerd args</div>
+
+                ${testRow('docker')}
+              `)}
+              ${integrationCard('pihole', 'Pi-hole', '🛡️', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="pihole-url" placeholder="http://192.168.1.x" value="${esc(config.integrations.pihole.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="pihole-key" value="${esc(config.integrations.pihole.apiKey)}"></div>
+
+                ${testRow('pihole')}
+              `)}
+              ${integrationCard('truenas', 'TrueNAS', '💾', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="truenas-url" placeholder="http://192.168.1.x" value="${esc(config.integrations.truenas.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="truenas-key" type="password" value="${esc(config.integrations.truenas.apiKey)}"></div>
+
+                ${testRow('truenas')}
               `)}
               <div class="integration-card enabled" id="card-links">
                 <label class="integration-toggle" style="pointer-events:none;opacity:0.6;">
@@ -808,6 +853,10 @@
       else if (type === 'overseerr') { opts.url = getVal('overseerr-url'); opts.apiKey = getVal('overseerr-key'); }
       else if (type === 'nzbget') { opts.url = getVal('nzbget-url'); opts.username = getVal('nzbget-user'); opts.password = getVal('nzbget-pass'); }
       else if (type === 'jellyfin') { opts.url = getVal('jellyfin-url'); opts.apiKey = getVal('jellyfin-key'); }
+      else if (type === 'proxmox') { opts.url = getVal('proxmox-url'); opts.tokenId = getVal('proxmox-tokenid'); opts.tokenSecret = getVal('proxmox-secret'); opts.node = getVal('proxmox-node') || 'pve'; }
+      else if (type === 'docker') { opts.url = getVal('docker-host') || 'localhost'; opts.port = parseInt(getVal('docker-port')) || 2375; opts.useTLS = document.getElementById('docker-tls')?.checked || false; }
+      else if (type === 'pihole') { opts.url = getVal('pihole-url'); opts.apiKey = getVal('pihole-key'); }
+      else if (type === 'truenas') { opts.url = getVal('truenas-url'); opts.apiKey = getVal('truenas-key'); }
       else if (type === 'homeassistant') { opts.url = getVal('ha-url'); opts.token = getVal('ha-token'); }
       else if (type === 'weather') opts.url = getVal('weather-city');
       else if (type === 'spotify') { opts.clientId = getVal('spotify-id'); opts.clientSecret = getVal('spotify-secret'); }
@@ -862,6 +911,25 @@
       config.integrations.jellyfin.enabled = isEnabled('jellyfin');
       config.integrations.jellyfin.url = getVal('jellyfin-url');
       config.integrations.jellyfin.apiKey = getVal('jellyfin-key');
+
+      config.integrations.proxmox.enabled = isEnabled('proxmox');
+      config.integrations.proxmox.url = getVal('proxmox-url');
+      config.integrations.proxmox.tokenId = getVal('proxmox-tokenid');
+      config.integrations.proxmox.tokenSecret = getVal('proxmox-secret');
+      config.integrations.proxmox.node = getVal('proxmox-node') || 'pve';
+
+      config.integrations.docker.enabled = isEnabled('docker');
+      config.integrations.docker.host = getVal('docker-host') || 'localhost';
+      config.integrations.docker.port = parseInt(getVal('docker-port')) || 2375;
+      config.integrations.docker.useTLS = document.getElementById('docker-tls')?.checked || false;
+
+      config.integrations.pihole.enabled = isEnabled('pihole');
+      config.integrations.pihole.url = getVal('pihole-url');
+      config.integrations.pihole.apiKey = getVal('pihole-key');
+
+      config.integrations.truenas.enabled = isEnabled('truenas');
+      config.integrations.truenas.url = getVal('truenas-url');
+      config.integrations.truenas.apiKey = getVal('truenas-key');
 
       // Services panel enabled state
       if (!config.integrations.services) config.integrations.services = {};
