@@ -22,10 +22,12 @@ autoUpdater.on('error', (err) => {
 const isDev = !app.isPackaged;
 
 let pendingUpdate = null;
+let updateDownloaded = false;
 
 autoUpdater.on('update-available', (info) => {
   log.info('Update available:', info.version);
   pendingUpdate = { version: info.version, releaseNotes: info.releaseNotes || '' };
+  updateDownloaded = false;
   if (mainWindow) {
     mainWindow.webContents.send('update-available', pendingUpdate);
   }
@@ -39,6 +41,7 @@ autoUpdater.on('download-progress', (progress) => {
 
 autoUpdater.on('update-downloaded', (info) => {
   log.info('Update downloaded:', info.version);
+  updateDownloaded = true;
   if (mainWindow) {
     mainWindow.webContents.send('update-downloaded');
   }
@@ -1097,7 +1100,7 @@ ipcMain.handle('install-update', () => {
   autoUpdater.quitAndInstall(false, true);
 });
 
-ipcMain.handle('get-pending-update', () => pendingUpdate);
+ipcMain.handle('get-pending-update', () => pendingUpdate ? { ...pendingUpdate, downloaded: updateDownloaded } : null);
 
 // ─── IPC: SPOTIFY OAUTH ───────────────────────────────────────────────────────
 ipcMain.handle('spotify-auth-start', async () => {
