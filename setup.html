@@ -157,7 +157,8 @@
         unraid:{enabled:false, url:'',apiKey:''},
         immich:{enabled:false, url:'',apiKey:''},
         speedtest:{autoRun:false, intervalHours:6, lastResults:[]},
-        calendar:{sources:[]}
+        calendar:{sources:[]},
+        custom:{enabled:false, url:'',title:'Custom',zoom:1.0}
       },
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
@@ -218,6 +219,7 @@
       { type: 'immich',    icon: '📸', name: 'Immich' },
       { type: 'speedtest', icon: '🚀', name: 'Speedtest' },
       { type: 'calendar',  icon: '📅', name: 'Calendar' },
+      { type: 'custom',    icon: '🌐', name: 'Custom / Iframe' },
     ];
     const MAX_PANELS = 6;
 
@@ -247,6 +249,7 @@
       immich:      (c) => c.immich?.enabled && c.immich?.url && c.immich?.apiKey,
       speedtest:   null,
       calendar:    (c) => c.calendar?.sources?.length > 0,
+      custom:      (c) => c.custom?.enabled && c.custom?.url,
       media:       (c) => (c.sonarr?.enabled && c.sonarr?.url) || (c.radarr?.enabled && c.radarr?.url),
     };
 
@@ -456,6 +459,12 @@
                 <div class="field-group"><div class="field-label">Client Secret</div><input class="field-input" id="spotify-secret" value="${esc(config.integrations.spotify.clientSecret)}"></div>
                 <div class="integration-hint">Requires a Spotify Developer app — create one at developer.spotify.com</div>
                 ${testRow('spotify')}
+              `)}
+              ${integrationCard('custom', 'Custom / Iframe', '🌐', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="custom-url" placeholder="https://example.com" value="${esc(config.integrations.custom?.url||'')}"></div>
+                <div class="field-group"><div class="field-label">Panel Title</div><input class="field-input" id="custom-title" placeholder="Custom" value="${esc(config.integrations.custom?.title||'')}"></div>
+                <div class="field-group"><div class="field-label">Zoom (0.5 – 2.0)</div><input class="field-input" id="custom-zoom" type="number" min="0.5" max="2.0" step="0.1" placeholder="1.0" value="${config.integrations.custom?.zoom||1.0}"></div>
+                <div class="integration-hint">Embed any web page — dashboards, cameras, tools, or web apps.</div>
               `)}
             </div>
             <div class="btn-row">
@@ -994,6 +1003,12 @@
       config.integrations.spotify.enabled = isEnabled('spotify');
       config.integrations.spotify.clientId = getVal('spotify-id');
       config.integrations.spotify.clientSecret = getVal('spotify-secret');
+
+      if (!config.integrations.custom) config.integrations.custom = {};
+      config.integrations.custom.enabled = isEnabled('custom');
+      config.integrations.custom.url = getVal('custom-url');
+      config.integrations.custom.title = getVal('custom-title') || 'Custom';
+      config.integrations.custom.zoom = parseFloat(document.getElementById('custom-zoom')?.value) || 1.0;
 
       // customServices and links already mutated in-place
       if (!config.customServices) config.customServices = [];

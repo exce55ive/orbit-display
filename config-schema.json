@@ -28,7 +28,8 @@
     { "type": "unraid" },
     { "type": "immich" },
     { "type": "speedtest" },
-    { "type": "calendar" }
+    { "type": "calendar" },
+    { "type": "custom" }
   ],
   "configKeys": {
     "panelOrder": "Array of panel IDs defining display order",
@@ -66,6 +67,7 @@
     "unraid": { "url": "", "apiKey": "" },
     "immich": { "url": "", "apiKey": "" },
     "speedtest": { "autoRun": false, "intervalHours": 6, "lastResults": [] },
-    "calendar": { "sources": [] }
+    "calendar": { "sources": [] },
+    "custom": { "url": "", "title": "Custom", "zoom": 1.0 }
   }
 }

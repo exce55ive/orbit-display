@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('orbit', {
   // Config
   saveConfig: (cfg) => ipcRenderer.invoke('save-config', cfg),
   loadConfig: () => ipcRenderer.invoke('load-config'),
+  saveConfigBackup: () => ipcRenderer.invoke('save-config-backup'),
+  loadConfigBackup: () => ipcRenderer.invoke('load-config-backup'),
 
   // System
   getSysinfo: (params) => ipcRenderer.invoke('get-sysinfo', params),

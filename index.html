@@ -308,6 +308,25 @@
     .layout-picker-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 0.5px; padding: 5px 10px; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .layout-picker-item:hover { border-color: var(--accent); color: var(--accent); }
     .layout-picker-item.active { color: var(--accent); border-color: var(--accent); }
+    /* Add Panel Gallery */
+    .add-panel-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 14px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .2s; padding: 0; line-height: 1; }
+    .add-panel-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .gallery-overlay { position: fixed; inset: 0; z-index: 8000; background: rgba(6,10,16,0.96); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; }
+    .gallery-inner { width: 90%; max-width: 1100px; max-height: 85vh; overflow-y: auto; padding: 40px; }
+    .gallery-inner::-webkit-scrollbar { width: 6px; }
+    .gallery-inner::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+    .gallery-title { font-size: 16px; font-weight: 800; letter-spacing: 4px; color: var(--accent); text-align: center; margin-bottom: 8px; }
+    .gallery-subtitle { font-size: 11px; color: var(--dim); text-align: center; letter-spacing: 2px; margin-bottom: 32px; }
+    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .gallery-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 16px; cursor: pointer; transition: all .2s; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+    .gallery-card:hover { border-color: var(--accent); background: rgba(255,255,255,0.04); }
+    .gallery-card.active { opacity: 0.35; pointer-events: none; position: relative; }
+    .gallery-card.active::after { content: '\u2713'; position: absolute; top: 8px; right: 10px; font-size: 14px; color: var(--accent); font-weight: 700; }
+    .gallery-card-icon { font-size: 28px; }
+    .gallery-card-name { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-bright, #fff); }
+    .gallery-card-desc { font-size: 10px; color: var(--dim); letter-spacing: 0.5px; line-height: 1.4; }
+    .gallery-close { position: absolute; top: 20px; right: 28px; background: none; border: none; color: var(--dim); font-size: 22px; cursor: pointer; transition: color .2s; }
+    .gallery-close:hover { color: var(--accent); }
     .panel-cog-btn { background: transparent; border: none; color: rgba(255,255,255,0.2); font-size: 13px; cursor: pointer; padding: 0 0 0 4px; line-height: 1; transition: color .2s; vertical-align: middle; }
     .panel-cog-btn:hover { color: var(--accent); }
     .panel-unconfigured { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
@@ -3680,6 +3699,28 @@
       );
     }
 
+    // ═══ CUSTOM / IFRAME PANEL ═══
+    function CustomPanel({ config }) {
+      const custom = config?.integrations?.custom || {};
+      const url = custom.url || '';
+      const title = custom.title || 'Custom';
+      const zoom = custom.zoom || 1.0;
+      if (!url) {
+        return h('div', {className:'panel'},
+          h(PanelHeader, {title: title.toUpperCase(), icon:'🌐', accentColor: config?.theme?.accentColor || '#00d9ff'}),
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1,color:'var(--dim)',fontSize:'11px',letterSpacing:'1px'}}, 'No URL configured')
+        );
+      }
+      return h('div', {className:'panel', style:{padding:0,overflow:'hidden',display:'flex',flexDirection:'column'}},
+        h(PanelHeader, {title: title.toUpperCase(), icon:'🌐', accentColor: config?.theme?.accentColor || '#00d9ff'}),
+        h('iframe', {
+          src: url,
+          sandbox: 'allow-scripts allow-same-origin',
+          style: {width:'100%', flex:1, border:'none', borderRadius:'0 0 8px 8px', transform: `scale(${zoom})`, transformOrigin:'0 0', width: `${100/zoom}%`, height: `${100/zoom}%`}
+        })
+      );
+    }
+
     // ═══ DEMO MODE — fake data panels ═══
     function renderDemoPanel(type) {
       const sty = (s) => s; // shorthand
@@ -4039,6 +4080,16 @@
           )),
           h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'5 events · 2 calendars')
         );
+        case 'custom': return h('div',{className:'panel'},
+          h(PanelHeader,{title:'CUSTOM PANEL',icon:'🌐',accentColor:'#8B5CF6'}),
+          h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1,padding:'24px',textAlign:'center'}},
+            h('div',null,
+              h('div',{style:{fontSize:'32px',marginBottom:'12px',opacity:0.3}},'🌐'),
+              h('div',{style:{fontSize:'12px',color:'var(--text-bright)',fontWeight:'600',letterSpacing:'1px',marginBottom:'6px'}},'IFRAME PANEL'),
+              h('div',{style:{fontSize:'10px',color:'var(--dim)',letterSpacing:'0.5px',lineHeight:'1.6'}},'Embed any URL — dashboards, tools, cameras, or web apps.')
+            )
+          )
+        );
         default: return null;
       }
     }
@@ -4080,6 +4131,7 @@
         case 'immich': return wrap(key, h(ImmichPanel, {key, config, openSettings}));
         case 'speedtest': return wrap(key, h(SpeedtestPanel, {key, config, openSettings}));
         case 'calendar': return wrap(key, h(CalendarPanel, {key, config, openSettings}));
+        case 'custom': return wrap(key, h(CustomPanel, {key, config}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
@@ -4118,8 +4170,88 @@
       );
     }
 
+    // ── ADD PANEL GALLERY ─────────────────────────────────────────────────
+    const GALLERY_PANELS = [
+      { type: 'clock', icon: '🕐', name: 'Clock', desc: 'Time, date & weather forecast' },
+      { type: 'system', icon: '💻', name: 'System Monitor', desc: 'CPU, RAM, GPU & disk usage' },
+      { type: 'nowplaying', icon: '▶', name: 'Now Playing', desc: 'Plex/Tautulli active streams' },
+      { type: 'lights', icon: '💡', name: 'Lights', desc: 'Home Assistant light controls' },
+      { type: 'signalrgb', icon: '⚡', name: 'SignalRGB', desc: 'RGB lighting effects & brightness' },
+      { type: 'weather', icon: '🌤️', name: 'Weather', desc: 'Current conditions & 5-day forecast' },
+      { type: 'sonarr', icon: '📺', name: 'Sonarr', desc: 'TV library, queue & upcoming' },
+      { type: 'radarr', icon: '🎬', name: 'Radarr', desc: 'Movie library, queue & upcoming' },
+      { type: 'overseerr', icon: '📋', name: 'Overseerr', desc: 'Media requests & approvals' },
+      { type: 'nzbget', icon: '📦', name: 'NZBGet', desc: 'Download queue & speed' },
+      { type: 'spotify', icon: '🎵', name: 'Spotify', desc: 'Now playing, queue & controls' },
+      { type: 'jellyfin', icon: '🎞️', name: 'Jellyfin', desc: 'Active sessions & streams' },
+      { type: 'services', icon: '📡', name: 'Uptime Kuma', desc: 'Service health monitoring' },
+      { type: 'links', icon: '🔗', name: 'Links', desc: 'Quick-launch bookmarks' },
+      { type: 'proxmox', icon: '🖥️', name: 'Proxmox', desc: 'VMs, containers & node stats' },
+      { type: 'docker', icon: '🐳', name: 'Docker', desc: 'Container list & resource usage' },
+      { type: 'pihole', icon: '🛡️', name: 'Pi-hole', desc: 'DNS queries, blocks & toggle' },
+      { type: 'truenas', icon: '💾', name: 'TrueNAS', desc: 'Pools, disks & alerts' },
+      { type: 'network', icon: '🌐', name: 'Network Monitor', desc: 'WAN status, ping & bandwidth' },
+      { type: 'unraid', icon: '🟠', name: 'Unraid', desc: 'Array, disks & VMs' },
+      { type: 'immich', icon: '📸', name: 'Immich', desc: 'Photo library & recent uploads' },
+      { type: 'speedtest', icon: '🚀', name: 'Speedtest', desc: 'Download, upload & ping' },
+      { type: 'calendar', icon: '📅', name: 'Calendar', desc: 'iCal events & schedule' },
+      { type: 'custom', icon: '🌐', name: 'Iframe / Custom', desc: 'Embed any URL in a panel' },
+    ];
+
+    function PanelGallery({ config, setConfig, onClose }) {
+      const visiblePanels = config?.panels || {};
+      const currentPagePanels = (config?.pages || [])[0]?.panels || [];
+      const activePanelTypes = new Set(currentPagePanels.map(p => p.type).filter(t => visiblePanels[t] !== false));
+
+      function addPanel(type) {
+        const newCfg = JSON.parse(JSON.stringify(config));
+        // Ensure panel visibility is on
+        if (!newCfg.panels) newCfg.panels = {};
+        newCfg.panels[type] = true;
+        // Add to first page if not already there
+        if (newCfg.pages && newCfg.pages.length > 0) {
+          const page = newCfg.pages[0];
+          if (!page.panels) page.panels = [];
+          const exists = page.panels.some(p => p.type === type);
+          if (!exists) {
+            const nextCol = page.panels.length + 1;
+            page.panels.push({ type, col: nextCol, width: 1 });
+          }
+        }
+        // Add to panelOrder
+        if (Array.isArray(newCfg.panelOrder)) {
+          if (!newCfg.panelOrder.includes(type)) newCfg.panelOrder.push(type);
+        }
+        setConfig(newCfg);
+        window.orbit.saveConfig(newCfg);
+        onClose();
+      }
+
+      return h('div', { className: 'gallery-overlay', onClick: e => { if (e.target === e.currentTarget) onClose(); } },
+        h('button', { className: 'gallery-close', onClick: onClose }, '\u2715'),
+        h('div', { className: 'gallery-inner' },
+          h('div', { className: 'gallery-title' }, 'ADD PANEL'),
+          h('div', { className: 'gallery-subtitle' }, 'SELECT A PANEL TO ADD TO YOUR DASHBOARD'),
+          h('div', { className: 'gallery-grid' },
+            GALLERY_PANELS.map(p => {
+              const isActive = activePanelTypes.has(p.type);
+              return h('div', {
+                key: p.type,
+                className: 'gallery-card' + (isActive ? ' active' : ''),
+                onClick: () => !isActive && addPanel(p.type)
+              },
+                h('div', { className: 'gallery-card-icon' }, p.icon),
+                h('div', { className: 'gallery-card-name' }, p.name),
+                h('div', { className: 'gallery-card-desc' }, p.desc)
+              );
+            })
+          )
+        )
+      );
+    }
+
     // ── BOTTOM BAR — bumper strip with settings, page dots, update badge ──
-    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight }) {
+    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight, onOpenGallery }) {
       const [update, setUpdate] = useState(null);
       const [appVersion, setAppVersion] = useState('');
       const [showConfirm, setShowConfirm] = useState(false);
@@ -4172,7 +4304,8 @@
             }),
             h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙'),
             h('button', {className:'bottom-gear', onClick:onOpenSpotlight, title:'Search (Ctrl+K)', style:{marginLeft:'2px'}}, '🔍'),
-            h(LayoutPicker, {config, setConfig})
+            h(LayoutPicker, {config, setConfig}),
+            h('button', {className:'add-panel-btn', onClick:onOpenGallery, title:'Add Panel'}, '+')
           ),
 
           // Centre — page dots + name (only if multiple pages)
@@ -4329,7 +4462,7 @@
           { type:'pihole', name:'Pi-hole', icon:'🛡️' }, { type:'truenas', name:'TrueNAS', icon:'💾' },
           { type:'network', name:'Network', icon:'🌐' }, { type:'unraid', name:'Unraid', icon:'🟠' },
           { type:'immich', name:'Immich', icon:'📸' }, { type:'speedtest', name:'Speedtest', icon:'🚀' },
-          { type:'calendar', name:'Calendar', icon:'📅' }
+          { type:'calendar', name:'Calendar', icon:'📅' }, { type:'custom', name:'Custom / Iframe', icon:'🌐' }
         ];
         PANEL_DEFS.forEach(p => {
           items.push({ label: p.name, subtitle: 'Jump to panel', icon: p.icon, action: () => { scrollToPanel(p.type); onClose(); } });
@@ -4442,6 +4575,7 @@
       const [showSettings, setShowSettings] = useState(false);
       const [showWelcome, setShowWelcome] = useState(false);
       const [showSpotlight, setShowSpotlight] = useState(false);
+      const [showGallery, setShowGallery] = useState(false);
       const touchRef = useRef(null);
       const dragIdxRef = useRef(null);
 
@@ -4708,7 +4842,10 @@
 
 
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
-        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight: () => setShowSpotlight(true)}),
+        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight: () => setShowSpotlight(true), onOpenGallery: () => setShowGallery(true)}),
+
+        // Add Panel gallery overlay
+        showGallery && h(PanelGallery, { config, setConfig, onClose: () => setShowGallery(false) }),
 
 
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.0
+- **Add:** Add Panel gallery — "+" button in the bottom bar opens a full-screen visual panel picker. Browse all 25 panel types with icons and descriptions. Already-visible panels show a checkmark and are dimmed. Click any unchecked panel to enable it instantly.
+- **Add:** Iframe / Custom panel — embed any URL in a dashboard panel. Configurable title and zoom (0.5x–2.0x). Uses sandboxed iframe. Configure in Settings or Setup Wizard.
+- **Add:** Config backup & restore — new "Save Config Backup" and "Load Config Backup" buttons in Settings → System tab. Export full configuration to a JSON file or restore from a previous backup via native file dialogs.
+- **Add:** Playwright screenshot test — new test captures a demo-mode dashboard screenshot to `screenshots/orbit-dashboard.png`. Run with `xvfb-run npx playwright test` on headless systems.
+- **Add:** `config-schema.json` updated with `custom` panel type and integration defaults.
+- **Add:** Settings panel visibility list updated with all panel types (network, unraid, immich, speedtest, calendar, custom).
+- **Add:** Setup Wizard updated with Custom / Iframe panel configuration section.
+
 ## v0.0.14
 - **Add:** Immich panel — photo library dashboard showing total photos/videos count, storage used, most recent upload with thumbnail, and "On This Day" section showing up to 3 photos from this day in past years. Click thumbnails to open in Immich. Polls every 60s.
 - **Add:** Speedtest panel — built-in internet speed test using Cloudflare's speed endpoints. Shows download/upload speeds (Mbps) and ping. History bar chart of last 5 results. Configurable auto-run schedule (default: off). Results persisted to config.

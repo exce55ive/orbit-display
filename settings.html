@@ -432,10 +432,11 @@
   }
 
   // ── System Tab ────────────────────────────────────────────────────────────
-  function SystemTab() {
+  function SystemTab({ cfg, setCfg }) {
     const [displays, setDisplays] = useState([]);
     const [currentDisplay, setCurrentDisplay] = useState(null);
     const [resetStage, setResetStage] = useState(0);
+    const [backupMsg, setBackupMsg] = useState('');
 
     useEffect(() => {
       if (window.orbit?.getDisplays) window.orbit.getDisplays().then(list => setDisplays(list||[])).catch(()=>{});
@@ -485,7 +486,24 @@
       resetStage>0 && h('button', {
         onClick:()=>setResetStage(0),
         style:{marginTop:'6px',marginLeft:'8px',padding:'8px 12px',fontFamily:'var(--font)',fontSize:'11px',letterSpacing:'1px',borderRadius:'6px',cursor:'pointer',background:'transparent',border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.3)'}
-      }, 'CANCEL')
+      }, 'CANCEL'),
+
+      // ── Config Backup / Restore ──
+      h('div', {className:'settings-section', style:{marginTop:'32px'}}, 'CONFIG BACKUP'),
+      h('div', {style:{fontSize:'11px',color:'rgba(255,255,255,0.3)',letterSpacing:'0.5px',lineHeight:'1.6',marginBottom:'12px'}},
+        'Export your full configuration to a JSON file, or restore from a previous backup.'
+      ),
+      h('div', {style:{display:'flex',gap:'10px'}},
+        h('button', {
+          style:{padding:'8px 14px',fontFamily:'var(--font)',fontSize:'11px',letterSpacing:'1.5px',fontWeight:'700',borderRadius:'6px',cursor:'pointer',background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',transition:'all .2s'},
+          onClick: async () => { const r = await window.orbit?.saveConfigBackup(); if (r?.ok) { setBackupMsg('Backup saved'); setTimeout(()=>setBackupMsg(''),2500); } }
+        }, 'SAVE CONFIG BACKUP'),
+        h('button', {
+          style:{padding:'8px 14px',fontFamily:'var(--font)',fontSize:'11px',letterSpacing:'1.5px',fontWeight:'700',borderRadius:'6px',cursor:'pointer',background:'transparent',border:'1px solid rgba(255,255,255,0.15)',color:'rgba(255,255,255,0.5)',transition:'all .2s'},
+          onClick: async () => { const r = await window.orbit?.loadConfigBackup(); if (r?.ok) { setCfg(r.config); setBackupMsg('Config restored'); setTimeout(()=>setBackupMsg(''),2500); } }
+        }, 'LOAD CONFIG BACKUP')
+      ),
+      backupMsg && h('div', {style:{marginTop:'8px',fontSize:'11px',color:'var(--accent)',letterSpacing:'1px'}}, '\u2713 ' + backupMsg)
     );
   }
 
@@ -603,6 +621,12 @@
     { key: 'docker', label: 'Docker', icon: '🐳' },
     { key: 'pihole', label: 'Pi-hole', icon: '🛡️' },
     { key: 'truenas', label: 'TrueNAS', icon: '💾' },
+    { key: 'network', label: 'Network Monitor', icon: '🌐' },
+    { key: 'unraid', label: 'Unraid', icon: '🟠' },
+    { key: 'immich', label: 'Immich', icon: '📸' },
+    { key: 'speedtest', label: 'Speedtest', icon: '🚀' },
+    { key: 'calendar', label: 'Calendar', icon: '📅' },
+    { key: 'custom', label: 'Iframe / Custom', icon: '🌐' },
   ];
 
   function PanelsTab({ cfg, setCfg }) {
@@ -967,6 +991,7 @@
             h('div', {id:'settings-immich'}, integrationSection('immich','Immich','📸',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:2283'},{field:'apiKey',label:'API KEY',type:'password'}])),
             h('div', {id:'settings-speedtest'}, integrationSection('speedtest','Speedtest','🚀',[{field:'autoRun',label:'AUTO-RUN ON SCHEDULE',type:'checkbox'},{field:'intervalHours',label:'INTERVAL (HOURS)',type:'number',placeholder:'6'}])),
             h('div', {id:'settings-calendar'}, h(CalendarSourcesEditor, {cfg, setCfg})),
+            h('div', {id:'settings-custom'}, integrationSection('custom','Custom / Iframe Panel','🌐',[{field:'url',label:'URL',placeholder:'https://example.com'},{field:'title',label:'PANEL TITLE',placeholder:'Custom'},{field:'zoom',label:'ZOOM (0.5 – 2.0)',type:'number',placeholder:'1.0'}])),
             h('div', {id:'settings-signalrgb'}, h(SignalRGBSection, {cfg, updateIntegration, expanded:expanded.signalrgb, toggle:()=>toggleExpand('signalrgb')})),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
             h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),
@@ -1029,7 +1054,7 @@
         ),
 
         // ── System tab ──
-        tab === 'system' && h(SystemTab, null),
+        tab === 'system' && h(SystemTab, {cfg, setCfg}),
 
         // ── About tab ──
         tab === 'about' && h(AboutTab, null)

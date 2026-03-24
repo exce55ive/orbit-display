@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut, Notification } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut, Notification, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -405,6 +405,32 @@ ipcMain.handle('save-config', async (_e, config) => {
 
 ipcMain.handle('load-config', async () => {
   return loadOrbitConfig();
+});
+
+// ─── IPC: CONFIG BACKUP / RESTORE ──────────────────────────────────────────
+ipcMain.handle('save-config-backup', async () => {
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    defaultPath: 'orbit-config-backup.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  });
+  if (canceled) return { canceled: true };
+  const cfg = loadOrbitConfig();
+  fs.writeFileSync(filePath, JSON.stringify(cfg, null, 2));
+  return { ok: true };
+});
+
+ipcMain.handle('load-config-backup', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+  if (canceled) return { canceled: true };
+  const data = JSON.parse(fs.readFileSync(filePaths[0], 'utf8'));
+  saveOrbitConfig(data);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('config-updated', data);
+  }
+  return { ok: true, config: data };
 });
 
 // ─── IPC: OPEN EXTERNAL URL ─────────────────────────────────────────────────
