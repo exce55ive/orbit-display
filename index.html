@@ -3362,7 +3362,7 @@
         async function poll() {
           try {
             const base = iCfg.url.replace(/\/+$/, '');
-            const hdr = { Authorization: 'Bearer ' + iCfg.apiKey };
+            const hdr = { 'x-api-key': iCfg.apiKey };
             // Fetch stats
             const statsRes = await window.orbit.apiGet(base + '/api/server/statistics', hdr, 10000);
             if (statsRes?.error) { setError(statsRes.error); timer = setTimeout(poll, 60000); return; }
