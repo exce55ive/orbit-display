@@ -4,7 +4,7 @@
 
 **One screen for your entire homelab.**
 
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?logo=windows&logoColor=white)](https://github.com/exce55ive/orbit-display/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D4?logo=windows&logoColor=white)](https://github.com/exce55ive/orbit-display/releases/tag/v0.1.0)
 [![Release](https://img.shields.io/github/v/release/exce55ive/orbit-display?label=release&color=00d9ff)](https://github.com/exce55ive/orbit-display/releases/latest)
 [![License](https://img.shields.io/badge/license-Proprietary-ef4444)](LICENSE.md)
 [![Website](https://img.shields.io/badge/website-orbit.exce55ive.xyz-8b5cf6)](https://orbit.exce55ive.xyz)
@@ -72,6 +72,7 @@ On first launch, a setup wizard walks you through connecting your services. Afte
 | 🎵 | **Spotify** | Now playing, progress, queue preview |
 | 🎞️ | **Jellyfin** | Active sessions and playback |
 | 📡 | **Services** | Health monitor for custom HTTP endpoints |
+| 🌐 | **Custom / Embed** | Embed any URL as a panel (iframe/webview) |
 
 Up to **6 panels per page**, across multiple pages. Drag‑and‑drop to reorder. Navigate pages via the bottom bar.
 
@@ -94,6 +95,15 @@ Everything is configured through the built‑in setup wizard — enter a URL and
 | **Jellyfin** | URL + API key |
 | **Weather** | City name (free — no key required) |
 | **Custom Services** | Any HTTP endpoint for health checks |
+| **Custom / Embed** | Any URL — just paste it in |
+
+---
+
+## v0.1.0 Features
+
+- **Add Panel Gallery** — Visual panel picker. Click **+** to browse all panel types with descriptions and add panels without opening Settings.
+- **Config Backup & Restore** — Export your full config as JSON and import it on another machine. Settings → System → Backup.
+- **Custom / Embed Panel** — Drop any URL into a panel. Grafana dashboards, custom monitoring pages, anything with a web interface.
 
 ---
 

@@ -28,6 +28,13 @@ This section walks you through connecting each of Orbit's integrations. Whether 
 | [SignalRGB](./signalrgb.md) | Browse and switch lighting effects | [Setup →](./signalrgb.md) |
 | [System Monitor](./system-monitor.md) | CPU, GPU, RAM, and uptime | [Setup →](./system-monitor.md) |
 | [Clock & Weather](./clock-weather.md) | Time, date, and 5-day forecast | [Setup →](./clock-weather.md) |
+| [Custom / Embed](./custom-panel.md) | Embed any URL as a panel | [Setup →](./custom-panel.md) |
+
+## Features
+
+| Feature | What it does | Guide |
+|---|---|---|
+| [Config Backup & Restore](./config-backup.md) | Export and import your full config as JSON | [Setup →](./config-backup.md) |
 
 ---
 

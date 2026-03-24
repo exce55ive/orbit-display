@@ -10,7 +10,7 @@ Orbit is a live desktop dashboard for Windows that pulls real-time data from you
 
 ## Installing Orbit
 
-1. Download the Orbit installer (`OrbitSetup-0.0.1.exe`).
+1. Download the Orbit installer (`OrbitSetup-0.1.0.exe`).
 2. Double-click to run it — no admin rights are needed.
 3. The installer sets up Orbit in your AppData folder and creates shortcuts on your Desktop and Start Menu.
 4. That's it — click the shortcut to launch Orbit.
@@ -71,6 +71,7 @@ Now that Orbit is running, connect your services one by one. Each integration ha
 - [SignalRGB](./signalrgb.md) — lighting effects
 - [System Monitor](./system-monitor.md) — CPU, GPU, and RAM
 - [Clock & Weather](./clock-weather.md) — time and forecast
+- [Custom / Embed](./custom-panel.md) — embed any URL as a panel
 
 Or browse them all from the [Setup Guide index](./README.md).
 
