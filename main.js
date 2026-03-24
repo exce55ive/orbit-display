@@ -271,6 +271,15 @@ function launchMain(displayId) {
     if (input.control && input.key.toLowerCase() === 'd') showPicker();
   });
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (updateDownloaded && pendingUpdate) {
+      mainWindow.webContents.send('update-available', pendingUpdate);
+      mainWindow.webContents.send('update-downloaded');
+    } else if (pendingUpdate) {
+      mainWindow.webContents.send('update-available', pendingUpdate);
+    }
+  });
+
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
@@ -340,7 +349,7 @@ app.whenReady().then(() => {
 
   if (!isDev) {
     setTimeout(() => {
-      try { autoUpdater.checkForUpdatesAndNotify(); } catch (e) { log.warn('AutoUpdater check failed:', e.message || e); }
+      try { autoUpdater.checkForUpdates(); } catch (e) { log.warn('AutoUpdater check failed:', e.message || e); }
     }, 30000);
   }
 

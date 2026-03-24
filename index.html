@@ -2105,7 +2105,7 @@
       const [progress, setProgress] = useState(0);
       const [downloaded, setDownloaded] = useState(false);
       useEffect(() => {
-        window.orbit.getPendingUpdate().then(u => { if (u) { setUpdate(u); setDownloading(true); } });
+        window.orbit.getPendingUpdate().then(u => { if (u) { setUpdate(u); setDownloading(!u.downloaded); if (u.downloaded) setDownloaded(true); } });
         const unsub1 = window.orbit.onUpdateAvailable(info => { setUpdate(info); setDownloading(true); });
         const unsub2 = window.orbit.onUpdateProgress(pct => { setDownloading(true); setProgress(pct); });
         const unsub3 = window.orbit.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true); });
@@ -4263,6 +4263,7 @@
         window.orbit.getPendingUpdate().then(u => {
           if (u) {
             setUpdate(u);
+            setDownloading(!u.downloaded);
             if (u.downloaded) { setDownloaded(true); setShowConfirm(true); }
           }
         });
