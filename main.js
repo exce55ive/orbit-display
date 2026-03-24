@@ -1388,3 +1388,21 @@ ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
   } catch (e) { return { error: e.message }; }
 });
 
+
+// ─── IPC: FETCH IMAGE AS DATA URL (for auth-gated thumbnails) ────────────────
+ipcMain.handle('fetch-image', async (_e, { url, headers }) => {
+  if (!isAllowedUrl(url)) return { error: 'URL not allowed' };
+  try {
+    const fetch = await getFetch();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch(url, { headers: headers || {}, signal: controller.signal });
+      if (!res.ok) return { error: `HTTP ${res.status}` };
+      const buffer = await res.arrayBuffer();
+      const contentType = res.headers.get('content-type') || 'image/jpeg';
+      const base64 = Buffer.from(buffer).toString('base64');
+      return { dataUrl: `data:${contentType};base64,${base64}` };
+    } finally { clearTimeout(timer); }
+  } catch (e) { return { error: e.message }; }
+});

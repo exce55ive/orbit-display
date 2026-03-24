@@ -3413,9 +3413,16 @@
         return (bytes / 1048576).toFixed(0) + ' MB';
       }
 
-      function thumbUrl(id) {
-        const base = iCfg.url.replace(/\/+$/, '');
-        return base + '/api/assets/' + id + '/thumbnail?size=preview&key=' + iCfg.apiKey;
+      function ThumbImg({ id, style }) {
+        const [src, setSrc] = React.useState(null);
+        React.useEffect(() => {
+          const base = iCfg.url.replace(/\/+$/, '');
+          const url = base + '/api/assets/' + id + '/thumbnail?size=preview';
+          window.orbit.fetchImage(url, { 'x-api-key': iCfg.apiKey }).then(res => {
+            if (res?.dataUrl) setSrc(res.dataUrl);
+          });
+        }, [id]);
+        return h('img', { src: src || '', style: { ...style, background: 'rgba(255,255,255,0.05)', opacity: src ? 1 : 0.3 } });
       }
 
       const sectionLabel = (text) => h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '6px', marginTop: '10px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, text);
@@ -3446,7 +3453,7 @@
         recentAsset && h('div', null,
           sectionLabel('RECENT UPLOAD'),
           h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', cursor: 'pointer' }, onClick: () => window.orbit.openExternal(iCfg.url.replace(/\/+$/, '') + '/photos/' + recentAsset.id) },
-            h('img', { src: thumbUrl(recentAsset.id), style: { width: '60px', height: '60px', borderRadius: '6px', objectFit: 'cover', background: 'rgba(255,255,255,0.05)' } }),
+            h(ThumbImg, { id: recentAsset.id, style: { width: '60px', height: '60px', borderRadius: '6px', objectFit: 'cover' } }),
             h('div', { style: { flex: 1, overflow: 'hidden' } },
               h('div', { style: { fontSize: '12px', color: 'var(--text-bright)', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, recentAsset.originalFileName || 'Unknown'),
               h('div', { style: { fontSize: '10px', color: 'var(--dim)', marginTop: '2px' } }, new Date(recentAsset.createdAt || recentAsset.fileCreatedAt).toLocaleDateString())
@@ -3460,7 +3467,7 @@
             onThisDay.map((a, i) => {
               const yr = new Date(a.originalDateTime || a.createdAt || a.fileCreatedAt).getFullYear();
               return h('div', { key: i, style: { textAlign: 'center', cursor: 'pointer', flex: 1 }, onClick: () => window.orbit.openExternal(iCfg.url.replace(/\/+$/, '') + '/photos/' + a.id) },
-                h('img', { src: thumbUrl(a.id), style: { width: '100%', height: '50px', borderRadius: '4px', objectFit: 'cover', background: 'rgba(255,255,255,0.05)' } }),
+                h(ThumbImg, { id: a.id, style: { width: '100%', height: '50px', borderRadius: '4px', objectFit: 'cover' } }),
                 h('div', { style: { fontSize: '9px', color: 'var(--dim)', marginTop: '2px' } }, yr)
               );
             })

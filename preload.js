@@ -106,4 +106,5 @@ contextBridge.exposeInMainWorld('orbit', {
     ipcRenderer.on('update-error', handler);
     return () => ipcRenderer.removeListener('update-error', handler);
   },
+  fetchImage: (url, headers) => ipcRenderer.invoke('fetch-image', { url, headers }),
 });
