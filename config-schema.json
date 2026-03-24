@@ -25,7 +25,10 @@
     { "type": "pihole" },
     { "type": "truenas" },
     { "type": "network" },
-    { "type": "unraid" }
+    { "type": "unraid" },
+    { "type": "immich" },
+    { "type": "speedtest" },
+    { "type": "calendar" }
   ],
   "configKeys": {
     "panelOrder": "Array of panel IDs defining display order",
@@ -60,6 +63,9 @@
     "pihole": { "url": "", "apiKey": "" },
     "truenas": { "url": "", "apiKey": "" },
     "network": { "routerUrl": "", "routerType": "generic", "username": "", "password": "" },
-    "unraid": { "url": "", "apiKey": "" }
+    "unraid": { "url": "", "apiKey": "" },
+    "immich": { "url": "", "apiKey": "" },
+    "speedtest": { "autoRun": false, "intervalHours": 6, "lastResults": [] },
+    "calendar": { "sources": [] }
   }
 }

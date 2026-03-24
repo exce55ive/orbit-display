@@ -296,6 +296,44 @@
     );
   }
 
+  // ── Calendar Sources Editor ──────────────────────────────────────────────
+  function CalendarSourcesEditor({ cfg, setCfg }) {
+    const [expanded, setExpanded] = useState(false);
+    const sources = cfg?.integrations?.calendar?.sources || [];
+    function updateSource(idx, field, value) {
+      const newSources = [...sources];
+      newSources[idx] = { ...newSources[idx], [field]: value };
+      setCfg(c => ({ ...c, integrations: { ...c.integrations, calendar: { ...(c.integrations?.calendar || {}), sources: newSources } } }));
+    }
+    function addSource() {
+      const newSources = [...sources, { type: 'ical', url: '', name: 'Calendar', color: '#00d9ff' }];
+      setCfg(c => ({ ...c, integrations: { ...c.integrations, calendar: { ...(c.integrations?.calendar || {}), sources: newSources } } }));
+    }
+    function removeSource(idx) {
+      const newSources = sources.filter((_, i) => i !== idx);
+      setCfg(c => ({ ...c, integrations: { ...c.integrations, calendar: { ...(c.integrations?.calendar || {}), sources: newSources } } }));
+    }
+    return h('div', { className: 'settings-integration' },
+      h('div', { className: 'settings-integration-header', onClick: () => setExpanded(!expanded) },
+        h('span', null, '📅 Calendar'), h('span', null, expanded ? '▼' : '▶')
+      ),
+      expanded && h('div', { className: 'settings-integration-body' },
+        sources.map((src, i) => h('div', { key: i, style: { marginBottom: '12px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' } },
+          h('div', { style: { display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' } },
+            h('input', { type: 'color', value: src.color || '#00d9ff', onChange: e => updateSource(i, 'color', e.target.value), style: { width: '28px', height: '28px', border: 'none', background: 'none', cursor: 'pointer', padding: 0 } }),
+            h('input', { className: 'settings-input', style: { flex: 1 }, placeholder: 'Calendar Name', value: src.name || '', onChange: e => updateSource(i, 'name', e.target.value) }),
+            h('button', { className: 'page-delete-btn', onClick: () => removeSource(i), style: { fontSize: '18px', padding: '0 6px' } }, '✕')
+          ),
+          h('div', { className: 'settings-label' }, 'ICAL URL'),
+          h('input', { className: 'settings-input', placeholder: 'https://calendar.google.com/...basic.ics', value: src.url || '', onChange: e => updateSource(i, 'url', e.target.value) })
+        )),
+        h('button', { className: 'settings-save', style: { background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)', marginTop: '8px' }, onClick: addSource }, '+ ADD CALENDAR'),
+        h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '6px', lineHeight: '1.5' } },
+          'Add iCal URLs from Google Calendar, Outlook, Apple Calendar, Nextcloud, or any iCal-compatible service. For Google: Settings → specific calendar → "Secret address in iCal format".')
+      )
+    );
+  }
+
   // ── Services Config ───────────────────────────────────────────────────────
   function ServicesConfigSection({ cfg, setCfg }) {
     const [expanded, setExpanded] = useState(false);
@@ -926,6 +964,9 @@
             h('div', {id:'settings-truenas'}, integrationSection('truenas','TrueNAS','💾',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
             h('div', {id:'settings-network'}, integrationSection('network','Network Monitor','🌐',[{field:'routerUrl',label:'ROUTER URL',placeholder:'http://192.168.1.1'},{field:'routerType',label:'ROUTER TYPE',type:'select',options:['generic','openwrt','pfsense','unifi']},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
             h('div', {id:'settings-unraid'}, integrationSection('unraid','Unraid','🟠',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
+            h('div', {id:'settings-immich'}, integrationSection('immich','Immich','📸',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:2283'},{field:'apiKey',label:'API KEY',type:'password'}])),
+            h('div', {id:'settings-speedtest'}, integrationSection('speedtest','Speedtest','🚀',[{field:'autoRun',label:'AUTO-RUN ON SCHEDULE',type:'checkbox'},{field:'intervalHours',label:'INTERVAL (HOURS)',type:'number',placeholder:'6'}])),
+            h('div', {id:'settings-calendar'}, h(CalendarSourcesEditor, {cfg, setCfg})),
             h('div', {id:'settings-signalrgb'}, h(SignalRGBSection, {cfg, updateIntegration, expanded:expanded.signalrgb, toggle:()=>toggleExpand('signalrgb')})),
             h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
             h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),

@@ -334,6 +334,7 @@
     .welcome-btn-demo:hover { background: linear-gradient(135deg, rgba(80,250,123,0.25), rgba(0,217,255,0.25)); border-color: #50fa7b; }
     .demo-mode-badge { display: inline-block; padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 2px; border-radius: 4px; background: rgba(255,200,87,0.15); color: var(--amber); border: 1px solid rgba(255,200,87,0.35); margin-right: 8px; animation: demo-pulse 2s ease-in-out infinite; }
     @keyframes demo-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+    @keyframes spotlightFadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     .demo-exit-btn { padding: 3px 10px; font-size: 10px; font-weight: 700; letter-spacing: 1px; border-radius: 4px; background: rgba(255,85,85,0.12); color: #ff5555; border: 1px solid rgba(255,85,85,0.3); cursor: pointer; font-family: var(--font); margin-right: 8px; transition: all .2s; }
     .demo-exit-btn:hover { background: rgba(255,85,85,0.25); border-color: #ff5555; }
     .page-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 6px; cursor: default; }
@@ -468,7 +469,7 @@
       'clock','weather','sonarr','radarr','overseerr','nzbget',
       'signalrgb','services','spotify','discord','homeassistant',
       'sysmon','tautulli','jellyfin','nowplaying','lights','system',
-      'media','uptimekuma','links','proxmox','docker','pihole','truenas','network','unraid'
+      'media','uptimekuma','links','proxmox','docker','pihole','truenas','network','unraid','immich','speedtest','calendar'
     ];
     // Note: order includes alias IDs (weather→clock, homeassistant→lights, sysmon→system, tautulli→nowplaying)
     // plus actual panel type IDs, so any naming convention resolves correctly.
@@ -3326,6 +3327,358 @@
       );
     }
 
+    // ═══ IMMICH PANEL ═══
+    function ImmichPanel({ config, openSettings }) {
+      const iCfg = config?.integrations?.immich;
+      const configured = iCfg?.url && iCfg?.apiKey;
+      const [stats, setStats] = useState(null);
+      const [recentAsset, setRecentAsset] = useState(null);
+      const [onThisDay, setOnThisDay] = useState([]);
+      const [error, setError] = useState(null);
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        async function poll() {
+          try {
+            const base = iCfg.url.replace(/\/+$/, '');
+            const hdr = { Authorization: 'Bearer ' + iCfg.apiKey };
+            // Fetch stats
+            const statsRes = await window.orbit.apiGet(base + '/api/server-info/statistics', hdr, 10000);
+            if (statsRes?.error) { setError(statsRes.error); timer = setTimeout(poll, 60000); return; }
+            setStats(statsRes);
+            setError(null);
+            // Fetch most recent asset
+            try {
+              const recentRes = await window.orbit.apiGet(base + '/api/assets?take=1&order=desc', hdr, 10000);
+              const assets = Array.isArray(recentRes) ? recentRes : [];
+              setRecentAsset(assets[0] || null);
+            } catch {}
+            // Fetch "on this day" photos
+            try {
+              const now = new Date();
+              const month = now.getMonth();
+              const day = now.getDate();
+              const yearAgo = new Date(now);
+              yearAgo.setFullYear(yearAgo.getFullYear() - 10);
+              const tomorrow = new Date(now);
+              tomorrow.setDate(tomorrow.getDate() + 1);
+              const afterStr = yearAgo.toISOString().split('T')[0] + 'T00:00:00.000Z';
+              const beforeStr = tomorrow.toISOString().split('T')[0] + 'T00:00:00.000Z';
+              const otdRes = await window.orbit.apiGet(base + '/api/assets?takenAfter=' + afterStr + '&takenBefore=' + beforeStr + '&take=50', hdr, 10000);
+              const otdAssets = Array.isArray(otdRes) ? otdRes : [];
+              // Filter to same month+day, different year
+              const matches = otdAssets.filter(a => {
+                const d = new Date(a.originalDateTime || a.createdAt || a.fileCreatedAt);
+                return d.getMonth() === month && d.getDate() === day && d.getFullYear() !== now.getFullYear();
+              }).slice(0, 3);
+              setOnThisDay(matches);
+            } catch {}
+          } catch (e) { setError(e.message || 'Immich unreachable'); }
+          timer = setTimeout(poll, 60000);
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [iCfg?.url, iCfg?.apiKey]);
+
+      if (!configured) return h('div', { className: 'panel panel-unconfigured' },
+        h(PanelHeader, { title: 'IMMICH', icon: '📸', accentColor: '#4250AF' }),
+        h('div', { className: 'panel-unconfigured-icon' }, '📸'),
+        h('div', { className: 'panel-unconfigured-text', style: { cursor: 'pointer' } }, 'Configure Immich in Settings'));
+
+      function fmtBytes(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes >= 1099511627776) return (bytes / 1099511627776).toFixed(1) + ' TB';
+        if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+        return (bytes / 1048576).toFixed(0) + ' MB';
+      }
+
+      function thumbUrl(id) {
+        const base = iCfg.url.replace(/\/+$/, '');
+        return base + '/api/assets/' + id + '/thumbnail?size=preview&key=' + iCfg.apiKey;
+      }
+
+      const sectionLabel = (text) => h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '6px', marginTop: '10px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, text);
+
+      const totalPhotos = stats?.photos || 0;
+      const totalVideos = stats?.videos || 0;
+      const storageUsed = stats?.usage || stats?.usageRaw || 0;
+
+      return h('div', { className: 'panel panel-top' },
+        h(PanelHeader, { title: 'IMMICH', icon: '📸', accentColor: '#4250AF' }),
+        error && h('div', { style: { fontSize: '11px', color: 'var(--red)', marginBottom: '8px' } }, 'Error: ' + error),
+        // Stats row
+        h('div', { style: { display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '10px' } },
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, 'PHOTOS'),
+            h('div', { style: { fontSize: '18px', fontWeight: '700', color: 'var(--text-bright)' } }, totalPhotos.toLocaleString())
+          ),
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, 'VIDEOS'),
+            h('div', { style: { fontSize: '18px', fontWeight: '700', color: 'var(--text-bright)' } }, totalVideos.toLocaleString())
+          ),
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, 'STORAGE'),
+            h('div', { style: { fontSize: '18px', fontWeight: '700', color: 'var(--text-bright)' } }, fmtBytes(storageUsed))
+          )
+        ),
+        // Most recent upload
+        recentAsset && h('div', null,
+          sectionLabel('RECENT UPLOAD'),
+          h('div', { style: { display: 'flex', gap: '10px', alignItems: 'center', cursor: 'pointer' }, onClick: () => window.orbit.openExternal(iCfg.url.replace(/\/+$/, '') + '/photos/' + recentAsset.id) },
+            h('img', { src: thumbUrl(recentAsset.id), style: { width: '60px', height: '60px', borderRadius: '6px', objectFit: 'cover', background: 'rgba(255,255,255,0.05)' } }),
+            h('div', { style: { flex: 1, overflow: 'hidden' } },
+              h('div', { style: { fontSize: '12px', color: 'var(--text-bright)', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, recentAsset.originalFileName || 'Unknown'),
+              h('div', { style: { fontSize: '10px', color: 'var(--dim)', marginTop: '2px' } }, new Date(recentAsset.createdAt || recentAsset.fileCreatedAt).toLocaleDateString())
+            )
+          )
+        ),
+        // On This Day
+        onThisDay.length > 0 && h('div', null,
+          sectionLabel('ON THIS DAY'),
+          h('div', { style: { display: 'flex', gap: '8px' } },
+            onThisDay.map((a, i) => {
+              const yr = new Date(a.originalDateTime || a.createdAt || a.fileCreatedAt).getFullYear();
+              return h('div', { key: i, style: { textAlign: 'center', cursor: 'pointer', flex: 1 }, onClick: () => window.orbit.openExternal(iCfg.url.replace(/\/+$/, '') + '/photos/' + a.id) },
+                h('img', { src: thumbUrl(a.id), style: { width: '100%', height: '50px', borderRadius: '4px', objectFit: 'cover', background: 'rgba(255,255,255,0.05)' } }),
+                h('div', { style: { fontSize: '9px', color: 'var(--dim)', marginTop: '2px' } }, yr)
+              );
+            })
+          )
+        ),
+        // Footer
+        h('div', { style: { marginTop: 'auto', paddingTop: '10px', fontSize: '10px', color: 'var(--dim)', letterSpacing: '1px', textAlign: 'center' } },
+          [totalPhotos + totalVideos + ' assets', fmtBytes(storageUsed)].join(' · ')
+        )
+      );
+    }
+
+    // ═══ SPEEDTEST PANEL ═══
+    function SpeedtestPanel({ config, openSettings }) {
+      const sCfg = config?.integrations?.speedtest;
+      const [results, setResults] = useState(sCfg?.lastResults || []);
+      const [running, setRunning] = useState(false);
+      const [error, setError] = useState(null);
+
+      // Auto-run schedule
+      useEffect(() => {
+        if (!sCfg?.autoRun) return;
+        const intervalMs = (sCfg?.intervalHours || 6) * 3600000;
+        const last = results[0]?.timestamp || 0;
+        const sinceLastTest = Date.now() - last;
+        const delay = sinceLastTest >= intervalMs ? 1000 : intervalMs - sinceLastTest;
+        const timer = setTimeout(() => runTest(), delay);
+        return () => clearTimeout(timer);
+      }, [sCfg?.autoRun, sCfg?.intervalHours, results.length]);
+
+      async function runTest() {
+        if (running) return;
+        setRunning(true);
+        setError(null);
+        try {
+          const res = await window.orbit.runSpeedtest();
+          if (res?.error) { setError(res.error); setRunning(false); return; }
+          const newResults = [res, ...results].slice(0, 5);
+          setResults(newResults);
+          // Persist results to config
+          const newCfg = { ...config, integrations: { ...config.integrations, speedtest: { ...(sCfg || {}), lastResults: newResults } } };
+          window.orbit.saveConfig(newCfg);
+        } catch (e) { setError(e.message || 'Test failed'); }
+        setRunning(false);
+      }
+
+      const latest = results[0];
+      const maxDl = Math.max(...results.map(r => r.download || 0), 1);
+
+      return h('div', { className: 'panel panel-top' },
+        h(PanelHeader, { title: 'SPEEDTEST', icon: '🚀', accentColor: '#8B5CF6' }),
+        error && h('div', { style: { fontSize: '11px', color: 'var(--red)', marginBottom: '8px' } }, 'Error: ' + error),
+        // Current results
+        latest ? h('div', { style: { display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '10px' } },
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, '↓ DOWN'),
+            h('div', { style: { fontSize: '22px', fontWeight: '700', color: 'var(--text-bright)' } }, latest.download?.toFixed(1) || '—'),
+            h('div', { style: { fontSize: '9px', color: 'var(--dim)' } }, 'Mbps')
+          ),
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, '↑ UP'),
+            h('div', { style: { fontSize: '22px', fontWeight: '700', color: 'var(--text-bright)' } }, latest.upload?.toFixed(1) || '—'),
+            h('div', { style: { fontSize: '9px', color: 'var(--dim)' } }, 'Mbps')
+          ),
+          h('div', { style: { textAlign: 'center' } },
+            h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.28)', letterSpacing: '2px', marginBottom: '2px' } }, 'PING'),
+            h('div', { style: { fontSize: '22px', fontWeight: '700', color: 'var(--accent)' } }, latest.ping != null ? latest.ping : '—'),
+            h('div', { style: { fontSize: '9px', color: 'var(--dim)' } }, 'ms')
+          )
+        ) : h('div', { style: { textAlign: 'center', padding: '20px 0', color: 'var(--dim)', fontSize: '12px' } }, 'No test results yet'),
+        // Run button
+        h('div', { style: { textAlign: 'center', marginBottom: '10px' } },
+          h('button', {
+            onClick: runTest,
+            disabled: running,
+            style: {
+              padding: '8px 24px', borderRadius: '6px', border: '1px solid ' + (running ? 'rgba(139,92,246,0.3)' : 'rgba(139,92,246,0.5)'),
+              background: running ? 'rgba(139,92,246,0.1)' : 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+              cursor: running ? 'default' : 'pointer', fontSize: '11px', fontWeight: '700', letterSpacing: '1px', fontFamily: 'inherit', transition: 'all .2s'
+            }
+          }, running ? '⏳ Testing...' : '▶ Run Test')
+        ),
+        // History bars
+        results.length > 1 && h('div', null,
+          h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '6px', marginTop: '6px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, 'HISTORY'),
+          h('div', { style: { display: 'flex', gap: '4px', alignItems: 'flex-end', height: '40px' } },
+            results.map((r, i) => {
+              const pct = Math.max(10, (r.download / maxDl) * 100);
+              return h('div', { key: i, style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' } },
+                h('div', { style: { width: '100%', height: pct * 0.4 + 'px', background: i === 0 ? 'rgba(139,92,246,0.5)' : 'rgba(139,92,246,0.25)', borderRadius: '2px 2px 0 0', minHeight: '4px' } }),
+                h('div', { style: { fontSize: '8px', color: 'var(--dim)', marginTop: '2px' } }, r.download?.toFixed(0))
+              );
+            })
+          )
+        ),
+        // Footer
+        h('div', { style: { marginTop: 'auto', paddingTop: '10px', fontSize: '10px', color: 'var(--dim)', letterSpacing: '1px', textAlign: 'center' } },
+          latest ? (latest.server || 'Cloudflare') + ' · ' + new Date(latest.timestamp).toLocaleTimeString() : 'Click Run Test to start'
+        )
+      );
+    }
+
+    // ═══ CALENDAR PANEL ═══
+    function CalendarPanel({ config, openSettings }) {
+      const cCfg = config?.integrations?.calendar;
+      const sources = cCfg?.sources || [];
+      const configured = sources.length > 0;
+      const [events, setEvents] = useState([]);
+      const [error, setError] = useState(null);
+
+      // Minimal iCal parser
+      function parseICal(icalStr, sourceName, sourceColor) {
+        const events = [];
+        const blocks = icalStr.split('BEGIN:VEVENT');
+        for (let i = 1; i < blocks.length; i++) {
+          const block = blocks[i].split('END:VEVENT')[0];
+          const get = (key) => {
+            // Handle folded lines (continuation lines start with space/tab)
+            const re = new RegExp('^' + key + '[;:](.*)$', 'mi');
+            const m = block.match(re);
+            if (!m) return '';
+            let val = m[1];
+            // Unfold: check for continuation lines after this match
+            const idx = block.indexOf(m[0]);
+            const rest = block.substring(idx + m[0].length);
+            const lines = rest.split(/\r?\n/);
+            for (let j = 0; j < lines.length; j++) {
+              if (lines[j].match(/^[ \t]/)) val += lines[j].substring(1);
+              else break;
+            }
+            return val.trim();
+          };
+          const summary = get('SUMMARY');
+          const dtStart = get('DTSTART');
+          const dtEnd = get('DTEND');
+          const description = get('DESCRIPTION');
+          if (!summary || !dtStart) continue;
+          // Parse date — handle VALUE=DATE (all-day) and TZID formats
+          function parseICalDate(str) {
+            if (!str) return null;
+            // Remove VALUE=DATE: or TZID=...: prefix
+            const cleaned = str.replace(/^[^:]*:/g, '').replace(/^.*?(?=\d{8})/, '');
+            if (cleaned.length === 8) {
+              // All-day: YYYYMMDD
+              return { date: new Date(cleaned.slice(0,4)+'-'+cleaned.slice(4,6)+'-'+cleaned.slice(6,8)), allDay: true };
+            }
+            // DateTime: YYYYMMDDTHHMMSS or YYYYMMDDTHHMMSSZ
+            const dt = cleaned.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?/, '$1-$2-$3T$4:$5:$6');
+            return { date: new Date(cleaned.endsWith('Z') ? dt + 'Z' : dt), allDay: false };
+          }
+          const start = parseICalDate(dtStart);
+          if (!start) continue;
+          const end = dtEnd ? parseICalDate(dtEnd) : null;
+          events.push({ summary, start: start.date, end: end?.date, allDay: start.allDay, description, source: sourceName, color: sourceColor });
+        }
+        return events;
+      }
+
+      useEffect(() => {
+        if (!configured) return;
+        let timer = null;
+        async function poll() {
+          try {
+            const allEvents = [];
+            const now = new Date();
+            const weekEnd = new Date(now);
+            weekEnd.setDate(weekEnd.getDate() + 8);
+            weekEnd.setHours(0, 0, 0, 0);
+            const todayStart = new Date(now);
+            todayStart.setHours(0, 0, 0, 0);
+
+            for (const src of sources) {
+              try {
+                const res = await window.orbit.apiGet(src.url, {}, 15000);
+                if (typeof res === 'string' && res.includes('BEGIN:VCALENDAR')) {
+                  const parsed = parseICal(res, src.name || 'Calendar', src.color || '#00d9ff');
+                  allEvents.push(...parsed.filter(e => e.start >= todayStart && e.start < weekEnd));
+                } else if (res?.error) {
+                  console.warn('Calendar fetch error for ' + src.name + ':', res.error);
+                }
+              } catch (e) { console.warn('Calendar source error:', e); }
+            }
+            allEvents.sort((a, b) => a.start - b.start);
+            setEvents(allEvents);
+            setError(null);
+          } catch (e) { setError(e.message || 'Failed to fetch calendars'); }
+          timer = setTimeout(poll, 900000); // 15 minutes
+        }
+        poll();
+        return () => clearTimeout(timer);
+      }, [JSON.stringify(sources)]);
+
+      if (!configured) return h('div', { className: 'panel panel-unconfigured' },
+        h(PanelHeader, { title: 'CALENDAR', icon: '📅', accentColor: '#F59E0B' }),
+        h('div', { className: 'panel-unconfigured-icon' }, '📅'),
+        h('div', { className: 'panel-unconfigured-text' }, 'Add a Calendar'),
+        h('div', { style: { fontSize: '10px', color: 'var(--dim)', padding: '0 16px', textAlign: 'center', lineHeight: '1.5' } },
+          'Add iCal URLs in Settings. Works with Google Calendar, Outlook, Apple Calendar, Nextcloud, and more.'));
+
+      // Group events by day
+      const grouped = {};
+      events.forEach(e => {
+        const key = e.start.toDateString();
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(e);
+      });
+
+      const sectionLabel = (text) => h('div', { style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '6px', marginTop: '10px', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.06)' } }, text);
+
+      const today = new Date().toDateString();
+      const tomorrow = new Date(Date.now() + 86400000).toDateString();
+
+      return h('div', { className: 'panel panel-top' },
+        h(PanelHeader, { title: 'CALENDAR', icon: '📅', accentColor: '#F59E0B' }),
+        error && h('div', { style: { fontSize: '11px', color: 'var(--red)', marginBottom: '8px' } }, 'Error: ' + error),
+        Object.keys(grouped).length === 0 && h('div', { style: { textAlign: 'center', padding: '20px 0', color: 'var(--dim)', fontSize: '12px' } }, 'No upcoming events'),
+        Object.entries(grouped).map(([dayStr, dayEvents]) => {
+          const label = dayStr === today ? 'TODAY' : dayStr === tomorrow ? 'TOMORROW' : new Date(dayStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).toUpperCase();
+          return h('div', { key: dayStr },
+            sectionLabel(label),
+            dayEvents.map((e, i) => h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', fontSize: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)' } },
+              h('div', { style: { width: '4px', height: '24px', borderRadius: '2px', background: e.color || 'var(--accent)', flexShrink: 0 } }),
+              h('div', { style: { minWidth: '48px', fontSize: '10px', color: 'var(--dim)', fontWeight: '600' } },
+                e.allDay ? 'All day' : e.start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+              ),
+              h('div', { style: { flex: 1, overflow: 'hidden' } },
+                h('div', { style: { color: 'var(--text-bright)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, e.summary),
+                h('div', { style: { fontSize: '9px', color: 'var(--dim)' } }, e.source)
+              )
+            ))
+          );
+        }),
+        h('div', { style: { marginTop: 'auto', paddingTop: '10px', fontSize: '10px', color: 'var(--dim)', letterSpacing: '1px', textAlign: 'center' } },
+          events.length + ' event' + (events.length !== 1 ? 's' : '') + ' · ' + sources.length + ' calendar' + (sources.length !== 1 ? 's' : '')
+        )
+      );
+    }
+
     // ═══ DEMO MODE — fake data panels ═══
     function renderDemoPanel(type) {
       const sty = (s) => s; // shorthand
@@ -3629,6 +3982,62 @@
             ))
           )
         );
+        case 'immich': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'IMMICH',icon:'📸',accentColor:'#4250AF'}),
+          h('div',{style:{display:'flex',gap:'16px',justifyContent:'center',marginBottom:'10px'}},
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'PHOTOS'),h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)'}},'24,831')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'VIDEOS'),h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)'}},'1,247')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'STORAGE'),h('div',{style:{fontSize:'18px',fontWeight:'700',color:'var(--text-bright)'}},'184.2 GB'))
+          ),
+          sectionLabel('RECENT UPLOAD'),
+          h('div',{style:{display:'flex',gap:'10px',alignItems:'center'}},
+            h('div',{style:{width:'60px',height:'60px',borderRadius:'6px',background:'rgba(66,80,175,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px'}},'🏔️'),
+            h('div',{style:{flex:1}},h('div',{style:{fontSize:'12px',color:'var(--text-bright)',fontWeight:'600'}},'IMG_20240315_sunset.jpg'),h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}},'Mar 15, 2024'))
+          ),
+          sectionLabel('ON THIS DAY'),
+          h('div',{style:{display:'flex',gap:'8px'}},
+            [{yr:'2022',e:'🌅'},{yr:'2021',e:'🎄'},{yr:'2020',e:'🌊'}].map((p,i)=>h('div',{key:i,style:{textAlign:'center',flex:1}},
+              h('div',{style:{width:'100%',height:'50px',borderRadius:'4px',background:'rgba(66,80,175,0.15)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px'}},p.e),
+              h('div',{style:{fontSize:'9px',color:'var(--dim)',marginTop:'2px'}},p.yr)
+            ))
+          ),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'26,078 assets · 184.2 GB')
+        );
+        case 'speedtest': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'SPEEDTEST',icon:'🚀',accentColor:'#8B5CF6'}),
+          h('div',{style:{display:'flex',gap:'16px',justifyContent:'center',marginBottom:'10px'}},
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'↓ DOWN'),h('div',{style:{fontSize:'22px',fontWeight:'700',color:'var(--text-bright)'}},'482.3'),h('div',{style:{fontSize:'9px',color:'var(--dim)'}},'Mbps')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'↑ UP'),h('div',{style:{fontSize:'22px',fontWeight:'700',color:'var(--text-bright)'}},'41.7'),h('div',{style:{fontSize:'9px',color:'var(--dim)'}},'Mbps')),
+            h('div',{style:{textAlign:'center'}},h('div',{style:{fontSize:'10px',color:'rgba(255,255,255,0.28)',letterSpacing:'2px',marginBottom:'2px'}},'PING'),h('div',{style:{fontSize:'22px',fontWeight:'700',color:'var(--accent)'}},'14'),h('div',{style:{fontSize:'9px',color:'var(--dim)'}},'ms'))
+          ),
+          h('div',{style:{textAlign:'center',marginBottom:'10px'}},h('button',{style:{padding:'8px 24px',borderRadius:'6px',border:'1px solid rgba(139,92,246,0.5)',background:'rgba(139,92,246,0.15)',color:'#8B5CF6',cursor:'pointer',fontSize:'11px',fontWeight:'700',letterSpacing:'1px',fontFamily:'inherit'}},'▶ Run Test')),
+          h('div',null,
+            sectionLabel('HISTORY'),
+            h('div',{style:{display:'flex',gap:'4px',alignItems:'flex-end',height:'40px'}},
+              [482,395,440,412,468].map((d,i)=>h('div',{key:i,style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center'}},
+                h('div',{style:{width:'100%',height:d/482*40+'px',background:i===0?'rgba(139,92,246,0.5)':'rgba(139,92,246,0.25)',borderRadius:'2px 2px 0 0',minHeight:'4px'}}),
+                h('div',{style:{fontSize:'8px',color:'var(--dim)',marginTop:'2px'}},d)
+              ))
+            )
+          ),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'Cloudflare · 2:34 PM')
+        );
+        case 'calendar': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'CALENDAR',icon:'📅',accentColor:'#F59E0B'}),
+          sectionLabel('TODAY'),
+          [{t:'09:00',s:'Team Standup',src:'Work',c:'#4285F4'},{t:'12:30',s:'Lunch with Alex',src:'Personal',c:'#34A853'},{t:'15:00',s:'Sprint Review',src:'Work',c:'#4285F4'}].map((e,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'8px',padding:'4px 0',fontSize:'12px',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+            h('div',{style:{width:'4px',height:'24px',borderRadius:'2px',background:e.c,flexShrink:0}}),
+            h('div',{style:{minWidth:'48px',fontSize:'10px',color:'var(--dim)',fontWeight:'600'}},e.t),
+            h('div',{style:{flex:1}},h('div',{style:{color:'var(--text-bright)'}},e.s),h('div',{style:{fontSize:'9px',color:'var(--dim)'}},e.src))
+          )),
+          sectionLabel('TOMORROW'),
+          [{t:'All day',s:'Project Deadline',src:'Work',c:'#4285F4'},{t:'18:00',s:'Dinner Party',src:'Personal',c:'#34A853'}].map((e,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:'8px',padding:'4px 0',fontSize:'12px',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+            h('div',{style:{width:'4px',height:'24px',borderRadius:'2px',background:e.c,flexShrink:0}}),
+            h('div',{style:{minWidth:'48px',fontSize:'10px',color:'var(--dim)',fontWeight:'600'}},e.t),
+            h('div',{style:{flex:1}},h('div',{style:{color:'var(--text-bright)'}},e.s),h('div',{style:{fontSize:'9px',color:'var(--dim)'}},e.src))
+          )),
+          h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'5 events · 2 calendars')
+        );
         default: return null;
       }
     }
@@ -3667,6 +4076,9 @@
         case 'truenas': return wrap(key, h(TrueNASPanel, {key, config, openSettings}));
         case 'network': return wrap(key, h(NetworkPanel, {key, config, openSettings}));
         case 'unraid': return wrap(key, h(UnraidPanel, {key, config, openSettings}));
+        case 'immich': return wrap(key, h(ImmichPanel, {key, config, openSettings}));
+        case 'speedtest': return wrap(key, h(SpeedtestPanel, {key, config, openSettings}));
+        case 'calendar': return wrap(key, h(CalendarPanel, {key, config, openSettings}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
@@ -3709,7 +4121,7 @@
     }
 
     // ── BOTTOM BAR — bumper strip with settings, page dots, update badge ──
-    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig }) {
+    function BottomBar({ pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight }) {
       const [update, setUpdate] = useState(null);
       const [appVersion, setAppVersion] = useState('');
       const [showConfirm, setShowConfirm] = useState(false);
@@ -3755,7 +4167,8 @@
                 }
               });
             }),
-            h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙')
+            h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙'),
+            h('button', {className:'bottom-gear', onClick:onOpenSpotlight, title:'Search (Ctrl+K)', style:{marginLeft:'2px'}}, '🔍')
           ),
 
           // Centre — page dots + name (only if multiple pages)
@@ -3866,6 +4279,152 @@
       window.orbit.notify(title, body);
     }
 
+    // ═══ SPOTLIGHT SEARCH (Ctrl+K / Cmd+K) ═══
+    function SpotlightSearch({ config, open, onClose }) {
+      const [query, setQuery] = useState('');
+      const [results, setResults] = useState([]);
+      const inputRef = useRef(null);
+      const debounceRef = useRef(null);
+
+      useEffect(() => {
+        if (open && inputRef.current) {
+          setQuery('');
+          setResults([]);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        }
+      }, [open]);
+
+      useEffect(() => {
+        if (!open) return;
+        function onKey(e) { if (e.key === 'Escape') onClose(); }
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+      }, [open]);
+
+      function buildIndex() {
+        const items = [];
+        const panels = config?.panels || {};
+        const integrations = config?.integrations || {};
+        // Panel types
+        const PANEL_DEFS = [
+          { type:'clock', name:'Clock', icon:'🕐' }, { type:'weather', name:'Weather', icon:'🌤️' },
+          { type:'sonarr', name:'Sonarr', icon:'📺' }, { type:'radarr', name:'Radarr', icon:'🎬' },
+          { type:'overseerr', name:'Overseerr', icon:'🎭' }, { type:'nzbget', name:'NZBGet', icon:'📦' },
+          { type:'signalrgb', name:'SignalRGB', icon:'⚡' }, { type:'services', name:'Services', icon:'📡' },
+          { type:'spotify', name:'Spotify', icon:'🎵' }, { type:'discord', name:'Discord', icon:'💬' },
+          { type:'homeassistant', name:'Home Assistant', icon:'🏠' }, { type:'sysmon', name:'System Monitor', icon:'💻' },
+          { type:'tautulli', name:'Tautulli', icon:'▶' }, { type:'jellyfin', name:'Jellyfin', icon:'🎞️' },
+          { type:'nowplaying', name:'Now Playing', icon:'🎶' }, { type:'lights', name:'Lights', icon:'💡' },
+          { type:'system', name:'System', icon:'💻' }, { type:'media', name:'Media', icon:'📺' },
+          { type:'uptimekuma', name:'Uptime Kuma', icon:'📡' }, { type:'links', name:'Quick Links', icon:'🔗' },
+          { type:'proxmox', name:'Proxmox', icon:'🖥️' }, { type:'docker', name:'Docker', icon:'🐳' },
+          { type:'pihole', name:'Pi-hole', icon:'🛡️' }, { type:'truenas', name:'TrueNAS', icon:'💾' },
+          { type:'network', name:'Network', icon:'🌐' }, { type:'unraid', name:'Unraid', icon:'🟠' },
+          { type:'immich', name:'Immich', icon:'📸' }, { type:'speedtest', name:'Speedtest', icon:'🚀' },
+          { type:'calendar', name:'Calendar', icon:'📅' }
+        ];
+        PANEL_DEFS.forEach(p => {
+          items.push({ label: p.name, subtitle: 'Jump to panel', icon: p.icon, action: () => { scrollToPanel(p.type); onClose(); } });
+          items.push({ label: p.name + ' Settings', subtitle: 'Open settings', icon: '⚙', action: () => { window.orbit.openSettingsWindow(); onClose(); } });
+          // Add service URLs
+          const iCfg = integrations[p.type];
+          if (iCfg?.url) {
+            items.push({ label: 'Open ' + p.name, subtitle: iCfg.url, icon: '🔗', action: () => { window.orbit.openExternal(iCfg.url); onClose(); } });
+          }
+        });
+        return items;
+      }
+
+      function scrollToPanel(type) {
+        const el = document.querySelector('[class*="panel-drag-wrapper"]');
+        const panels = document.querySelectorAll('.panel-drag-wrapper');
+        for (const p of panels) {
+          const inner = p.querySelector('.panel');
+          if (inner) {
+            const header = inner.querySelector('.panel-header-title');
+            if (header && header.textContent.toLowerCase().includes(type.toLowerCase())) {
+              p.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              p.style.outline = '2px solid var(--accent)';
+              p.style.outlineOffset = '4px';
+              p.style.transition = 'outline .3s';
+              setTimeout(() => { p.style.outline = 'none'; }, 2000);
+              return;
+            }
+          }
+        }
+      }
+
+      function onInput(val) {
+        setQuery(val);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          if (!val.trim()) { setResults([]); return; }
+          const q = val.toLowerCase();
+          const allItems = buildIndex();
+          const matched = allItems.filter(item =>
+            item.label.toLowerCase().includes(q) || (item.subtitle && item.subtitle.toLowerCase().includes(q))
+          ).slice(0, 8);
+          setResults(matched);
+        }, 200);
+      }
+
+      if (!open) return null;
+
+      return h('div', {
+        className: 'spotlight-overlay',
+        onClick: e => { if (e.target === e.currentTarget) onClose(); },
+        style: {
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          paddingTop: '20vh', zIndex: 99999,
+          animation: 'spotlightFadeIn .15s ease'
+        }
+      },
+        h('div', {
+          style: {
+            width: '400px', background: 'var(--bg2)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            overflow: 'hidden'
+          }
+        },
+          h('input', {
+            ref: inputRef, type: 'text', value: query,
+            onInput: e => onInput(e.target.value),
+            placeholder: 'Search panels...',
+            style: {
+              width: '100%', padding: '16px 20px', background: 'transparent',
+              border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)',
+              color: 'var(--text-bright)', fontSize: '16px', fontFamily: 'inherit',
+              outline: 'none', boxSizing: 'border-box'
+            }
+          }),
+          results.length > 0 && h('div', { style: { maxHeight: '300px', overflowY: 'auto' } },
+            results.map((r, i) => h('div', {
+              key: i,
+              onClick: r.action,
+              style: {
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '10px 20px', cursor: 'pointer',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                transition: 'background .15s'
+              },
+              onMouseEnter: e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)',
+              onMouseLeave: e => e.currentTarget.style.background = 'transparent'
+            },
+              h('span', { style: { fontSize: '16px', width: '24px', textAlign: 'center' } }, r.icon || '📦'),
+              h('div', { style: { flex: 1, overflow: 'hidden' } },
+                h('div', { style: { fontSize: '13px', color: 'var(--text-bright)', fontWeight: '500' } }, r.label),
+                r.subtitle && h('div', { style: { fontSize: '10px', color: 'var(--dim)', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, r.subtitle)
+              )
+            ))
+          ),
+          query && results.length === 0 && h('div', { style: { padding: '20px', textAlign: 'center', color: 'var(--dim)', fontSize: '13px' } }, 'No results found'),
+          !query && h('div', { style: { padding: '12px 20px', textAlign: 'center', color: 'var(--dim)', fontSize: '11px' } }, 'Type to search panels, settings, and services')
+        )
+      );
+    }
+
     function App() {
       const [config, setConfig] = useState(null);
       const [currentPage, setCurrentPage] = useState(0);
@@ -3874,6 +4433,7 @@
       const [signalIsOn, setSignalIsOn] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
       const [showWelcome, setShowWelcome] = useState(false);
+      const [showSpotlight, setShowSpotlight] = useState(false);
       const touchRef = useRef(null);
       const dragIdxRef = useRef(null);
 
@@ -3985,6 +4545,7 @@
         function onKey(e) {
           if (e.key === 'ArrowLeft' && currentPage > 0) setCurrentPage(p => p - 1);
           if (e.key === 'ArrowRight' && currentPage < pages.length - 1) setCurrentPage(p => p + 1);
+          if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setShowSpotlight(s => !s); }
         }
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -4138,7 +4699,7 @@
 
 
         // ── Bottom bar — hard bumper with settings + dots + update ──────────
-        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig}),
+        h(BottomBar, {pages, currentPage, setCurrentPage, page, openSettings, config, setConfig, onOpenSpotlight: () => setShowSpotlight(true)}),
 
 
 
@@ -4147,6 +4708,9 @@
 
         // Quit button (keep top-right)
         h('div', {className:'quit-btn', onClick:()=>window.close()}, '✕'),
+
+        // Spotlight search overlay
+        h(SpotlightSearch, { config, open: showSpotlight, onClose: () => setShowSpotlight(false) }),
 
         // Welcome overlay (first-run onboarding)
         showWelcome && h(WelcomeOverlay, {

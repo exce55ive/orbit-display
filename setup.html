@@ -154,7 +154,10 @@
         pihole:{enabled:false, url:'',apiKey:''},
         truenas:{enabled:false, url:'',apiKey:''},
         network:{enabled:false, routerUrl:'',routerType:'generic',username:'',password:''},
-        unraid:{enabled:false, url:'',apiKey:''}
+        unraid:{enabled:false, url:'',apiKey:''},
+        immich:{enabled:false, url:'',apiKey:''},
+        speedtest:{autoRun:false, intervalHours:6, lastResults:[]},
+        calendar:{sources:[]}
       },
       signalrgbFavorites: [],
       links: [{label:'Dashboard',url:'http://localhost',icon:'🏠'},{label:'GitHub',url:'https://github.com',icon:'💻'},{label:'Google',url:'https://google.com',icon:'🔍'}]
@@ -212,6 +215,9 @@
       { type: 'truenas',   icon: '💾', name: 'TrueNAS' },
       { type: 'network',   icon: '🌐', name: 'Network Monitor' },
       { type: 'unraid',    icon: '🟠', name: 'Unraid' },
+      { type: 'immich',    icon: '📸', name: 'Immich' },
+      { type: 'speedtest', icon: '🚀', name: 'Speedtest' },
+      { type: 'calendar',  icon: '📅', name: 'Calendar' },
     ];
     const MAX_PANELS = 6;
 
@@ -238,6 +244,9 @@
       truenas:     (c) => c.truenas?.enabled && c.truenas?.url && c.truenas?.apiKey,
       network:     (c) => c.network?.enabled,
       unraid:      (c) => c.unraid?.enabled && c.unraid?.url && c.unraid?.apiKey,
+      immich:      (c) => c.immich?.enabled && c.immich?.url && c.immich?.apiKey,
+      speedtest:   null,
+      calendar:    (c) => c.calendar?.sources?.length > 0,
       media:       (c) => (c.sonarr?.enabled && c.sonarr?.url) || (c.radarr?.enabled && c.radarr?.url),
     };
 
@@ -407,6 +416,11 @@
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="unraid-url" placeholder="http://192.168.1.x" value="${esc(config.integrations.unraid.url)}"></div>
                 <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="unraid-key" type="password" value="${esc(config.integrations.unraid.apiKey)}"></div>
                 ${testRow('unraid')}
+              `)}
+              ${integrationCard('immich', 'Immich', '📸', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="immich-url" placeholder="http://192.168.1.x:2283" value="${esc(config.integrations.immich.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="immich-key" type="password" value="${esc(config.integrations.immich.apiKey)}"></div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px;">Get your API key from Immich → User Settings → API Keys</div>
               `)}
               <div class="integration-card enabled" id="card-links">
                 <label class="integration-toggle" style="pointer-events:none;opacity:0.6;">
@@ -966,6 +980,10 @@
       config.integrations.unraid.enabled = isEnabled('unraid');
       config.integrations.unraid.url = getVal('unraid-url');
       config.integrations.unraid.apiKey = getVal('unraid-key');
+
+      config.integrations.immich.enabled = isEnabled('immich');
+      config.integrations.immich.url = getVal('immich-url');
+      config.integrations.immich.apiKey = getVal('immich-key');
 
       // Services panel enabled state
       if (!config.integrations.services) config.integrations.services = {};

@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.0.14
+- **Add:** Immich panel — photo library dashboard showing total photos/videos count, storage used, most recent upload with thumbnail, and "On This Day" section showing up to 3 photos from this day in past years. Click thumbnails to open in Immich. Polls every 60s.
+- **Add:** Speedtest panel — built-in internet speed test using Cloudflare's speed endpoints. Shows download/upload speeds (Mbps) and ping. History bar chart of last 5 results. Configurable auto-run schedule (default: off). Results persisted to config.
+- **Add:** Calendar panel — upcoming events from iCal feeds (Google Calendar, Outlook, Apple Calendar, Nextcloud, etc.). Shows today + next 7 days grouped by date with time, title, and calendar colour dot. Minimal iCal parser handles VEVENT, DTSTART, DTEND, SUMMARY. Polls every 15 minutes.
+- **Add:** Spotlight Search (Ctrl+K / Cmd+K) — global search overlay to quickly find and jump to panels, open settings, or launch service URLs. Search icon also added to bottom bar. Debounced 200ms input with keyboard navigation.
+- **Add:** `config-schema.json` updated with `immich`, `speedtest`, and `calendar` integration defaults.
+- **Add:** Setup Wizard and Settings window updated with Immich, Speedtest, and Calendar configuration sections.
+- **Add:** `run-speedtest` IPC handler in main process for download/upload/ping measurement via Cloudflare CDN.
+- **Add:** Demo mode panels for Immich, Speedtest, and Calendar.
+
 ## v0.0.13
 - **Add:** Demo / Sample Mode — "Try Demo" button on first-run welcome overlay loads realistic fake data across all panels. Explore Orbit's full feature set without configuring any services. Clearly visible "DEMO MODE" badge in bottom bar with one-click exit.
 - **Add:** Network Monitor panel — shows WAN connection status, ping latency to 8.8.8.8, live upload/download speeds, and local IP address. Optional router integration supports OpenWrt, pfSense, and UniFi for WAN IP, bandwidth totals, and active connection count. Polls ping every 5s, router every 30s.

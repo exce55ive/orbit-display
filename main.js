@@ -120,9 +120,12 @@ function validateAndFillDefaults(cfg) {
   if (cfg.panels.truenas === undefined) cfg.panels.truenas = false;
   if (cfg.panels.network === undefined) cfg.panels.network = false;
   if (cfg.panels.unraid === undefined) cfg.panels.unraid = false;
+  if (cfg.panels.immich === undefined) cfg.panels.immich = false;
+  if (cfg.panels.speedtest === undefined) cfg.panels.speedtest = false;
+  if (cfg.panels.calendar === undefined) cfg.panels.calendar = false;
 
   // Log warning for unknown top-level keys
-  const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete','panelOrder','panelCollapsed','layouts','currentLayout','notifications']);
+  const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete','panelOrder','panelCollapsed','layouts','currentLayout','notifications','demoMode']);
   for (const key of Object.keys(cfg)) {
     if (!knownKeys.has(key)) log.warn(`Config has unknown key: "${key}" — ignoring`);
   }
@@ -1009,6 +1012,70 @@ ipcMain.handle('ping-host', async (_e, host) => {
       resolve({ ok: true, ms: m ? parseFloat(m[1]) : elapsed });
     });
   });
+});
+
+/// ─── IPC: SPEEDTEST ─────────────────────────────────────────────────────────
+ipcMain.handle('run-speedtest', async () => {
+  try {
+    const fetch = await getFetch();
+    // Download test: fetch a known large file and measure throughput
+    const testUrls = [
+      'https://speed.cloudflare.com/__down?bytes=10000000',
+      'https://proof.ovh.net/files/1Mb.dat'
+    ];
+    let downloadMbps = 0;
+    let pingMs = 0;
+
+    // Ping test
+    const pingStart = Date.now();
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      await fetch('https://speed.cloudflare.com/__down?bytes=0', { signal: controller.signal });
+      clearTimeout(timer);
+      pingMs = Date.now() - pingStart;
+    } catch { pingMs = -1; }
+
+    // Download test (10MB from Cloudflare)
+    try {
+      const dlStart = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      const res = await fetch(testUrls[0], { signal: controller.signal });
+      const buffer = await res.arrayBuffer();
+      clearTimeout(timer);
+      const dlTime = (Date.now() - dlStart) / 1000;
+      const bytes = buffer.byteLength;
+      downloadMbps = Math.round(((bytes * 8) / dlTime / 1000000) * 100) / 100;
+    } catch { downloadMbps = 0; }
+
+    // Upload test (POST 2MB to Cloudflare)
+    let uploadMbps = 0;
+    try {
+      const payload = new Uint8Array(2000000);
+      const ulStart = Date.now();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      await fetch('https://speed.cloudflare.com/__up', {
+        method: 'POST',
+        body: payload,
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      const ulTime = (Date.now() - ulStart) / 1000;
+      uploadMbps = Math.round(((2000000 * 8) / ulTime / 1000000) * 100) / 100;
+    } catch { uploadMbps = 0; }
+
+    return {
+      download: downloadMbps,
+      upload: uploadMbps,
+      ping: pingMs >= 0 ? pingMs : null,
+      server: 'Cloudflare',
+      timestamp: Date.now()
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
 });
 
 // ─── IPC: UPDATES ───────────────────────────────────────────────────────────

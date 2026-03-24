@@ -68,6 +68,9 @@ contextBridge.exposeInMainWorld('orbit', {
   // Network ping
   pingHost: (host) => ipcRenderer.invoke('ping-host', host),
 
+  // Speedtest
+  runSpeedtest: () => ipcRenderer.invoke('run-speedtest'),
+
   // Settings persistence
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   loadSettings: () => ipcRenderer.invoke('load-settings'),
