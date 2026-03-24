@@ -114,10 +114,12 @@
     .np-subtitle { font-size: 13px; color: var(--text); margin-bottom: 6px; }
     .np-progress-wrap { width: 100%; margin-bottom: 4px; }
     .np-progress-bar { width: 100%; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
-    .panel-header { display:flex; align-items:center; gap:8px; padding:12px 12px 10px; border-bottom:1px solid rgba(255,255,255,0.12); position:absolute; top:0; left:0; right:0; z-index:10; background:var(--bg); overflow:hidden; }
+    .panel-header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:12px 12px 10px; border-bottom:1px solid rgba(255,255,255,0.12); position:absolute; top:0; left:0; right:0; z-index:10; background:var(--bg); overflow:hidden; box-sizing:border-box; }
+    .panel-header-left { display:flex; align-items:center; gap:8px; justify-self:start; }
+    .panel-header-right { display:flex; align-items:center; justify-self:end; }
     .panel-header-accent { width:3px; border-radius:2px; align-self:stretch; flex-shrink:0; min-height:20px; }
     .panel-header-icon { font-size: 18px; line-height:1; flex-shrink:0; }
-    .panel-header-title { font-size: 13px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); flex:1; text-align:center; }
+    .panel-header-title { font-size: 13px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); text-align:center; }
     .panel-header-cog { background:none; border:none; color:rgba(255,255,255,0.2); cursor:pointer; font-size: 16px; padding:0; line-height:1; transition:color .15s; flex-shrink:0; }
     .panel-header-cog:hover { color:rgba(255,255,255,0.65); }
     .panel-collapse-btn { background:none; border:none; color:rgba(255,255,255,0.15); cursor:pointer; font-size:10px; padding:0 2px; line-height:1; transition:color .2s, transform .2s; flex-shrink:0; display:flex; align-items:center; }
@@ -303,7 +305,8 @@
     .layout-picker-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: var(--dim); font-size: 10px; letter-spacing: 1px; padding: 5px 10px; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
     .layout-picker-btn:hover { border-color: var(--accent); color: var(--accent); }
     .layout-picker-btn .lp-arrow { font-size: 8px; opacity: 0.5; }
-    .layout-picker-menu { position: absolute; bottom: calc(100% + 4px); left: 0; min-width: 180px; background: var(--panel-bg, rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 0; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+    .layout-picker-menu { position: absolute; bottom: 0; left: calc(100% + 4px); min-width: 180px; background: var(--panel-bg, rgba(255,255,255,0.03)); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 0; backdrop-filter: blur(20px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); opacity:0; transform:translateX(-8px); pointer-events:none; transition:opacity .2s ease, transform .2s ease; }
+    .layout-picker-menu.open { opacity:1; transform:translateX(0); pointer-events:auto; }
     .layout-picker-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 11px; color: var(--text); cursor: pointer; transition: background .15s; letter-spacing: 0.5px; border: none; background: none; width: 100%; text-align: left; }
     .layout-picker-item:hover { background: rgba(255,255,255,0.06); }
     .layout-picker-item.active { color: var(--accent); }
@@ -535,11 +538,15 @@
     function PanelHeader({ title, icon, accentColor }) {
       const { collapsed, onToggleCollapse } = React.useContext(CollapseContext);
       return h('div', { className:'panel-header' },
-        h('span', { className:'panel-drag-handle', title:'Drag to reorder' }, '⠿'),
-        h('div', { className:'panel-header-accent', style:{ background: accentColor || 'var(--accent)' } }),
-        h('span', { className:'panel-header-icon' }, icon),
+        h('div', { className:'panel-header-left' },
+          h('span', { className:'panel-drag-handle', title:'Drag to reorder' }, '⠿'),
+          h('div', { className:'panel-header-accent', style:{ background: accentColor || 'var(--accent)' } }),
+          h('span', { className:'panel-header-icon' }, icon)
+        ),
         h('span', { className:'panel-header-title' }, title),
-        h('button', { className:'panel-collapse-btn' + (collapsed ? ' collapsed' : ''), onClick:onToggleCollapse, title:collapsed ? 'Expand panel' : 'Collapse panel' }, '▼')
+        h('div', { className:'panel-header-right' },
+          h('button', { className:'panel-collapse-btn' + (collapsed ? ' collapsed' : ''), onClick:onToggleCollapse, title:collapsed ? 'Expand panel' : 'Collapse panel' }, '▼')
+        )
       );
     }
 
@@ -4101,9 +4108,9 @@
       return h('div', { className: 'layout-picker', ref },
         h('button', { className: 'layout-picker-btn', onClick: () => setOpen(!open) },
           currentName,
-          h('span', { className: 'lp-arrow' }, open ? '▲' : '▼')
+          h('span', { className: 'lp-arrow' }, open ? '◂' : '▸')
         ),
-        open && h('div', { className: 'layout-picker-menu' },
+        h('div', { className: 'layout-picker-menu' + (open ? ' open' : '') },
           Object.entries(all).map(([key, layout]) => {
             const isActive = key === currentKey;
             return h('button', {
