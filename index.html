@@ -3364,14 +3364,14 @@
             const base = iCfg.url.replace(/\/+$/, '');
             const hdr = { Authorization: 'Bearer ' + iCfg.apiKey };
             // Fetch stats
-            const statsRes = await window.orbit.apiGet(base + '/api/server-info/statistics', hdr, 10000);
+            const statsRes = await window.orbit.apiGet(base + '/api/server/statistics', hdr, 10000);
             if (statsRes?.error) { setError(statsRes.error); timer = setTimeout(poll, 60000); return; }
             setStats(statsRes);
             setError(null);
             // Fetch most recent asset
             try {
-              const recentRes = await window.orbit.apiGet(base + '/api/assets?take=1&order=desc', hdr, 10000);
-              const assets = Array.isArray(recentRes) ? recentRes : [];
+              const recentRes = await window.orbit.apiPost(base + '/api/search/metadata', { take: 1, order: 'desc' }, hdr, 10000);
+              const assets = Array.isArray(recentRes?.assets?.items) ? recentRes.assets.items : [];
               setRecentAsset(assets[0] || null);
             } catch {}
             // Fetch "on this day" photos
@@ -3385,8 +3385,8 @@
               tomorrow.setDate(tomorrow.getDate() + 1);
               const afterStr = yearAgo.toISOString().split('T')[0] + 'T00:00:00.000Z';
               const beforeStr = tomorrow.toISOString().split('T')[0] + 'T00:00:00.000Z';
-              const otdRes = await window.orbit.apiGet(base + '/api/assets?takenAfter=' + afterStr + '&takenBefore=' + beforeStr + '&take=50', hdr, 10000);
-              const otdAssets = Array.isArray(otdRes) ? otdRes : [];
+              const otdRes = await window.orbit.apiPost(base + '/api/search/metadata', { takenAfter: afterStr, takenBefore: beforeStr, take: 50 }, hdr, 10000);
+              const otdAssets = Array.isArray(otdRes?.assets?.items) ? otdRes.assets.items : [];
               // Filter to same month+day, different year
               const matches = otdAssets.filter(a => {
                 const d = new Date(a.originalDateTime || a.createdAt || a.fileCreatedAt);
