@@ -3482,11 +3482,10 @@
         currentAsset && h('div', { style: { position: 'relative', marginBottom: '6px', cursor: 'pointer' }, onClick: () => window.orbit.openExternal(iCfg.url.replace(/\/+$/, '') + '/photos/' + currentAsset.id) },
           h(ThumbImg, { key: 'frame-' + currentAsset.id, id: currentAsset.id, size: 'preview', style: { width: '100%', minHeight: '200px', maxHeight: '260px', borderRadius: '8px', objectFit: 'cover', display: 'block' } }),
           photoPool.length > 1 && arrowBtn('‹', -1, 'left'),
-          photoPool.length > 1 && arrowBtn('›', 1, 'right')
-        ),
-        // Caption
-        currentAsset && h('div', { style: { fontSize: '10px', color: 'var(--dim)', marginBottom: '6px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } },
-          (currentAsset.originalFileName || 'Unknown') + '  ·  ' + new Date(currentAsset.createdAt || currentAsset.fileCreatedAt).toLocaleDateString()
+          photoPool.length > 1 && arrowBtn('›', 1, 'right'),
+          stats && h('div', { style: { position: 'absolute', bottom: '6px', left: '8px', fontSize: '9px', color: 'rgba(255,255,255,0.7)', letterSpacing: '0.5px', textShadow: '0 1px 3px rgba(0,0,0,0.8)', pointerEvents: 'none' } },
+            totalPhotos.toLocaleString() + ' photos · ' + totalVideos.toLocaleString() + ' videos'
+          )
         ),
         // On This Day
         onThisDay.length > 0 && h('div', null,
@@ -3501,10 +3500,7 @@
             })
           )
         ),
-        // Stats footer
-        h('div', { style: { marginTop: 'auto', paddingTop: '8px', fontSize: '10px', color: 'var(--dim)', letterSpacing: '1px', textAlign: 'center' } },
-          totalPhotos.toLocaleString() + ' photos · ' + totalVideos.toLocaleString() + ' videos'
-        )
+        
       );
     }
 
