@@ -3492,7 +3492,7 @@
         ),
         // Main photo frame
         currentAsset && h('div', { style: { position: 'relative', marginBottom: '6px', cursor: 'pointer', width: '100%' }, onClick: () => window.orbit.openExternal(iCfg.url.replace(/\/+$/, '') + '/photos/' + currentAsset.id) },
-          h(ThumbImg, { key: 'frame-' + currentAsset.id, id: currentAsset.id, size: 'preview', style: { width: '100%', minHeight: '180px', maxHeight: '240px', borderRadius: '8px', objectFit: 'cover', display: 'block' } }),
+          h(ThumbImg, { key: 'frame-' + currentAsset.id, id: currentAsset.id, size: 'preview', style: { width: '100%', minHeight: '180px', maxHeight: '240px', borderRadius: '8px', objectFit: 'contain', display: 'block', background: 'rgba(0,0,0,0.2)' } }),
           photoPool.length > 1 && arrowBtn('‹', -1, 'left'),
           photoPool.length > 1 && arrowBtn('›', 1, 'right')
         ),
