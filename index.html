@@ -3475,7 +3475,7 @@
         style: { position: 'absolute', top: '50%', [side]: '4px', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', fontSize: '14px', cursor: 'pointer', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.6, padding: 0 }
       }, label);
 
-      return h('div', { className: 'panel panel-top', style: { display: 'flex', flexDirection: 'column', alignItems: 'center' } },
+      return h('div', { className: 'panel panel-top', style: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' } },
         h(PanelHeader, { title: 'IMMICH', icon: '📸', accentColor: '#4250AF' }),
         error && h('div', { style: { fontSize: '11px', color: 'var(--red)', marginBottom: '6px' } }, 'Error: ' + error),
         // Stats header
