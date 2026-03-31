@@ -29,7 +29,8 @@
     { "type": "immich" },
     { "type": "speedtest" },
     { "type": "calendar" },
-    { "type": "custom" }
+    { "type": "custom" },
+    { "type": "sabnzbd" }
   ],
   "configKeys": {
     "panelOrder": "Array of panel IDs defining display order",
@@ -68,6 +69,7 @@
     "immich": { "url": "", "apiKey": "" },
     "speedtest": { "autoRun": false, "intervalHours": 6, "lastResults": [] },
     "calendar": { "sources": [] },
-    "custom": { "url": "", "title": "Custom", "zoom": 1.0 }
+    "custom": { "url": "", "title": "Custom", "zoom": 1.0 },
+    "sabnzbd": { "url": "", "apiKey": "" }
   }
 }

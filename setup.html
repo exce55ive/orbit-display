@@ -147,7 +147,8 @@
         homeassistant:{enabled:false, url:'',token:'',lights:[],signalrgbEntity:''},
         signalrgb:{enabled:false, url:'http://localhost:16038'},
         sonarr:{enabled:false, url:'',apiKey:''}, radarr:{enabled:false, url:'',apiKey:''}, overseerr:{enabled:false, url:'',apiKey:''},
-        nzbget:{enabled:false, url:'',username:'',password:''}, uptimekuma:{enabled:false, url:'',username:'',password:''},
+        nzbget:{enabled:false, url:'',username:'',password:''}, sabnzbd:{enabled:false, url:'',apiKey:''},
+        uptimekuma:{enabled:false, url:'',username:'',password:''},
         spotify:{enabled:false, clientId:'',clientSecret:''}, jellyfin:{enabled:false, url:'',apiKey:''},
         proxmox:{enabled:false, url:'',tokenId:'',tokenSecret:'',node:'pve'},
         docker:{enabled:false, host:'localhost',port:2375,useTLS:false},
@@ -207,6 +208,7 @@
       { type: 'radarr',     icon: '🎬', name: 'Radarr' },
       { type: 'overseerr',  icon: '🎭', name: 'Overseerr' },
       { type: 'nzbget',     icon: '⬇',  name: 'NZBGet' },
+      { type: 'sabnzbd',   icon: '📥', name: 'SABnzbd' },
       { type: 'services',   icon: '📡', name: 'Services' },
       { type: 'spotify',    icon: '🎵', name: 'Spotify' },
       { type: 'jellyfin',   icon: '🎞', name: 'Jellyfin' },
@@ -235,6 +237,7 @@
       radarr:      (c) => c.radarr?.enabled && c.radarr?.url && c.radarr?.apiKey,
       overseerr:   (c) => c.overseerr?.enabled && c.overseerr?.url && c.overseerr?.apiKey,
       nzbget:      (c) => c.nzbget?.enabled && c.nzbget?.url && c.nzbget?.username,
+      sabnzbd:     (c) => c.sabnzbd?.enabled && c.sabnzbd?.url && c.sabnzbd?.apiKey,
       uptimekuma:  null,                                    // legacy — always available
       services:    null,                                    // always available
       services:    null,                                    // always available (auto-detects from integrations)
@@ -361,6 +364,12 @@
                 <div class="field-group"><div class="field-label">Password</div><input class="field-input" id="nzbget-pass" type="password" value="${esc(config.integrations.nzbget.password)}"></div>
               
                 ${testRow('nzbget')}
+              `)}
+              ${integrationCard('sabnzbd', 'SABnzbd', '📥', `
+                <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="sabnzbd-url" placeholder="http://192.168.1.x:8080" value="${esc(config.integrations.sabnzbd.url)}"></div>
+                <div class="field-group"><div class="field-label">API Key</div><input class="field-input" id="sabnzbd-key" type="password" value="${esc(config.integrations.sabnzbd.apiKey)}"></div>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px;">Find your API key in SABnzbd → Config → General → API Key</div>
+                ${testRow('sabnzbd')}
               `)}
               ${integrationCard('jellyfin', 'Jellyfin', '🎵', `
                 <div class="field-group"><div class="field-label">URL</div><input class="field-input" id="jellyfin-url" placeholder="http://192.168.1.x:8096" value="${esc(config.integrations.jellyfin.url)}"></div>
@@ -956,6 +965,11 @@
       config.integrations.nzbget.url = getVal('nzbget-url');
       config.integrations.nzbget.username = getVal('nzbget-user');
       config.integrations.nzbget.password = getVal('nzbget-pass');
+
+      if (!config.integrations.sabnzbd) config.integrations.sabnzbd = {};
+      config.integrations.sabnzbd.enabled = isEnabled('sabnzbd');
+      config.integrations.sabnzbd.url = getVal('sabnzbd-url');
+      config.integrations.sabnzbd.apiKey = getVal('sabnzbd-key');
 
       config.integrations.jellyfin.enabled = isEnabled('jellyfin');
       config.integrations.jellyfin.url = getVal('jellyfin-url');

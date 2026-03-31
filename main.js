@@ -746,6 +746,15 @@ ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, pas
       const j = await r.json(); if (j.version) return ok(`Connected — Overseerr v${j.version}`);
       return fail(r.status === 403 ? 'Auth failed — check API key' : `HTTP ${r.status}`);
     }
+    if (type === 'sabnzbd') {
+      if (!url || !apiKey) return fail('URL and API Key required');
+      const base = url.replace(/\/$/, '');
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 5000);
+      const r = await fetch(`${base}/api?apikey=${encodeURIComponent(apiKey)}&output=json&mode=version`, { signal: controller.signal });
+      const j = await r.json(); if (j.version) return ok(`Connected — SABnzbd ${j.version}`);
+      return fail(j.error || 'Connection failed — check URL and API key');
+    }
     if (type === 'nzbget') {
       if (!url) return fail('URL required');
       const base = url.replace(/\/jsonrpc$/, '').replace(/\/$/, '');

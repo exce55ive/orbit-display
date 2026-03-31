@@ -473,7 +473,8 @@
         homeassistant:{url:'',token:'',lights:[]},
         sonarr:{url:'',apiKey:''}, radarr:{url:'',apiKey:''}, overseerr:{url:'',apiKey:''},
         nzbget:{url:'',username:'',password:''}, uptimekuma:{url:'',username:'',password:''},
-        spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''}
+        spotify:{clientId:'',clientSecret:''}, jellyfin:{url:'',apiKey:''},
+        sabnzbd:{url:'',apiKey:''}
       },
       customServices: [],
       signalrgbFavorites: [],
@@ -2533,6 +2534,121 @@
       );
     }
 
+    // ═══ SABNZBD PANEL ═══
+    function SabnzbdPanel({ config, openSettings }) {
+      const sCfg = config?.integrations?.sabnzbd;
+      const configured = sCfg?.url && sCfg?.apiKey;
+      const [queue, setQueue] = useState(null);
+      const [history, setHistory] = useState([]);
+      const [serverStats, setServerStats] = useState(null);
+      const [error, setError] = useState(null);
+      const intervalRef = useRef(null);
+
+      const apiCall = useCallback(async (mode, extra) => {
+        const base = sCfg.url.replace(/\/$/, '');
+        const url = `${base}/api?apikey=${encodeURIComponent(sCfg.apiKey)}&output=json&mode=${mode}${extra || ''}`;
+        return window.orbit.apiGet(url);
+      }, [sCfg?.url, sCfg?.apiKey]);
+
+      useEffect(() => {
+        if (!configured) return;
+        let active = true;
+        async function poll() {
+          try {
+            const [q, st] = await Promise.all([
+              apiCall('queue'),
+              apiCall('server_stats')
+            ]);
+            if (!active) return;
+            setQueue(q?.queue || null);
+            setServerStats(st || null);
+            setError(null);
+            const speed = parseFloat(q?.queue?.kbpersec || '0');
+            const paused = q?.queue?.paused === true;
+            const nextInterval = (speed > 10 && !paused) ? 5000 : 30000;
+            if (intervalRef.current) clearTimeout(intervalRef.current);
+            intervalRef.current = setTimeout(poll, nextInterval);
+          } catch (e) {
+            if (!active) return;
+            setError('SABnzbd unreachable');
+            if (intervalRef.current) clearTimeout(intervalRef.current);
+            intervalRef.current = setTimeout(poll, 30000);
+          }
+        }
+        poll();
+        return () => { active = false; if (intervalRef.current) clearTimeout(intervalRef.current); };
+      }, [sCfg?.url, sCfg?.apiKey]);
+
+      async function togglePause() {
+        if (!queue) return;
+        try {
+          await apiCall(queue.paused ? 'resume' : 'pause');
+          setQueue(prev => prev ? { ...prev, paused: !prev.paused } : prev);
+        } catch {}
+      }
+
+      if (!configured) return h('div',{className:'panel panel-unconfigured'},
+        h(PanelHeader, {title:'SABNZBD', icon:'📥', accentColor:'#F5A623', onSettings:()=>openSettingsAt('settings-sabnzbd')}),
+        h('div',{className:'panel-unconfigured-icon'},'📥'),
+        h('div',{className:'panel-unconfigured-text',style:{cursor:'pointer'}},'Configure in Settings'));
+
+      if (error && !queue) return h('div',{className:'panel'},
+        h(PanelHeader, {title:'SABNZBD', icon:'📥', accentColor:'#F5A623'}),
+        h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flex:1,gap:'12px'}},
+          h('div',{style:{fontSize:'13px',color:'#ff5555'}}, error),
+          h('button',{onClick:()=>{ setError(null); if(intervalRef.current) clearTimeout(intervalRef.current); intervalRef.current = setTimeout(()=>{},0); },
+            style:{padding:'6px 16px',borderRadius:'4px',border:'1px solid rgba(255,85,85,0.4)',background:'rgba(255,85,85,0.1)',color:'#ff5555',cursor:'pointer',fontSize:'11px',fontFamily:'inherit',letterSpacing:'1px'}},'RETRY')));
+
+      const speedKB = parseFloat(queue?.kbpersec || '0');
+      const speedMB = (speedKB / 1024).toFixed(1);
+      const paused = queue?.paused === true;
+      const sizeLeft = queue?.sizeleft || '0 B';
+      const eta = queue?.eta || '';
+      const slots = (queue?.slots || []).slice(0, 5);
+      const hasQueue = slots.length > 0;
+      const statusText = paused ? 'Paused' : (speedKB > 10 ? 'Downloading' : 'Idle');
+      const statusColor = paused ? 'var(--amber)' : (speedKB > 10 ? '#50fa7b' : 'var(--dim)');
+      const totalBytes = serverStats?.total || 0;
+      const totalGB = totalBytes > 0 ? (totalBytes / (1024*1024*1024)).toFixed(1) + ' GB' : null;
+
+      return h('div',{className:'panel panel-top'},
+        h(PanelHeader, {title:'SABNZBD', icon:'📥', accentColor:'#F5A623'}),
+        h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent: hasQueue ? 'flex-start' : 'center',flex:'1',width:'100%'}},
+          !queue
+            ? h('div',{style:{fontSize:'13px',color:'var(--dim)',textAlign:'center'}},'Connecting...')
+            : h(React.Fragment, null,
+                h('div',{style:{display:'flex',gap:'16px',marginBottom: hasQueue ? '14px' : '0',textAlign:'center',alignItems:'center'}},
+                  h('div', null,
+                    h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),
+                    h('div',{style:{fontSize:'28px',fontWeight:'800',color: paused ? 'var(--dim)' : 'var(--accent)'}}, paused ? 'PAUSED' : speedMB+' MB/s')
+                  ),
+                  h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}},
+                    h('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:'3px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',
+                      background: statusText==='Downloading' ? 'rgba(80,250,123,0.15)' : statusText==='Paused' ? 'rgba(255,183,77,0.15)' : 'rgba(255,255,255,0.06)',
+                      color: statusColor}}, statusText.toUpperCase()),
+                    h('button',{onClick:togglePause, style:{padding:'2px 10px',borderRadius:'3px',border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',
+                      color:'var(--text)',cursor:'pointer',fontSize:'9px',fontFamily:'inherit',letterSpacing:'1px'}}, paused ? '▶ RESUME' : '⏸ PAUSE')
+                  )
+                ),
+                (sizeLeft !== '0 B' && !paused && eta) && h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'0.5px'}}, sizeLeft+' left · ETA '+eta),
+                hasQueue && h('div',{style:{width:'100%'}},
+                  h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}},'QUEUE'),
+                  slots.map((s,i)=>{
+                    const pct = parseInt(s.percentage) || 0;
+                    const name = (s.filename||'Unknown').slice(0,38);
+                    return h('div',{key:s.nzo_id||i,style:{marginBottom:'10px'}},
+                      h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, name),
+                      h('div',{className:'np-progress-bar'},h('div',{className:'np-progress-fill',style:{width:pct+'%'}})),
+                      h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}}, pct+'% · '+s.sizeleft+' left'+(s.timeleft && s.timeleft!=='0:00:00' ? ' · '+s.timeleft : ''))
+                    );
+                  })
+                ),
+                totalGB && h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}}, 'Total downloaded: '+totalGB)
+              )
+        )
+      );
+    }
+
     // ═══ PROXMOX PANEL ═══
     function ProxmoxPanel({ config, openSettings }) {
       const pCfg = config?.integrations?.proxmox;
@@ -4120,6 +4236,28 @@
           )),
           h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'5 events · 2 calendars')
         );
+        case 'sabnzbd': return h('div',{className:'panel panel-top'},
+          h(PanelHeader,{title:'SABNZBD',icon:'📥',accentColor:'#F5A623'}),
+          h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',flex:'1',width:'100%'}},
+            h('div',{style:{display:'flex',gap:'16px',marginBottom:'14px',textAlign:'center',alignItems:'center'}},
+              h('div',null,h('div',{style:{fontSize:'11px',color:'var(--dim)',marginBottom:'2px',letterSpacing:'1px'}},'SPEED'),h('div',{style:{fontSize:'28px',fontWeight:'800',color:'var(--accent)'}},'38.4 MB/s')),
+              h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}},
+                h('span',{style:{display:'inline-block',padding:'2px 8px',borderRadius:'3px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',background:'rgba(80,250,123,0.15)',color:'#50fa7b'}},'DOWNLOADING'),
+                h('button',{style:{padding:'2px 10px',borderRadius:'3px',border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'var(--text)',fontSize:'9px',fontFamily:'inherit',letterSpacing:'1px',cursor:'pointer'}},'⏸ PAUSE')
+              )
+            ),
+            h('div',{style:{fontSize:'10px',color:'var(--dim)',marginBottom:'8px',letterSpacing:'0.5px'}},'4.8 GB left · ETA 2m 05s'),
+            h('div',{style:{width:'100%'}},
+              sectionLabel('QUEUE'),
+              [{n:'Severance.S02E10.2160p.WEB.H265-DRONE',pct:73,rem:'1.2 GB',tl:'48s'},{n:'Dune.Part.Three.2026.2160p.WEB.DV.H265',pct:31,rem:'8.4 GB',tl:'3m 42s'},{n:'The.Bear.S03E07.1080p.WEB.H264-GLHF',pct:89,rem:'0.4 GB',tl:'12s'}].map((g,i)=>h('div',{key:i,style:{marginBottom:'10px'}},
+                h('div',{style:{fontSize:'12px',color:'var(--text)',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}},g.n),
+                progBar(g.pct),
+                h('div',{style:{fontSize:'10px',color:'var(--dim)',marginTop:'2px'}},g.pct+'% · '+g.rem+' left · '+g.tl)
+              ))
+            ),
+            h('div',{style:{marginTop:'auto',paddingTop:'10px',fontSize:'10px',color:'var(--dim)',letterSpacing:'1px',textAlign:'center'}},'Total downloaded: 24.8 TB')
+          )
+        );
         case 'custom': return h('div',{className:'panel'},
           h(PanelHeader,{title:'CUSTOM PANEL',icon:'🌐',accentColor:'#8B5CF6'}),
           h('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',flex:1,padding:'24px',textAlign:'center'}},
@@ -4171,6 +4309,7 @@
         case 'immich': return wrap(key, h(ImmichPanel, {key, config, openSettings}));
         case 'speedtest': return wrap(key, h(SpeedtestPanel, {key, config, openSettings}));
         case 'calendar': return wrap(key, h(CalendarPanel, {key, config, openSettings}));
+        case 'sabnzbd': return wrap(key, h(SabnzbdPanel, {key, config, openSettings}));
         case 'custom': return wrap(key, h(CustomPanel, {key, config}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
@@ -4235,6 +4374,7 @@
       { type: 'immich', icon: '📸', name: 'Immich', desc: 'Photo library & recent uploads' },
       { type: 'speedtest', icon: '🚀', name: 'Speedtest', desc: 'Download, upload & ping' },
       { type: 'calendar', icon: '📅', name: 'Calendar', desc: 'iCal events & schedule' },
+      { type: 'sabnzbd', icon: '📥', name: 'SABnzbd', desc: 'Download queue, speed & progress' },
       { type: 'custom', icon: '🌐', name: 'Iframe / Custom', desc: 'Embed any URL in a panel' },
     ];
 

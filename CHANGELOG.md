@@ -1,6 +1,7 @@
 # Changelog
 
 ## v0.1.0
+- **Add:** SABnzbd panel — download queue with progress bars, current speed, status badge (Downloading/Paused/Idle), ETA, pause/resume button, total downloaded stats. Adaptive polling: 5s when active, 30s when idle. Error boundary with retry. Configurable in Settings and Setup Wizard with connection test.
 - **Add:** Add Panel gallery — "+" button in the bottom bar opens a full-screen visual panel picker. Browse all 25 panel types with icons and descriptions. Already-visible panels show a checkmark and are dimmed. Click any unchecked panel to enable it instantly.
 - **Add:** Iframe / Custom panel — embed any URL in a dashboard panel. Configurable title and zoom (0.5x–2.0x). Uses sandboxed iframe. Configure in Settings or Setup Wizard.
 - **Add:** Config backup & restore — new "Save Config Backup" and "Load Config Backup" buttons in Settings → System tab. Export full configuration to a JSON file or restore from a previous backup via native file dialogs.
