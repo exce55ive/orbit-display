@@ -382,8 +382,8 @@
     const [editingIndex, setEditingIndex] = useState(-1);
     const [editingValue, setEditingValue] = useState('');
     const [dragOverIndex, setDragOverIndex] = useState(-1);
-    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡',proxmox:'🖥️',docker:'🐳',pihole:'🛡️',truenas:'💾'};
-    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant',proxmox:'Proxmox',docker:'Docker',pihole:'Pi-hole',truenas:'TrueNAS'};
+    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',sabnzbd:'📥',homeassistant:'💡',proxmox:'🖥️',docker:'🐳',pihole:'🛡️',truenas:'💾',immich:'📸',speedtest:'🚀',calendar:'📅',network:'🌐',unraid:'🟠',custom:'🌐'};
+    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',sabnzbd:'SABnzbd',homeassistant:'Home Assistant',proxmox:'Proxmox',docker:'Docker',pihole:'Pi-hole',truenas:'TrueNAS',immich:'Immich',speedtest:'Speedtest',calendar:'Calendar',network:'Network Monitor',unraid:'Unraid',custom:'Custom / Embed'};
 
     return h('div', null,
       h('div', {className:'settings-section'}, 'PAGES'),
@@ -612,6 +612,7 @@
     { key: 'radarr', label: 'Radarr', icon: '🎬' },
     { key: 'overseerr', label: 'Overseerr', icon: '📋' },
     { key: 'nzbget', label: 'NZBGet', icon: '📦' },
+    { key: 'sabnzbd', label: 'SABnzbd', icon: '📥' },
     { key: 'signalrgb', label: 'SignalRGB', icon: '⚡' },
     { key: 'services', label: 'Services', icon: '📡' },
     { key: 'spotify', label: 'Spotify', icon: '🎵' },
