@@ -144,6 +144,22 @@
     .ha-browser-add-btn:hover:not([disabled]) { background: rgba(0,217,255,0.18); }
     .ha-browser-add-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
 
+    /* ── Sticky save button ── */
+    .sticky-save-btn { padding: 7px 18px; font-size: 11px; font-weight: 700; font-family: var(--font); letter-spacing: 1.5px; border-radius: 6px; cursor: pointer; background: var(--accent); color: var(--bg); border: none; transition: all .25s; position: relative; }
+    .sticky-save-btn:hover { opacity: 0.9; }
+    .sticky-save-btn.saved { background: var(--green); }
+    .sticky-save-btn.dirty::after { content: ''; position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+
+    /* ── Panel config inline ── */
+    .panel-config-body { padding: 12px 16px; margin-top: 4px; background: rgba(255,255,255,0.015); border: 1px solid var(--border); border-radius: 6px; display: flex; flex-direction: column; gap: 10px; }
+    .panel-configure-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-family: var(--font); font-size: 10px; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; transition: all .15s; opacity: 0.7; }
+    .panel-configure-btn:hover { opacity: 1; background: var(--accent-bg); }
+
+    /* ── Panel picker dropdown ── */
+    .panel-picker { position: absolute; top: 100%; left: 0; right: 0; z-index: 100; margin-top: 4px; background: var(--bg2); border: 1px solid var(--accent-mid); border-radius: 6px; padding: 8px; max-height: 200px; overflow-y: auto; }
+    .panel-picker-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background .12s; }
+    .panel-picker-item:hover { background: var(--accent-bg); }
+
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
@@ -154,7 +170,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script>
-  const { createElement: h, useState, useEffect, useRef, useMemo } = React;
+  const { createElement: h, useState, useEffect, useRef, useMemo, useCallback } = React;
 
   // ── Themes ──────────────────────────────────────────────────────────────────
   const THEMES = [
@@ -296,9 +312,8 @@
     );
   }
 
-  // ── Calendar Sources Editor ──────────────────────────────────────────────
-  function CalendarSourcesEditor({ cfg, setCfg }) {
-    const [expanded, setExpanded] = useState(false);
+  // ── Calendar Config Fields (inline) ─────────────────────────────────────
+  function CalendarConfigFields({ cfg, setCfg }) {
     const sources = cfg?.integrations?.calendar?.sources || [];
     function updateSource(idx, field, value) {
       const newSources = [...sources];
@@ -313,30 +328,24 @@
       const newSources = sources.filter((_, i) => i !== idx);
       setCfg(c => ({ ...c, integrations: { ...c.integrations, calendar: { ...(c.integrations?.calendar || {}), sources: newSources } } }));
     }
-    return h('div', { className: 'settings-integration' },
-      h('div', { className: 'settings-integration-header', onClick: () => setExpanded(!expanded) },
-        h('span', null, '📅 Calendar'), h('span', null, expanded ? '▼' : '▶')
-      ),
-      expanded && h('div', { className: 'settings-integration-body' },
-        sources.map((src, i) => h('div', { key: i, style: { marginBottom: '12px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' } },
-          h('div', { style: { display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' } },
-            h('input', { type: 'color', value: src.color || '#00d9ff', onChange: e => updateSource(i, 'color', e.target.value), style: { width: '28px', height: '28px', border: 'none', background: 'none', cursor: 'pointer', padding: 0 } }),
-            h('input', { className: 'settings-input', style: { flex: 1 }, placeholder: 'Calendar Name', value: src.name || '', onChange: e => updateSource(i, 'name', e.target.value) }),
-            h('button', { className: 'page-delete-btn', onClick: () => removeSource(i), style: { fontSize: '18px', padding: '0 6px' } }, '✕')
-          ),
-          h('div', { className: 'settings-label' }, 'ICAL URL'),
-          h('input', { className: 'settings-input', placeholder: 'https://calendar.google.com/...basic.ics', value: src.url || '', onChange: e => updateSource(i, 'url', e.target.value) })
-        )),
-        h('button', { className: 'settings-save', style: { background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)', marginTop: '8px' }, onClick: addSource }, '+ ADD CALENDAR'),
-        h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '6px', lineHeight: '1.5' } },
-          'Add iCal URLs from Google Calendar, Outlook, Apple Calendar, Nextcloud, or any iCal-compatible service. For Google: Settings → specific calendar → "Secret address in iCal format".')
-      )
+    return h('div', null,
+      sources.map((src, i) => h('div', { key: i, style: { marginBottom: '12px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.06)' } },
+        h('div', { style: { display: 'flex', gap: '8px', marginBottom: '6px', alignItems: 'center' } },
+          h('input', { type: 'color', value: src.color || '#00d9ff', onChange: e => updateSource(i, 'color', e.target.value), style: { width: '28px', height: '28px', border: 'none', background: 'none', cursor: 'pointer', padding: 0 } }),
+          h('input', { className: 'settings-input', style: { flex: 1 }, placeholder: 'Calendar Name', value: src.name || '', onChange: e => updateSource(i, 'name', e.target.value) }),
+          h('button', { className: 'page-delete-btn', onClick: () => removeSource(i), style: { fontSize: '18px', padding: '0 6px' } }, '✕')
+        ),
+        h('div', { className: 'settings-label' }, 'ICAL URL'),
+        h('input', { className: 'settings-input', placeholder: 'https://calendar.google.com/...basic.ics', value: src.url || '', onChange: e => updateSource(i, 'url', e.target.value) })
+      )),
+      h('button', { className: 'settings-save', style: { background: 'transparent', border: '1px solid var(--accent)', color: 'var(--accent)', marginTop: '8px', fontSize: '11px', padding: '6px 12px' }, onClick: addSource }, '+ ADD CALENDAR'),
+      h('div', { style: { fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginTop: '6px', lineHeight: '1.5' } },
+        'Add iCal URLs from Google Calendar, Outlook, Apple Calendar, Nextcloud, or any iCal-compatible service.')
     );
   }
 
-  // ── Services Config ───────────────────────────────────────────────────────
-  function ServicesConfigSection({ cfg, setCfg }) {
-    const [expanded, setExpanded] = useState(false);
+  // ── Services Config Fields (inline) ─────────────────────────────────────
+  function ServicesConfigFields({ cfg, setCfg }) {
     const autoServices = useMemo(() => {
       const i = cfg?.integrations || {};
       const list = [];
@@ -353,27 +362,72 @@
     function removeCustom(i) { setCfg(c=>({...c,customServices:(c.customServices||[]).filter((_,idx)=>idx!==i)})); }
     function updateCustom(i,field,val) { setCfg(c=>{const l=[...(c.customServices||[])]; l[i]={...l[i],[field]:val}; return {...c,customServices:l};}); }
 
-    return h('div', {className:'settings-integration'},
-      h('div', {className:'settings-integration-header', onClick:()=>setExpanded(e=>!e)},
-        h('span', null, '📡 Services'), h('span', null, expanded?'▼':'▶')
+    return h('div', null,
+      h('div', {className:'settings-label', style:{marginBottom:'6px'}}, 'AUTO-DETECTED'),
+      autoServices.length === 0
+        ? h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'12px'}}, 'No integrations configured yet.')
+        : autoServices.map((s,i) => h('div', {key:i, style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px',fontSize:'12px'}},
+            h('span', {style:{width:'8px',height:'8px',borderRadius:'50%',background:'var(--accent-mid)',flexShrink:0,display:'inline-block'}}),
+            h('span', {style:{color:'var(--text)',flex:1}}, s.name),
+            h('span', {style:{color:'var(--dim)',fontSize:'10px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'200px'}}, s.url)
+          )),
+      h('div', {className:'settings-label', style:{marginTop:'12px',marginBottom:'6px'}}, 'CUSTOM SERVICES'),
+      custom.map((s,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'6px'}},
+        h('input', {className:'settings-input', style:{flex:'1',fontSize:'11px'}, placeholder:'Name', value:s.name||'', onChange:e=>updateCustom(i,'name',e.target.value)}),
+        h('input', {className:'settings-input', style:{flex:'2',fontSize:'11px'}, placeholder:'http://...', value:s.url||'', onChange:e=>updateCustom(i,'url',e.target.value)}),
+        h('button', {onClick:()=>removeCustom(i), style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'16px',padding:'0 4px',flexShrink:0}}, '×')
+      )),
+      h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginTop:'4px',fontSize:'11px',padding:'6px 12px'}, onClick:addCustom}, '+ Add Service')
+    );
+  }
+
+  // ── SignalRGB Config Fields (inline) ─────────────────────────────────────
+  function SignalRGBConfigFields({ cfg, updateIntegration }) {
+    const [detecting, setDetecting] = useState(false);
+    const [detectMsg, setDetectMsg] = useState('');
+    const [detectOk, setDetectOk] = useState(false);
+
+    async function detect() {
+      setDetecting(true); setDetectMsg(''); setDetectOk(false);
+      try {
+        const result = await window.orbit.signalrgbDetectPort();
+        if (result && result.port && !result.error) {
+          const url = result.url || ('http://localhost:' + result.port);
+          updateIntegration('signalrgb', 'url', url);
+          setDetectMsg('Detected on port ' + result.port);
+          setDetectOk(true);
+        } else {
+          setDetectMsg(result?.error || 'Could not detect SignalRGB');
+          setDetectOk(false);
+        }
+      } catch (e) {
+        setDetectMsg('Detection failed'); setDetectOk(false);
+      }
+      setDetecting(false);
+    }
+
+    return h('div', null,
+      h('div', {className:'settings-label'}, 'URL'),
+      h('div', {style:{display:'flex',gap:'6px',alignItems:'center'}},
+        h('input', {className:'settings-input', style:{flex:1}, value:cfg.integrations?.signalrgb?.url||'', placeholder:'http://localhost:16038', onChange:e=>updateIntegration('signalrgb','url',e.target.value)}),
+        h('button', {className:'ha-browse-btn', onClick:detect, disabled:detecting, style:{whiteSpace:'nowrap'}}, detecting ? '⏳ Detecting…' : '🔍 Auto-detect')
       ),
-      expanded && h('div', {className:'settings-integration-body'},
-        h('div', {className:'settings-label', style:{marginBottom:'6px'}}, 'AUTO-DETECTED'),
-        autoServices.length === 0
-          ? h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'12px'}}, 'No integrations configured yet.')
-          : autoServices.map((s,i) => h('div', {key:i, style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px',fontSize:'12px'}},
-              h('span', {style:{width:'8px',height:'8px',borderRadius:'50%',background:'var(--accent-mid)',flexShrink:0,display:'inline-block'}}),
-              h('span', {style:{color:'var(--text)',flex:1}}, s.name),
-              h('span', {style:{color:'var(--dim)',fontSize:'10px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'200px'}}, s.url)
-            )),
-        h('div', {className:'settings-label', style:{marginTop:'12px',marginBottom:'6px'}}, 'CUSTOM SERVICES'),
-        custom.map((s,i) => h('div', {key:i, style:{display:'flex',gap:'6px',alignItems:'center',marginBottom:'6px'}},
-          h('input', {className:'settings-input', style:{flex:'1',fontSize:'11px'}, placeholder:'Name', value:s.name||'', onChange:e=>updateCustom(i,'name',e.target.value)}),
-          h('input', {className:'settings-input', style:{flex:'2',fontSize:'11px'}, placeholder:'http://...', value:s.url||'', onChange:e=>updateCustom(i,'url',e.target.value)}),
-          h('button', {onClick:()=>removeCustom(i), style:{background:'none',border:'none',color:'#ff5555',cursor:'pointer',fontSize:'16px',padding:'0 4px',flexShrink:0}}, '×')
-        )),
-        h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginTop:'4px',fontSize:'11px',padding:'6px 12px'}, onClick:addCustom}, '+ Add Service')
-      )
+      detectMsg && h('div', {style:{fontSize:'11px',marginTop:'4px',color:detectOk?'var(--green)':'#ff5555',letterSpacing:'0.5px'}}, (detectOk?'✓ ':'✗ ')+detectMsg)
+    );
+  }
+
+  // ── Links Config Fields (inline) ────────────────────────────────────────
+  function LinksConfigFields({ cfg, setCfg }) {
+    return h('div', null,
+      (cfg.links||[]).map((lnk,i) =>
+        h('div', {key:i, style:{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}},
+          h('input', {className:'settings-input', style:{width:'44px'}, placeholder:'🔗', value:lnk.icon||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],icon:e.target.value};setCfg(c=>({...c,links:l}));}}),
+          h('input', {className:'settings-input', style:{flex:1}, placeholder:'Label', value:lnk.label||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],label:e.target.value};setCfg(c=>({...c,links:l}));}}),
+          h('input', {className:'settings-input', style:{flex:2}, placeholder:'https://...', value:lnk.url||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],url:e.target.value};setCfg(c=>({...c,links:l}));}}),
+          h('button', {className:'page-delete-btn', onClick:()=>{const l=(cfg.links||[]).filter((_,idx)=>idx!==i);setCfg(c=>({...c,links:l}));}, style:{fontSize:'18px',padding:'0 6px'}}, '✕')
+        )
+      ),
+      h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginTop:'4px',fontSize:'11px',padding:'6px 12px'}, onClick:()=>{const l=[...(cfg.links||[]),{icon:'🔗',label:'New Link',url:'https://'}];setCfg(c=>({...c,links:l}));}}, '+ ADD LINK')
     );
   }
 
@@ -382,51 +436,123 @@
     const [editingIndex, setEditingIndex] = useState(-1);
     const [editingValue, setEditingValue] = useState('');
     const [dragOverIndex, setDragOverIndex] = useState(-1);
-    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',sabnzbd:'📥',homeassistant:'💡',proxmox:'🖥️',docker:'🐳',pihole:'🛡️',truenas:'💾',immich:'📸',speedtest:'🚀',calendar:'📅',network:'🌐',unraid:'🟠',custom:'🌐'};
-    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',sabnzbd:'SABnzbd',homeassistant:'Home Assistant',proxmox:'Proxmox',docker:'Docker',pihole:'Pi-hole',truenas:'TrueNAS',immich:'Immich',speedtest:'Speedtest',calendar:'Calendar',network:'Network Monitor',unraid:'Unraid',custom:'Custom / Embed'};
+    const [pickerPage, setPickerPage] = useState(-1);
+    const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',sabnzbd:'📥',homeassistant:'💡',proxmox:'🖥️',docker:'🐳',pihole:'🛡️',truenas:'💾',immich:'📸',speedtest:'🚀',calendar:'📅',network:'🌐',unraid:'🟠',custom:'🌐',weather:'🌤️',services:'📡'};
+    const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',sabnzbd:'SABnzbd',homeassistant:'Home Assistant',proxmox:'Proxmox',docker:'Docker',pihole:'Pi-hole',truenas:'TrueNAS',immich:'Immich',speedtest:'Speedtest',calendar:'Calendar',network:'Network Monitor',unraid:'Unraid',custom:'Custom / Embed',weather:'Weather',services:'Services'};
+
+    function addPage() {
+      const name = prompt('Page name:');
+      if (!name || !name.trim()) return;
+      const newPage = { id: Date.now().toString(), name: name.trim(), panels: [] };
+      setCfg(c => ({ ...c, pages: [...(c.pages || []), newPage] }));
+    }
+
+    function deletePage(idx) {
+      const page = (cfg.pages || [])[idx];
+      if (page && page.panels && page.panels.length > 0) {
+        if (!confirm('Delete "' + (page.name || 'Page') + '"? It has ' + page.panels.length + ' panel(s).')) return;
+      }
+      setCfg(c => ({ ...c, pages: (c.pages || []).filter((_, i) => i !== idx) }));
+    }
+
+    function removePanel(pageIdx, panelIdx) {
+      setCfg(c => {
+        const pages = (c.pages || []).map((p, i) => i === pageIdx ? { ...p, panels: p.panels.filter((_, pi) => pi !== panelIdx) } : p);
+        return { ...c, pages };
+      });
+    }
+
+    function movePanel(pageIdx, panelIdx, dir) {
+      setCfg(c => {
+        const pages = [...(c.pages || [])];
+        const panels = [...pages[pageIdx].panels];
+        const newIdx = panelIdx + dir;
+        if (newIdx < 0 || newIdx >= panels.length) return c;
+        const tmp = panels[panelIdx]; panels[panelIdx] = panels[newIdx]; panels[newIdx] = tmp;
+        pages[pageIdx] = { ...pages[pageIdx], panels };
+        return { ...c, pages };
+      });
+    }
+
+    function addPanelToPage(pageIdx, type) {
+      setCfg(c => {
+        const pages = [...(c.pages || [])];
+        pages[pageIdx] = { ...pages[pageIdx], panels: [...pages[pageIdx].panels, { type }] };
+        return { ...c, pages };
+      });
+      setPickerPage(-1);
+    }
+
+    function getAvailablePanels(pageIdx) {
+      const panels = cfg.panels || {};
+      const onPage = new Set(((cfg.pages || [])[pageIdx]?.panels || []).map(p => p.type));
+      return PANEL_DEFS.filter(p => !p.alias && panels[p.key] !== false && !onPage.has(p.key));
+    }
 
     return h('div', null,
-      h('div', {className:'settings-section'}, 'PAGES'),
-      (cfg.pages||[]).map((page,i) =>
-        h('div', {key:page.id||i, className:'page-row'+(dragOverIndex===i?' drag-over':''), draggable:true,
-          onDragStart:e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';},
-          onDragOver:e=>{e.preventDefault();setDragOverIndex(i);},
-          onDragLeave:()=>setDragOverIndex(-1),
-          onDragEnd:()=>setDragOverIndex(-1),
-          onDrop:e=>{e.preventDefault();setDragOverIndex(-1);const from=Number(e.dataTransfer.getData('text/plain'));if(from===i||isNaN(from))return;const pages=cfg.pages.slice();const moved=pages.splice(from,1)[0];pages.splice(i,0,moved);setCfg({...cfg,pages});}
-        },
-          h('span', {className:'page-drag-handle'}, '⠿'),
-          editingIndex===i
-            ? h('input', {className:'page-rename-input', value:editingValue, autoFocus:true,
-                onChange:e=>setEditingValue(e.target.value),
-                onBlur:()=>{if(editingValue.trim()){cfg.pages[i].name=editingValue.trim();setCfg({...cfg});}setEditingIndex(-1);},
-                onKeyDown:e=>{if(e.key==='Enter'){if(editingValue.trim()){cfg.pages[i].name=editingValue.trim();setCfg({...cfg});}setEditingIndex(-1);}if(e.key==='Escape')setEditingIndex(-1);}
-              })
-            : h('div', {style:{flex:1}},
-                h('span', {className:'page-name-display'}, page.name||'Page '+(i+1)),
-                h('div', {className:'page-panels-info'}, (page.panels||[]).map(p=>(ICONS[p.type]||'▪')+' '+(NAMES[p.type]||p.type)).join('  '))
-              ),
-          h('button', {className:'page-edit-btn', onClick:()=>{setEditingIndex(i);setEditingValue(page.name||'Page '+(i+1));}}, '✏')
-        )
+      h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'12px'}},
+        h('div', {className:'settings-section', style:{margin:0}}, 'PAGES'),
+        h('button', {className:'layout-save-btn', onClick:addPage}, '+ ADD PAGE')
       ),
-      (cfg.pages||[]).length > 0 && h('div', {style:{marginTop:'16px'}},
-        h('div', {className:'settings-section'}, 'PANEL ORDER'),
-        (cfg.pages||[]).map((page,pageIdx) => {
-          if (!page.panels||page.panels.length===0) return null;
-          return h('div', {key:page.id||pageIdx, style:{marginBottom:'12px'}},
-            h('div', {style:{fontSize:'10px',color:'var(--accent)',marginBottom:'5px',letterSpacing:'1px'}}, (page.name||'Page '+(pageIdx+1)).toUpperCase()),
-            page.panels.map((panel,pi) =>
+
+      (cfg.pages||[]).map((page,i) =>
+        h('div', {key:page.id||i, style:{marginBottom:'16px'}},
+          // Page header row
+          h('div', {className:'page-row'+(dragOverIndex===i?' drag-over':''), draggable:true,
+            onDragStart:e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';},
+            onDragOver:e=>{e.preventDefault();setDragOverIndex(i);},
+            onDragLeave:()=>setDragOverIndex(-1),
+            onDragEnd:()=>setDragOverIndex(-1),
+            onDrop:e=>{e.preventDefault();setDragOverIndex(-1);const from=Number(e.dataTransfer.getData('text/plain'));if(from===i||isNaN(from))return;const pages=cfg.pages.slice();const moved=pages.splice(from,1)[0];pages.splice(i,0,moved);setCfg({...cfg,pages});}
+          },
+            h('span', {className:'page-drag-handle'}, '⠿'),
+            editingIndex===i
+              ? h('input', {className:'page-rename-input', value:editingValue, autoFocus:true,
+                  onChange:e=>setEditingValue(e.target.value),
+                  onBlur:()=>{if(editingValue.trim()){const pages=[...(cfg.pages||[])];pages[i]={...pages[i],name:editingValue.trim()};setCfg({...cfg,pages});}setEditingIndex(-1);},
+                  onKeyDown:e=>{if(e.key==='Enter'){if(editingValue.trim()){const pages=[...(cfg.pages||[])];pages[i]={...pages[i],name:editingValue.trim()};setCfg({...cfg,pages});}setEditingIndex(-1);}if(e.key==='Escape')setEditingIndex(-1);}
+                })
+              : h('span', {className:'page-name-display', style:{flex:1}}, page.name||'Page '+(i+1)),
+            h('button', {className:'page-edit-btn', onClick:()=>{setEditingIndex(i);setEditingValue(page.name||'Page '+(i+1));}}, '✏'),
+            h('button', {className:'page-delete-btn', onClick:()=>deletePage(i)}, '✕')
+          ),
+
+          // Panels on this page
+          h('div', {style:{paddingLeft:'28px',marginTop:'4px'}},
+            (page.panels||[]).map((panel,pi) =>
               h('div', {key:pi, style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px',padding:'5px 8px',background:'rgba(255,255,255,0.02)',border:'1px solid var(--border)',borderRadius:'4px'}},
-                h('span', {style:{color:'var(--dim)',fontSize:'12px',minWidth:'18px'}}, (pi+1)+'.'),
-                h('span', null, (ICONS[panel.type]||'▪')+' '+(NAMES[panel.type]||panel.type)),
-                h('div', {style:{marginLeft:'auto',display:'flex',gap:'4px'}},
-                  h('button', {disabled:pi===0, onClick:()=>{if(pi<=0)return;const ps=cfg.pages[pageIdx].panels.slice();const t=ps[pi];ps[pi]=ps[pi-1];ps[pi-1]=t;cfg.pages[pageIdx].panels=ps;setCfg({...cfg});}, style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===0?0.3:1}}, '↑'),
-                  h('button', {disabled:pi>=page.panels.length-1, onClick:()=>{if(pi>=page.panels.length-1)return;const ps=cfg.pages[pageIdx].panels.slice();const t=ps[pi];ps[pi]=ps[pi+1];ps[pi+1]=t;cfg.pages[pageIdx].panels=ps;setCfg({...cfg});}, style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi>=page.panels.length-1?0.3:1}}, '↓')
+                h('span', {style:{fontSize:'14px',width:'20px',textAlign:'center'}}, ICONS[panel.type]||'▪'),
+                h('span', {style:{flex:1,fontSize:'12px',color:'var(--text)'}}, NAMES[panel.type]||panel.type),
+                h('div', {style:{display:'flex',gap:'2px'}},
+                  h('button', {disabled:pi===0, onClick:()=>movePanel(i,pi,-1), style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi===0?0.3:1}}, '↑'),
+                  h('button', {disabled:pi>=(page.panels||[]).length-1, onClick:()=>movePanel(i,pi,1), style:{background:'none',border:'none',color:'var(--dim)',cursor:'pointer',fontSize:'12px',opacity:pi>=(page.panels||[]).length-1?0.3:1}}, '↓'),
+                  h('button', {onClick:()=>removePanel(i,pi), className:'page-delete-btn', style:{fontSize:'13px',marginLeft:'4px'}}, '✕')
                 )
               )
+            ),
+
+            // Add panel button + picker
+            h('div', {style:{marginTop:'6px',position:'relative'}},
+              h('button', {style:{background:'none',border:'1px dashed var(--border)',borderRadius:'4px',padding:'5px 10px',color:'var(--dim)',cursor:'pointer',fontSize:'11px',fontFamily:'var(--font)',letterSpacing:'1px',transition:'all .15s'},
+                onClick:()=>setPickerPage(pickerPage===i?-1:i)
+              }, '+ ADD PANEL'),
+              pickerPage===i && h('div', {className:'panel-picker'},
+                getAvailablePanels(i).length===0
+                  ? h('div', {style:{fontSize:'11px',color:'var(--dim)',textAlign:'center',padding:'8px'}}, 'All enabled panels are on this page')
+                  : getAvailablePanels(i).map(p =>
+                      h('div', {key:p.key, className:'panel-picker-item', onClick:()=>addPanelToPage(i,p.key)},
+                        h('span', {style:{fontSize:'14px',width:'20px',textAlign:'center'}}, p.icon),
+                        h('span', {style:{color:'var(--text)'}}, p.label)
+                      )
+                    )
+              )
             )
-          );
-        })
+          )
+        )
+      ),
+
+      (cfg.pages||[]).length===0 && h('div', {style:{textAlign:'center',padding:'32px',color:'var(--dim)',fontSize:'12px',border:'1px dashed var(--border)',borderRadius:'8px'}},
+        'No pages yet. Click "+ Add Page" to get started.'
       )
     );
   }
@@ -602,7 +728,7 @@
     );
   }
 
-  // ── Panels Tab (panel visibility toggles) ─────────────────────────────
+  // ── Panel definitions ─────────────────────────────────────────────────────
   const PANEL_DEFS = [
     { key: 'clock', label: 'Clock & Weather', icon: '🕐' },
     { key: 'weather', label: 'Weather', icon: '🌤️', alias: 'clock' },
@@ -618,6 +744,7 @@
     { key: 'spotify', label: 'Spotify', icon: '🎵' },
     { key: 'lights', label: 'Home Assistant', icon: '💡' },
     { key: 'system', label: 'System Monitor', icon: '💻' },
+    { key: 'links', label: 'Quick Links', icon: '🔗' },
     { key: 'proxmox', label: 'Proxmox', icon: '🖥️' },
     { key: 'docker', label: 'Docker', icon: '🐳' },
     { key: 'pihole', label: 'Pi-hole', icon: '🛡️' },
@@ -630,45 +757,134 @@
     { key: 'custom', label: 'Iframe / Custom', icon: '🌐' },
   ];
 
-  function PanelsTab({ cfg, setCfg }) {
+  // ── Integration field definitions per panel ──────────────────────────────
+  const PANEL_INTEGRATIONS = {
+    clock:      [{ key:'weather', fields:[{field:'city',label:'CITY',placeholder:'Perth'}] }],
+    nowplaying: [
+      { key:'tautulli', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}] },
+      { key:'plex', fields:[{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}] }
+    ],
+    jellyfin:   [{ key:'jellyfin', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}] }],
+    sonarr:     [{ key:'sonarr', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}] }],
+    radarr:     [{ key:'radarr', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}] }],
+    overseerr:  [{ key:'overseerr', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}] }],
+    nzbget:     [{ key:'nzbget', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}] }],
+    sabnzbd:    [{ key:'sabnzbd', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8080'},{field:'apiKey',label:'API KEY',type:'password'}] }],
+    spotify:    [{ key:'spotify', fields:[{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}] }],
+    proxmox:    [{ key:'proxmox', fields:[{field:'url',label:'URL',placeholder:'https://192.168.1.x:8006'},{field:'tokenId',label:'API TOKEN ID',placeholder:'user@pam!token-name'},{field:'tokenSecret',label:'API TOKEN SECRET',type:'password'},{field:'node',label:'NODE NAME',placeholder:'pve'}] }],
+    docker:     [{ key:'docker', fields:[{field:'host',label:'HOST',placeholder:'localhost'},{field:'port',label:'PORT',type:'number',placeholder:'2375'},{field:'useTLS',label:'USE TLS (HTTPS)',type:'checkbox'}] }],
+    pihole:     [{ key:'pihole', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY'}] }],
+    truenas:    [{ key:'truenas', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}] }],
+    network:    [{ key:'network', fields:[{field:'routerUrl',label:'ROUTER URL',placeholder:'http://192.168.1.1'},{field:'routerType',label:'ROUTER TYPE',type:'select',options:['generic','openwrt','pfsense','unifi']},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}] }],
+    unraid:     [{ key:'unraid', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}] }],
+    immich:     [{ key:'immich', fields:[{field:'url',label:'URL',placeholder:'http://192.168.1.x:2283'},{field:'apiKey',label:'API KEY',type:'password'}] }],
+    speedtest:  [{ key:'speedtest', fields:[{field:'autoRun',label:'AUTO-RUN ON SCHEDULE',type:'checkbox'},{field:'intervalHours',label:'INTERVAL (HOURS)',type:'number',placeholder:'6'}] }],
+    custom:     [{ key:'custom', fields:[{field:'url',label:'URL',placeholder:'https://example.com'},{field:'title',label:'PANEL TITLE',placeholder:'Custom'},{field:'zoom',label:'ZOOM (0.5 – 2.0)',type:'number',placeholder:'1.0'}] }],
+    lights:     [{ key:'homeassistant', fields:[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}] }],
+  };
+
+  // Panels with special config components
+  const SPECIAL_CONFIG_PANELS = new Set(['signalrgb','services','calendar','links']);
+
+  // ── Panels Tab (toggles + inline config) ──────────────────────────────────
+  function PanelsTab({ cfg, setCfg, updateIntegration }) {
     const panels = cfg.panels || {};
+    const [expandedPanels, setExpandedPanels] = useState({});
+
     function toggle(key) {
-      const current = panels[key] !== false; // default true
+      const current = panels[key] !== false;
       const newPanels = { ...(cfg.panels || {}), [key]: !current };
-      // When re-enabling a panel, append it to the end of panelOrder
       let newOrder = cfg.panelOrder ? [...cfg.panelOrder] : undefined;
       if (!current && newOrder) {
-        // Becoming visible — remove any stale entry then append to end
         newOrder = newOrder.filter(id => id !== key);
         newOrder.push(key);
       }
       setCfg(c => ({ ...c, panels: newPanels, ...(newOrder ? { panelOrder: newOrder } : {}) }));
     }
+
+    function toggleConfig(key) {
+      setExpandedPanels(p => ({ ...p, [key]: !p[key] }));
+    }
+
+    function hasConfig(key) {
+      return PANEL_INTEGRATIONS[key] || SPECIAL_CONFIG_PANELS.has(key);
+    }
+
+    function renderFields(integrationKey, fields) {
+      return fields.map(f => h(React.Fragment, {key:f.field||f.type},
+        f.type === 'ha-entities'
+          ? h(HAEntitiesEditor, {integrationKey, cfg, updateIntegration})
+          : f.type === 'checkbox'
+            ? h('label', {style:{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',marginTop:'4px'}},
+                h('input', {type:'checkbox', checked:!!cfg.integrations?.[integrationKey]?.[f.field], onChange:e=>updateIntegration(integrationKey,f.field,e.target.checked), style:{accentColor:'var(--accent)',width:'16px',height:'16px'}}),
+                h('span', {className:'settings-label', style:{margin:0}}, f.label))
+            : h(React.Fragment, null,
+              h('div', {className:'settings-label'}, f.label),
+              f.type === 'password'
+                ? h('input', {className:'settings-input', type:'password', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value), placeholder:f.placeholder||''})
+                : f.type === 'number'
+                ? h('input', {className:'settings-input', type:'number', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,parseInt(e.target.value)||0), placeholder:f.placeholder||''})
+                : f.type === 'select'
+                ? h('select', {className:'settings-input', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value)},
+                    (f.options||[]).map(o => h('option', {key:o, value:o}, o.charAt(0).toUpperCase()+o.slice(1))))
+                : h('input', {className:'settings-input', type:'text', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value), placeholder:f.placeholder||''})
+            )
+      ));
+    }
+
+    function renderConfigBody(panelKey) {
+      // Special panels
+      if (panelKey === 'signalrgb') return h(SignalRGBConfigFields, {cfg, updateIntegration});
+      if (panelKey === 'services') return h(ServicesConfigFields, {cfg, setCfg});
+      if (panelKey === 'calendar') return h(CalendarConfigFields, {cfg, setCfg});
+      if (panelKey === 'links') return h(LinksConfigFields, {cfg, setCfg});
+
+      // Standard integration fields
+      const integrations = PANEL_INTEGRATIONS[panelKey];
+      if (!integrations) return null;
+      return h(React.Fragment, null,
+        integrations.map((intg, idx) => h('div', {key:intg.key, style:idx > 0 ? {marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--border)'} : null},
+          integrations.length > 1 && h('div', {style:{fontSize:'10px',color:'var(--accent)',letterSpacing:'1.5px',marginBottom:'8px',fontWeight:'700'}}, intg.key.toUpperCase()),
+          renderFields(intg.key, intg.fields)
+        ))
+      );
+    }
+
     return h('div', null,
       h('div', {className:'settings-section'}, 'PANEL VISIBILITY'),
       h('div', {style:{fontSize:'11px',color:'var(--dim)',marginBottom:'16px',lineHeight:'1.6',letterSpacing:'0.5px'}},
-        'Hidden panels will not render or poll, saving resources. Changes apply immediately.'
+        'Toggle panels on/off globally. Click Configure to set up each service.'
       ),
       PANEL_DEFS.filter(p => !p.alias).map(p => {
         const isVisible = panels[p.key] !== false;
-        return h('div', {key:p.key, style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderBottom:'1px solid rgba(255,255,255,0.04)'}},
-          h('div', {style:{display:'flex',alignItems:'center',gap:'10px'}},
-            h('span', {style:{fontSize:'18px',width:'24px',textAlign:'center'}}, p.icon),
-            h('span', {style:{fontSize:'13px',color:'var(--text)',fontWeight:'600'}}, p.label)
+        const isExpanded = expandedPanels[p.key];
+        const configAvailable = hasConfig(p.key);
+        return h('div', {key:p.key, style:{borderBottom:'1px solid rgba(255,255,255,0.04)'}},
+          h('div', {style:{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0'}},
+            h('div', {style:{display:'flex',alignItems:'center',gap:'10px'}},
+              h('span', {style:{fontSize:'18px',width:'24px',textAlign:'center'}}, p.icon),
+              h('span', {style:{fontSize:'13px',color:'var(--text)',fontWeight:'600'}}, p.label)
+            ),
+            h('div', {style:{display:'flex',alignItems:'center',gap:'8px'}},
+              isVisible && configAvailable && h('button', {className:'panel-configure-btn', onClick:()=>toggleConfig(p.key)}, isExpanded ? '▼ Configure' : '⚙ Configure'),
+              h('button', {
+                onClick:()=>toggle(p.key),
+                style:{
+                  width:'42px', height:'22px', borderRadius:'11px', border:'none', cursor:'pointer',
+                  background: isVisible ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
+                  position:'relative', transition:'background .2s', flexShrink:0
+                }
+              },
+                h('div', {style:{
+                  width:'16px', height:'16px', borderRadius:'50%', background:'#fff',
+                  position:'absolute', top:'3px', transition:'left .2s',
+                  left: isVisible ? '23px' : '3px'
+                }})
+              )
+            )
           ),
-          h('button', {
-            onClick:()=>toggle(p.key),
-            style:{
-              width:'42px', height:'22px', borderRadius:'11px', border:'none', cursor:'pointer',
-              background: isVisible ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
-              position:'relative', transition:'background .2s', flexShrink:0
-            }
-          },
-            h('div', {style:{
-              width:'16px', height:'16px', borderRadius:'50%', background:'#fff',
-              position:'absolute', top:'3px', transition:'left .2s',
-              left: isVisible ? '23px' : '3px'
-            }})
+          isVisible && isExpanded && configAvailable && h('div', {className:'panel-config-body', style:{marginBottom:'10px'}},
+            renderConfigBody(p.key)
           )
         );
       })
@@ -732,7 +948,6 @@
     function saveCurrentAsLayout() {
       const name = saveName.trim();
       if (!name) return;
-      // generate a unique key from the name
       const key = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
       if (!key || isBuiltinLayout('_' + key)) { flashMsg('Cannot use reserved name'); return; }
       const finalKey = key.startsWith('_') ? key.slice(1) : key;
@@ -766,7 +981,6 @@
       const newLayouts = { ...(cfg.layouts || {}) };
       delete newLayouts[key];
       const newCurrent = currentKey === key ? '_default' : currentKey;
-      // If we deleted the active layout, also apply Default
       if (currentKey === key) {
         const def = BUILTIN_LAYOUTS._default;
         setCfg(c => ({
@@ -802,7 +1016,6 @@
         'Save and switch between different panel arrangements. Layouts capture panel order, visibility, and collapsed state.'
       ),
 
-      // Layout list
       Object.entries(allLayouts).map(([key, layout]) => {
         const isActive = key === currentKey;
         const isPreset = isBuiltinLayout(key);
@@ -828,7 +1041,6 @@
         );
       }),
 
-      // Save current layout section
       h('div', {className:'settings-section', style:{marginTop:'24px'}}, 'SAVE CURRENT LAYOUT'),
       h('div', {className:'layout-save-row'},
         h('input', {
@@ -841,48 +1053,7 @@
         h('button', {className:'layout-save-btn', onClick:saveCurrentAsLayout}, 'SAVE')
       ),
 
-      // Flash message
       msg && h('div', {style:{fontSize:'12px',color:'var(--green)',marginTop:'8px',letterSpacing:'1px'}}, msg)
-    );
-  }
-
-  // ── SignalRGB Section with Auto-detect ─────────────────────────────────
-  function SignalRGBSection({ cfg, updateIntegration, expanded, toggle }) {
-    const [detecting, setDetecting] = useState(false);
-    const [detectMsg, setDetectMsg] = useState('');
-    const [detectOk, setDetectOk] = useState(false);
-
-    async function detect() {
-      setDetecting(true); setDetectMsg(''); setDetectOk(false);
-      try {
-        const result = await window.orbit.signalrgbDetectPort();
-        if (result && result.port && !result.error) {
-          const url = result.url || ('http://localhost:' + result.port);
-          updateIntegration('signalrgb', 'url', url);
-          setDetectMsg('Detected on port ' + result.port);
-          setDetectOk(true);
-        } else {
-          setDetectMsg(result?.error || 'Could not detect SignalRGB');
-          setDetectOk(false);
-        }
-      } catch (e) {
-        setDetectMsg('Detection failed'); setDetectOk(false);
-      }
-      setDetecting(false);
-    }
-
-    return h('div', {className:'settings-integration'},
-      h('div', {className:'settings-integration-header', onClick:toggle},
-        h('span', null, '⚡ SignalRGB'), h('span', null, expanded?'▼':'▶')
-      ),
-      expanded && h('div', {className:'settings-integration-body'},
-        h('div', {className:'settings-label'}, 'URL'),
-        h('div', {style:{display:'flex',gap:'6px',alignItems:'center'}},
-          h('input', {className:'settings-input', style:{flex:1}, value:cfg.integrations?.signalrgb?.url||'', placeholder:'http://localhost:16038', onChange:e=>updateIntegration('signalrgb','url',e.target.value)}),
-          h('button', {className:'ha-browse-btn', onClick:detect, disabled:detecting, style:{whiteSpace:'nowrap'}}, detecting ? '⏳ Detecting…' : '🔍 Auto-detect')
-        ),
-        detectMsg && h('div', {style:{fontSize:'11px',marginTop:'4px',color:detectOk?'var(--green)':'#ff5555',letterSpacing:'0.5px'}}, (detectOk?'✓ ':'✗ ')+detectMsg)
-      )
     );
   }
 
@@ -891,12 +1062,13 @@
     const [cfg, setCfg] = useState(null);
     const [tab, setTab] = useState('pages');
     const [saved, setSaved] = useState(false);
-    const [expanded, setExpanded] = useState({});
+    const origRef = useRef(null);
 
     useEffect(() => {
       window.orbit?.loadConfig().then(c => {
         if (c) {
           setCfg(c);
+          origRef.current = JSON.stringify(c);
           const t = THEMES.find(t => t.id === c.theme?.themeId);
           if (t) applyTheme(t);
           else if (c.theme?.accentColor) document.documentElement.style.setProperty('--accent', c.theme.accentColor);
@@ -904,10 +1076,13 @@
       }).catch(()=>{});
     }, []);
 
+    const dirty = cfg && origRef.current ? JSON.stringify(cfg) !== origRef.current : false;
+
     const save = async () => {
       await window.orbit?.saveConfig(cfg);
+      origRef.current = JSON.stringify(cfg);
       setSaved(true);
-      setTimeout(()=>setSaved(false), 2000);
+      setTimeout(()=>setSaved(false), 1500);
     };
 
     function updateIntegration(key, field, value) {
@@ -920,37 +1095,6 @@
       });
     }
 
-    function toggleExpand(key) { setExpanded(p=>({...p,[key]:!p[key]})); }
-
-    function integrationSection(key, label, emoji, fields) {
-      return h('div', {className:'settings-integration'},
-        h('div', {className:'settings-integration-header', onClick:()=>toggleExpand(key)},
-          h('span', null, emoji+' '+label), h('span', null, expanded[key]?'▼':'▶')
-        ),
-        expanded[key] && h('div', {className:'settings-integration-body'},
-          fields.map(f => h(React.Fragment, {key:f.field},
-            f.type === 'ha-entities'
-              ? h(HAEntitiesEditor, {integrationKey:key, cfg, updateIntegration})
-              : f.type === 'checkbox'
-                ? h('label', {style:{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',marginTop:'4px'}},
-                    h('input', {type:'checkbox', checked:!!cfg.integrations?.[key]?.[f.field], onChange:e=>updateIntegration(key,f.field,e.target.checked), style:{accentColor:'var(--accent)',width:'16px',height:'16px'}}),
-                    h('span', {className:'settings-label', style:{margin:0}}, f.label))
-                : h(React.Fragment, null,
-                  h('div', {className:'settings-label'}, f.label),
-                  f.type === 'password'
-                    ? h('input', {className:'settings-input', type:'password', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
-                    : f.type === 'number'
-                    ? h('input', {className:'settings-input', type:'number', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,parseInt(e.target.value)||0), placeholder:f.placeholder||''})
-                    : f.type === 'select'
-                    ? h('select', {className:'settings-input', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value)},
-                        (f.options||[]).map(o => h('option', {key:o, value:o}, o.charAt(0).toUpperCase()+o.slice(1))))
-                    : h('input', {className:'settings-input', type:'text', value:cfg.integrations?.[key]?.[f.field]||'', onChange:e=>updateIntegration(key,f.field,e.target.value), placeholder:f.placeholder||''})
-                )
-          ))
-        )
-      );
-    }
-
     const TABS = ['pages','panels','layouts','prefs','theme','system','about'];
 
     if (!cfg) return h('div', {style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',color:'var(--dim)',fontSize:'12px',letterSpacing:'2px'}}, 'LOADING...');
@@ -959,7 +1103,13 @@
       // Titlebar
       h('div', {className:'settings-titlebar'},
         h('div', {className:'settings-app-title'}, 'ORBIT'),
-        h('button', {className:'settings-close-btn', onClick:()=>window.close(), title:'Close'}, '✕')
+        h('div', {style:{display:'flex',gap:'10px',alignItems:'center'}},
+          h('button', {
+            className:'sticky-save-btn'+(saved?' saved':'')+(dirty && !saved?' dirty':''),
+            onClick:save
+          }, saved ? '✓ Saved' : '💾 Save'),
+          h('button', {className:'settings-close-btn', onClick:()=>window.close(), title:'Close'}, '✕')
+        )
       ),
 
       // Tabs
@@ -971,69 +1121,16 @@
       h('div', {className:'settings-body'},
 
         // ── Pages tab ──
-        tab === 'pages' && h('div', null,
-          h(PagesTab, {cfg, setCfg}),
-          h('div', {style:{marginTop:'16px'}},
-            h('div', {id:'settings-weather'}, integrationSection('weather','Weather','🌤️',[{field:'city',label:'CITY',placeholder:'Perth'}])),
-            h('div', {id:'settings-tautulli'}, integrationSection('tautulli','Tautulli','🎬',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8181'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-plex'}, integrationSection('plex','Plex','▶️',[{field:'url',label:'SERVER URL',placeholder:'http://192.168.1.x:32400'},{field:'token',label:'PLEX TOKEN'}])),
-            h('div', {id:'settings-sonarr'}, integrationSection('sonarr','Sonarr','📺',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8989'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-radarr'}, integrationSection('radarr','Radarr','🎥',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:7878'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-overseerr'}, integrationSection('overseerr','Overseerr','📋',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:5055'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-nzbget'}, integrationSection('nzbget','NZBGet','📦',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:6789'},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
-            h('div', {id:'settings-sabnzbd'}, integrationSection('sabnzbd','SABnzbd','📥',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8080'},{field:'apiKey',label:'API KEY',type:'password'}])),
-            h('div', {id:'settings-spotify'}, integrationSection('spotify','Spotify','🎵',[{field:'clientId',label:'CLIENT ID'},{field:'clientSecret',label:'CLIENT SECRET'}])),
-            h('div', {id:'settings-jellyfin'}, integrationSection('jellyfin','Jellyfin','🎞️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:8096'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-proxmox'}, integrationSection('proxmox','Proxmox','🖥️',[{field:'url',label:'URL',placeholder:'https://192.168.1.x:8006'},{field:'tokenId',label:'API TOKEN ID',placeholder:'user@pam!token-name'},{field:'tokenSecret',label:'API TOKEN SECRET',type:'password'},{field:'node',label:'NODE NAME',placeholder:'pve'}])),
-            h('div', {id:'settings-docker'}, integrationSection('docker','Docker','🐳',[{field:'host',label:'HOST',placeholder:'localhost'},{field:'port',label:'PORT',type:'number',placeholder:'2375'},{field:'useTLS',label:'USE TLS (HTTPS)',type:'checkbox'}])),
-            h('div', {id:'settings-pihole'}, integrationSection('pihole','Pi-hole','🛡️',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY'}])),
-            h('div', {id:'settings-truenas'}, integrationSection('truenas','TrueNAS','💾',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
-            h('div', {id:'settings-network'}, integrationSection('network','Network Monitor','🌐',[{field:'routerUrl',label:'ROUTER URL',placeholder:'http://192.168.1.1'},{field:'routerType',label:'ROUTER TYPE',type:'select',options:['generic','openwrt','pfsense','unifi']},{field:'username',label:'USERNAME'},{field:'password',label:'PASSWORD',type:'password'}])),
-            h('div', {id:'settings-unraid'}, integrationSection('unraid','Unraid','🟠',[{field:'url',label:'URL',placeholder:'http://192.168.1.x'},{field:'apiKey',label:'API KEY',type:'password'}])),
-            h('div', {id:'settings-immich'}, integrationSection('immich','Immich','📸',[{field:'url',label:'URL',placeholder:'http://192.168.1.x:2283'},{field:'apiKey',label:'API KEY',type:'password'}])),
-            h('div', {id:'settings-speedtest'}, integrationSection('speedtest','Speedtest','🚀',[{field:'autoRun',label:'AUTO-RUN ON SCHEDULE',type:'checkbox'},{field:'intervalHours',label:'INTERVAL (HOURS)',type:'number',placeholder:'6'}])),
-            h('div', {id:'settings-calendar'}, h(CalendarSourcesEditor, {cfg, setCfg})),
-            h('div', {id:'settings-custom'}, integrationSection('custom','Custom / Iframe Panel','🌐',[{field:'url',label:'URL',placeholder:'https://example.com'},{field:'title',label:'PANEL TITLE',placeholder:'Custom'},{field:'zoom',label:'ZOOM (0.5 – 2.0)',type:'number',placeholder:'1.0'}])),
-            h('div', {id:'settings-signalrgb'}, h(SignalRGBSection, {cfg, updateIntegration, expanded:expanded.signalrgb, toggle:()=>toggleExpand('signalrgb')})),
-            h('div', {id:'settings-ha'}, integrationSection('homeassistant','Home Assistant','🏠',[{field:'url',label:'URL',placeholder:'http://homeassistant.local:8123'},{field:'token',label:'LONG-LIVED ACCESS TOKEN'},{field:'lights',type:'ha-entities'}])),
-            h('div', {id:'settings-services'}, h(ServicesConfigSection, {cfg, setCfg})),
-            h('div', {id:'settings-links'},
-              h('div', {className:'settings-section'}, '🔗 QUICK LINKS'),
-              (cfg.links||[]).map((lnk,i) =>
-                h('div', {key:i, style:{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}},
-                  h('input', {className:'settings-input', style:{width:'44px'}, placeholder:'🔗', value:lnk.icon||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],icon:e.target.value};setCfg(c=>({...c,links:l}));}}),
-                  h('input', {className:'settings-input', style:{flex:1}, placeholder:'Label', value:lnk.label||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],label:e.target.value};setCfg(c=>({...c,links:l}));}}),
-                  h('input', {className:'settings-input', style:{flex:2}, placeholder:'https://...', value:lnk.url||'', onChange:e=>{const l=[...(cfg.links||[])];l[i]={...l[i],url:e.target.value};setCfg(c=>({...c,links:l}));}}),
-                  h('button', {className:'page-delete-btn', onClick:()=>{const l=(cfg.links||[]).filter((_,idx)=>idx!==i);setCfg(c=>({...c,links:l}));}, style:{fontSize:'18px',padding:'0 6px'}}, '✕')
-                )
-              ),
-              h('button', {className:'settings-save', style:{background:'transparent',border:'1px solid var(--accent)',color:'var(--accent)',marginBottom:'8px',marginTop:'8px'}, onClick:()=>{const l=[...(cfg.links||[]),{icon:'🔗',label:'New Link',url:'https://'}];setCfg(c=>({...c,links:l}));}}, '+ ADD LINK')
-            )
-          ),
-          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
-          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
-        ),
+        tab === 'pages' && h(PagesTab, {cfg, setCfg}),
 
         // ── Panels tab ──
-        tab === 'panels' && h('div', null,
-          h(PanelsTab, {cfg, setCfg}),
-          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
-          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
-        ),
+        tab === 'panels' && h(PanelsTab, {cfg, setCfg, updateIntegration}),
 
         // ── Layouts tab ──
-        tab === 'layouts' && h('div', null,
-          h(LayoutsTab, {cfg, setCfg}),
-          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
-          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
-        ),
+        tab === 'layouts' && h(LayoutsTab, {cfg, setCfg}),
 
         // ── Prefs tab ──
-        tab === 'prefs' && h('div', null,
-          h(PrefsTab, {cfg, setCfg}),
-          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
-          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
-        ),
+        tab === 'prefs' && h(PrefsTab, {cfg, setCfg}),
 
         // ── Theme tab ──
         tab === 'theme' && h('div', null,
@@ -1050,9 +1147,7 @@
                 h('div', {style:{fontSize:'10px',fontWeight:'700',letterSpacing:'1.5px',color:theme.accent,marginTop:'2px'}}, theme.name.toUpperCase())
               );
             })
-          ),
-          h('button', {className:'settings-save', onClick:save}, 'SAVE SETTINGS'),
-          saved && h('div', {className:'settings-saved-msg'}, '✓ Saved')
+          )
         ),
 
         // ── System tab ──

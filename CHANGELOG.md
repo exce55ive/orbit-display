@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.1
+- **Add:** Pages tab overhaul — full page management with add/remove pages, inline rename, drag-to-reorder. Each page shows its panels as chips with reorder (↑↓) and remove (✕) buttons. "Add Panel" picker shows only enabled panels not already on the page.
+- **Add:** Panels tab overhaul — toggle switches now include inline collapsible "⚙ Configure" sections for each service. All integration config (URLs, API keys, etc.) moved from the old pages-tab scroll into per-panel collapsible rows. No more hunting through a long config wall.
+- **Add:** Sticky save button — always-visible "💾 Save" button pinned to top-right of the settings window. Shows an amber unsaved-changes dot when config is dirty, turns green with "✓ Saved" on save (1.5s confirmation). Works across all tabs.
+- **Fix:** Removed per-tab "Save Settings" buttons (replaced by the sticky save button).
+- **Fix:** Quick Links config moved to Panels tab under its own toggle row with inline editor.
+
 ## v0.1.0
 - **Add:** SABnzbd panel — download queue with progress bars, current speed, status badge (Downloading/Paused/Idle), ETA, pause/resume button, total downloaded stats. Adaptive polling: 5s when active, 30s when idle. Error boundary with retry. Configurable in Settings and Setup Wizard with connection test.
 - **Add:** Add Panel gallery — "+" button in the bottom bar opens a full-screen visual panel picker. Browse all 25 panel types with icons and descriptions. Already-visible panels show a checkmark and are dimmed. Click any unchecked panel to enable it instantly.
