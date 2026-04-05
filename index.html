@@ -382,6 +382,12 @@
     const h = React.createElement;
     const { useState, useEffect, useRef, useCallback, useMemo, useContext, createContext } = React;
 
+    // ═══ PERFORMANCE HELPERS ═══
+    // Stagger initial polls to avoid thundering herd on dashboard load
+    function staggerMs() { return Math.floor(Math.random() * 3000); }
+    // Debounce helper for high-frequency events
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
     // ═══ ERROR BOUNDARY ═══
     class PanelErrorBoundary extends React.Component {
       constructor(props) { super(props); this.state = { hasError: false, error: null }; this._retryTimer = null; }
@@ -604,6 +610,7 @@
       function toF(c) { return Math.round(parseFloat(c) * 9/5 + 32); }
       function tempDisp(c) { return useFahrenheit ? toF(c) + '°F' : c + '°C'; }
       function tempVal(c) { return useFahrenheit ? toF(c) + '°' : c + '°'; }
+      // Time: update every second
       useEffect(() => {
         function tick() {
           const now = new Date();
@@ -615,10 +622,16 @@
           } else {
             setTimeObj({str: String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0'), ampm:''});
           }
-          setDate(now.toLocaleDateString('en-AU', {weekday:'long',day:'numeric',month:'long',year:'numeric'}));
         }
         tick(); const t = setInterval(tick, 1000); return () => clearInterval(t);
       }, [use12h]);
+      // Date: update every 60 seconds (toLocaleDateString is expensive)
+      useEffect(() => {
+        function updateDate() {
+          setDate(new Date().toLocaleDateString('en-AU', {weekday:'long',day:'numeric',month:'long',year:'numeric'}));
+        }
+        updateDate(); const t = setInterval(updateDate, 60000); return () => clearInterval(t);
+      }, []);
       useEffect(() => {
         const city = config?.integrations?.weather?.city || 'Perth';
         async function fetchWeather() {
@@ -724,7 +737,7 @@
             }
           } catch { setError('Could not connect to SignalRGB'); }
         }
-        pollDirect(); const t = setInterval(pollDirect, 5000); return () => clearInterval(t);
+        const stagger3 = setTimeout(() => { pollDirect(); }, staggerMs()); const t = setInterval(pollDirect, 5000); return () => { clearTimeout(stagger3); clearInterval(t); };
       }, []);
       const isOn = state?.state === 'on';
       const effectName = state?.attributes?.effect || 'No Effect';
@@ -969,11 +982,11 @@
       const savedGpuModel = config?.systemPrefs?.gpuModel || null;
       useEffect(() => {
         async function pollFast() { try { const r = await window.orbit.getSysinfoFast(); if (!r.error) setFast(r); } catch {} }
-        pollFast(); const t = setInterval(pollFast, 3000); return () => clearInterval(t);
+        const stagger = setTimeout(() => { pollFast(); }, staggerMs()); const t = setInterval(pollFast, 5000); return () => { clearTimeout(stagger); clearInterval(t); };
       }, []);
       useEffect(() => {
         async function pollSlow() { try { const r = await window.orbit.getSysinfoSlow({cpuSensorIndex:cpuSensorIdx,gpuControllerIndex:gpuIdx,showDisk}); if (!r.error) setSlow(r); } catch {} }
-        pollSlow(); const t = setInterval(pollSlow, 10000); return () => clearInterval(t);
+        const stagger2 = setTimeout(() => { pollSlow(); }, staggerMs()); const t = setInterval(pollSlow, 30000); return () => { clearTimeout(stagger2); clearInterval(t); };
       }, [cpuSensorIdx, gpuIdx, showDisk]);
       const cpuUsage = fast?.cpu?.usage ?? 0;
       const cpuBrand = slow?.cpu?.brand || 'CPU';
@@ -1193,8 +1206,7 @@
           setResults(r);
           setLastCheck(new Date());
         }
-        poll();
-        const t = setInterval(poll, 30000);
+        const stagger4 = setTimeout(() => { poll(); }, staggerMs()); const t = setInterval(poll, 30000); return () => { clearTimeout(stagger4); clearInterval(t); };
         return () => clearInterval(t);
       }, [config]);
 
@@ -1313,15 +1325,16 @@
       // Local 1s tick — interpolates progress between API polls
       useEffect(() => {
         const t = setInterval(() => {
-          setPlayback(pb => {
-            if (pb?.is_playing) {
-              setLocalMs(ms => Math.min(ms + 1000, pb.item?.duration_ms || ms));
-            }
-            return pb;
+          setLocalMs(ms => {
+            if (!playback?.is_playing) return ms;
+            const next = Math.min(ms + 1000, playback.item?.duration_ms || ms);
+            // Only update if the displayed second actually changed
+            if (Math.floor(next / 1000) === Math.floor(ms / 1000)) return ms;
+            return next;
           });
         }, 1000);
         return () => clearInterval(t);
-      }, []);
+      }, [playback?.is_playing, playback?.item?.duration_ms]);
 
       async function control(method, endpoint) {
         if (busy) return;
@@ -4276,6 +4289,35 @@
     function wrap(key, child) {
       return h(PanelErrorBoundary, { key, panelType: key }, child);
     }
+
+    // ═══ MEMOIZED PANEL COMPONENTS ═══
+    // Prevents re-renders when sibling panels update state
+    const MClockPanel = React.memo(ClockPanel);
+    const MSignalRGBPanel = React.memo(SignalRGBPanel);
+    const MLightsPanel = React.memo(LightsPanel);
+    const MNowPlayingPanel = React.memo(NowPlayingPanel);
+    const MSystemPanel = React.memo(SystemPanel);
+    const MMediaPanel = React.memo(MediaPanel);
+    const MSonarrPanel = React.memo(SonarrPanel);
+    const MRedarrPanel = React.memo(RadarrPanel);
+    const MOverseerrPanel = React.memo(OverseerrPanel);
+    const MNZBGetPanel = React.memo(NZBGetPanel);
+    const MServicesPanel = React.memo(ServicesPanel);
+    const MSpotifyPanel = React.memo(SpotifyPanel);
+    const MLinksPanel = React.memo(LinksPanel);
+    const MJellyfinPanel = React.memo(JellyfinPanel);
+    const MProxmoxPanel = React.memo(ProxmoxPanel);
+    const MDockerPanel = React.memo(DockerPanel);
+    const MPiholePanel = React.memo(PiholePanel);
+    const MTrueNASPanel = React.memo(TrueNASPanel);
+    const MNetworkPanel = React.memo(NetworkPanel);
+    const MUnraidPanel = React.memo(UnraidPanel);
+    const MImmichPanel = React.memo(ImmichPanel);
+    const MSpeedtestPanel = React.memo(SpeedtestPanel);
+    const MCalendarPanel = React.memo(CalendarPanel);
+    const MSabnzbdPanel = React.memo(SabnzbdPanel);
+    const MCustomPanel = React.memo(CustomPanel);
+
     function renderPanel(panelCfg, config, openSettings, setConfig) {
       const type = panelCfg.type;
       const key = type + '-' + (panelCfg.col || 0);
@@ -4285,32 +4327,32 @@
         if (demo) return wrap(key, demo);
       }
       switch (type) {
-        case 'clock': return wrap(key, h(ClockPanel, {key, config}));
+        case 'clock': return wrap(key, h(MClockPanel, {key, config}));
         case 'signalrgb': return null; // Rendered specially in App for context
-        case 'lights': return wrap(key, h(LightsPanel, {key, config, onConfigChange: setConfig}));
-        case 'nowplaying': return wrap(key, h(NowPlayingPanel, {key, config}));
-        case 'system': return wrap(key, h(SystemPanel, {key, config, onConfigChange: setConfig}));
-        case 'media': return wrap(key, h(MediaPanel, {key, config, openSettings}));
-        case 'sonarr': return wrap(key, h(SonarrPanel, {key, config, openSettings}));
-        case 'radarr': return wrap(key, h(RadarrPanel, {key, config, openSettings}));
-        case 'overseerr': return wrap(key, h(OverseerrPanel, {key, config, openSettings}));
-        case 'nzbget': return wrap(key, h(NZBGetPanel, {key, config, openSettings}));
-        case 'uptimekuma': return wrap(key, h(ServicesPanel, {key, config}));
-        case 'services': return wrap(key, h(ServicesPanel, {key, config}));
-        case 'spotify': return wrap(key, h(SpotifyPanel, {key, config, openSettings}));
-        case 'links': return wrap(key, h(LinksPanel, {key, config}));
-        case 'jellyfin': return wrap(key, h(JellyfinPanel, {key, config, openSettings}));
-        case 'proxmox': return wrap(key, h(ProxmoxPanel, {key, config, openSettings}));
-        case 'docker': return wrap(key, h(DockerPanel, {key, config, openSettings}));
-        case 'pihole': return wrap(key, h(PiholePanel, {key, config, openSettings}));
-        case 'truenas': return wrap(key, h(TrueNASPanel, {key, config, openSettings}));
-        case 'network': return wrap(key, h(NetworkPanel, {key, config, openSettings}));
-        case 'unraid': return wrap(key, h(UnraidPanel, {key, config, openSettings}));
-        case 'immich': return wrap(key, h(ImmichPanel, {key, config, openSettings}));
-        case 'speedtest': return wrap(key, h(SpeedtestPanel, {key, config, openSettings}));
-        case 'calendar': return wrap(key, h(CalendarPanel, {key, config, openSettings}));
-        case 'sabnzbd': return wrap(key, h(SabnzbdPanel, {key, config, openSettings}));
-        case 'custom': return wrap(key, h(CustomPanel, {key, config}));
+        case 'lights': return wrap(key, h(MLightsPanel, {key, config, onConfigChange: setConfig}));
+        case 'nowplaying': return wrap(key, h(MNowPlayingPanel, {key, config}));
+        case 'system': return wrap(key, h(MSystemPanel, {key, config, onConfigChange: setConfig}));
+        case 'media': return wrap(key, h(MMediaPanel, {key, config, openSettings}));
+        case 'sonarr': return wrap(key, h(MSonarrPanel, {key, config, openSettings}));
+        case 'radarr': return wrap(key, h(MRedarrPanel, {key, config, openSettings}));
+        case 'overseerr': return wrap(key, h(MOverseerrPanel, {key, config, openSettings}));
+        case 'nzbget': return wrap(key, h(MNZBGetPanel, {key, config, openSettings}));
+        case 'uptimekuma': return wrap(key, h(MServicesPanel, {key, config}));
+        case 'services': return wrap(key, h(MServicesPanel, {key, config}));
+        case 'spotify': return wrap(key, h(MSpotifyPanel, {key, config, openSettings}));
+        case 'links': return wrap(key, h(MLinksPanel, {key, config}));
+        case 'jellyfin': return wrap(key, h(MJellyfinPanel, {key, config, openSettings}));
+        case 'proxmox': return wrap(key, h(MProxmoxPanel, {key, config, openSettings}));
+        case 'docker': return wrap(key, h(MDockerPanel, {key, config, openSettings}));
+        case 'pihole': return wrap(key, h(MPiholePanel, {key, config, openSettings}));
+        case 'truenas': return wrap(key, h(MTrueNASPanel, {key, config, openSettings}));
+        case 'network': return wrap(key, h(MNetworkPanel, {key, config, openSettings}));
+        case 'unraid': return wrap(key, h(MUnraidPanel, {key, config, openSettings}));
+        case 'immich': return wrap(key, h(MImmichPanel, {key, config, openSettings}));
+        case 'speedtest': return wrap(key, h(MSpeedtestPanel, {key, config, openSettings}));
+        case 'calendar': return wrap(key, h(MCalendarPanel, {key, config, openSettings}));
+        case 'sabnzbd': return wrap(key, h(MSabnzbdPanel, {key, config, openSettings}));
+        case 'custom': return wrap(key, h(MCustomPanel, {key, config}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
@@ -4886,9 +4928,13 @@
         return () => window.removeEventListener('keydown', onKey);
       }, [currentPage, pages.length]);
 
-      // Mouse hover zones for arrows
+      // Mouse hover zones for arrows (throttled to 100ms)
       useEffect(() => {
+        let lastMove = 0;
         function onMove(e) {
+          const now = Date.now();
+          if (now - lastMove < 100) return;
+          lastMove = now;
           setShowLeftArrow(e.clientX < 80 && currentPage > 0);
           setShowRightArrow(e.clientX > window.innerWidth - 80 && currentPage < pages.length - 1);
         }
@@ -5012,7 +5058,7 @@
         } else if (panelCfg.type === 'signalrgb') {
           renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:wrapperClass, ...dragProps},
             h(CollapseContext.Provider, {value: collapseVal},
-              h(PanelErrorBoundary, {panelType:'signalrgb'}, h(SignalRGBPanel, {config, onSignalChange: setSignalIsOn}))
+              h(PanelErrorBoundary, {panelType:'signalrgb'}, h(MSignalRGBPanel, {config, onSignalChange: setSignalIsOn}))
             )
           ));
         } else {

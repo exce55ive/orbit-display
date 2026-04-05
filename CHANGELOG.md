@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.2
+- **Fix:** Docker test-integration crash — `opts` undefined, now uses destructured `port`/`useTLS` params
+- **Fix:** SignalR WebSocket connections now cleaned up on main window close (resource leak)
+- **Fix:** Spotify OAuth timeout now clears on successful auth (timer leak)
+- **Fix:** Missing sabnzbd panel visibility default for fresh installs
+- **Change:** System monitor polling slowed — CPU/RAM 3s→5s, temps/GPU 10s→30s — still feels real-time, far less WMI overhead
+- **Change:** Clock date string now updates every 60s instead of every second (toLocaleDateString is expensive)
+- **Change:** Spotify progress tick only triggers re-render when the displayed second actually changes
+- **Change:** Mouse hover zones throttled from ~120 calls/s to 10 calls/s
+- **Change:** All 26 panel components wrapped in React.memo() — prevents cascade re-renders when sibling panels update
+- **Change:** Staggered initial polling on dashboard load — panels no longer all fire API calls in the same frame
+
 ## v0.1.1
 - **Add:** Pages tab overhaul — full page management with add/remove pages, inline rename, drag-to-reorder. Each page shows its panels as chips with reorder (↑↓) and remove (✕) buttons. "Add Panel" picker shows only enabled panels not already on the page.
 - **Add:** Panels tab overhaul — toggle switches now include inline collapsible "⚙ Configure" sections for each service. All integration config (URLs, API keys, etc.) moved from the old pages-tab scroll into per-panel collapsible rows. No more hunting through a long config wall.
