@@ -151,6 +151,7 @@ function validateAndFillDefaults(cfg) {
   if (cfg.panels.immich === undefined) cfg.panels.immich = false;
   if (cfg.panels.speedtest === undefined) cfg.panels.speedtest = false;
   if (cfg.panels.calendar === undefined) cfg.panels.calendar = false;
+  if (cfg.panels.sabnzbd === undefined) cfg.panels.sabnzbd = false;
 
   // Log warning for unknown top-level keys
   const knownKeys = new Set(['theme','pages','integrations','prefs','customServices','signalrgbFavorites','links','panels','firstRunComplete','panelOrder','panelCollapsed','layouts','currentLayout','notifications','demoMode']);
@@ -305,7 +306,14 @@ function launchMain(displayId) {
     }
   });
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    // Clean up SignalR WebSocket connections
+    for (const conn of Object.values(_signalRConnections)) {
+      if (conn) conn.close();
+    }
+    _signalRConnections = {};
+    mainWindow = null;
+  });
 }
 
 function showPicker() {
@@ -699,7 +707,7 @@ ipcMain.handle('api-put', async (_e, { url, body, headers, timeout }) => {
 // ─── IPC: SIGNALRGB (legacy direct) ─────────────────────────────────────────
 
 // ─── IPC: TEST INTEGRATION ─────────────────────────────────────────────────────
-ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, password, token, tokenId, tokenSecret, node }) => {
+ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, password, token, tokenId, tokenSecret, node, port, useTLS }) => {
   const fetch = await getFetch();
   const ok = (msg, detail='') => ({ ok: true, message: msg, detail });
   const fail = (msg) => ({ ok: false, message: msg });
@@ -755,17 +763,6 @@ ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, pas
       const j = await r.json(); if (j.version) return ok(`Connected — SABnzbd ${j.version}`);
       return fail(j.error || 'Connection failed — check URL and API key');
     }
-    if (type === 'nzbget') {
-      if (!url) return fail('URL required');
-      const base = url.replace(/\/jsonrpc$/, '').replace(/\/$/, '');
-      const auth = (username && password) ? Buffer.from(`${username}:${password}`).toString('base64') : null;
-      const headers = auth ? { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
-      const controller = new AbortController();
-      setTimeout(() => controller.abort(), 5000);
-      const r = await fetch(`${base}/jsonrpc`, { method: 'POST', headers, body: JSON.stringify({ version:'1.1', method:'version', id:1 }), signal: controller.signal });
-      const j = await r.json(); if (j.result) return ok(`Connected — NZBGet ${j.result}`);
-      return fail(j.error?.message || 'Auth failed');
-    }
     if (type === 'jellyfin') {
       if (!url || !apiKey) return fail('URL and API Key required');
       const r = await headGet(`${url.replace(/\/$/, '')}/System/Info`, { 'X-Emby-Token': apiKey });
@@ -804,9 +801,9 @@ ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, pas
     }
     if (type === 'docker') {
       const host = url || 'localhost';
-      const port = opts.port || 2375;
-      const proto = opts.useTLS ? 'https' : 'http';
-      const r = await safeFetch(`${proto}://${host}:${port}/containers/json?all=true&limit=1`, { timeout: 5000 });
+      const dockerPort = port || 2375;
+      const proto = useTLS ? 'https' : 'http';
+      const r = await safeFetch(`${proto}://${host}:${dockerPort}/containers/json?all=true&limit=1`, { timeout: 5000 });
       if (r.error) return fail(r.error);
       return ok('Connected — Docker Engine API responding');
     }
@@ -1195,8 +1192,10 @@ ipcMain.handle('spotify-auth-start', async () => {
   const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
   return new Promise((resolve) => {
+    let authTimeout = null;
     const server = http.createServer(async (req, res) => {
       if (!req.url.startsWith('/callback')) return;
+      if (authTimeout) clearTimeout(authTimeout);
       const params = new URL(req.url, 'http://127.0.0.1:8888').searchParams;
       const code = params.get('code');
       const error = params.get('error');
@@ -1235,7 +1234,7 @@ ipcMain.handle('spotify-auth-start', async () => {
 
     server.listen(8888, '127.0.0.1', () => shell.openExternal(authUrl));
     server.on('error', (e) => resolve({ error: 'Port 8888 in use: ' + e.message }));
-    setTimeout(() => { try { server.close(); } catch {} resolve({ error: 'Auth timeout' }); }, 300000);
+    authTimeout = setTimeout(() => { try { server.close(); } catch {} resolve({ error: 'Auth timeout' }); }, 300000);
   });
 });
 
