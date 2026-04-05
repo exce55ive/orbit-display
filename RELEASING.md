@@ -56,3 +56,10 @@ Bullet prefix conventions:
 - [ ] `package.json` version matches the tag you're about to create
 - [ ] `CHANGELOG.md` has an entry for this version (Makefile pulls from it)
 - [ ] CI is green on `main`
+
+## Post-release checklist
+- [ ] Verify CI built all 7 assets (2 exes, 1 dmg, 1 AppImage, 1 deb, 2 ymls) + 2 source archives = 9 total
+- [ ] Update orbit.exce55ive.xyz landing page version number
+- [ ] Deploy landing page: `cat /tmp/orbit-landing.html | ssh admin@100.101.30.98 "cat > '/share/CACHEDEV1_DATA/Container/appdata/liftarr/site/orbit-exce55ive/index.html'"`
+- [ ] Purge Cloudflare cache: `curl -X POST .../purge_cache --data '{"files":["https://orbit.exce55ive.xyz/"]}'`
+- [ ] Verify landing page shows new version: `curl -s https://orbit.exce55ive.xyz | grep 'vX.Y.Z'`
