@@ -763,6 +763,17 @@ ipcMain.handle('test-integration', async (_e, { type, url, apiKey, username, pas
       const j = await r.json(); if (j.version) return ok(`Connected — SABnzbd ${j.version}`);
       return fail(j.error || 'Connection failed — check URL and API key');
     }
+    if (type === 'nzbget') {
+      if (!url) return fail('URL required');
+      const base = url.replace(/\/jsonrpc$/, '').replace(/\/+$/, '');
+      const auth = (username && password) ? Buffer.from(`${username}:${password}`).toString('base64') : null;
+      const headers = auth ? { Authorization: `Basic ${auth}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 5000);
+      const r = await fetch(`${base}/jsonrpc`, { method: 'POST', headers, body: JSON.stringify({ version:'1.1', method:'version', id:1 }), signal: controller.signal });
+      const j = await r.json(); if (j.result) return ok(`Connected — NZBGet ${j.result}`);
+      return fail(j.error?.message || 'Auth failed');
+    }
     if (type === 'jellyfin') {
       if (!url || !apiKey) return fail('URL and API Key required');
       const r = await headGet(`${url.replace(/\/$/, '')}/System/Info`, { 'X-Emby-Token': apiKey });
