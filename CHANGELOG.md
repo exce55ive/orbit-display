@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.1.3
+- **Add:** Centralized polling scheduler — all panel intervals managed by `PollScheduler` with automatic visibility-aware throttling. Polling slows 6x when the dashboard window is hidden/minimized, reducing CPU and network usage.
+- **Add:** `usePoll` hook for panels to register with the scheduler (Clock weather, System fast/slow, SignalRGB, Lights, Services converted).
+- **Add:** Debounced config saves — rapid operations (drag reorder, collapse toggles, SignalRGB favorites) are coalesced with a 500ms window to reduce file I/O.
+- **Add:** Credential encryption at rest via Electron `safeStorage` (DPAPI on Windows, Keychain on macOS, libsecret on Linux). All API keys, tokens, and passwords in `orbit-config.json` are now stored encrypted.
+- **Add:** Renderer-side logging bridge — panel errors and warnings are piped to `electron-log` for persistent diagnostics without DevTools.
+- **Add:** Inline input validation on settings fields — URL format, API key length, and whitespace checks with on-blur error messages.
+- **Add:** "Test Connection" button on all integration config panels — verify connectivity before saving.
+
 ## v0.1.2
 - **Fix:** Docker test-integration crash — `opts` undefined, now uses destructured `port`/`useTLS` params
 - **Fix:** SignalR WebSocket connections now cleaned up on main window close (resource leak)
