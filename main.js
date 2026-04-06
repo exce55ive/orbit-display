@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut, Notification, dialog } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, shell, Menu, globalShortcut, Notification, dialog, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
@@ -86,7 +86,8 @@ function loadOrbitConfig() {
   if (!fs.existsSync(p)) return null;
   try {
     const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
-    return validateAndFillDefaults(cfg);
+    const validated = validateAndFillDefaults(cfg);
+    return validated ? decryptConfigSecrets(validated) : null;
   } catch (e) {
     log.warn('Failed to parse orbit-config.json:', e.message);
     return null;
@@ -172,8 +173,77 @@ function migrateOrbitConfig(cfg) {
   return cfg;
 }
 
+// ─── CREDENTIAL ENCRYPTION (Electron safeStorage) ──────────────────────────
+// Sensitive fields are encrypted at rest using the OS keychain (DPAPI on Windows,
+// Keychain on macOS, libsecret on Linux). Config stores encrypted values as
+// "encrypted:base64..." strings. Decrypted transparently on load.
+const SENSITIVE_FIELDS = {
+  'integrations.tautulli.apiKey': true,
+  'integrations.sonarr.apiKey': true,
+  'integrations.radarr.apiKey': true,
+  'integrations.overseerr.apiKey': true,
+  'integrations.nzbget.password': true,
+  'integrations.sabnzbd.apiKey': true,
+  'integrations.homeassistant.token': true,
+  'integrations.spotify.clientSecret': true,
+  'integrations.spotify.accessToken': true,
+  'integrations.spotify.refreshToken': true,
+  'integrations.jellyfin.apiKey': true,
+  'integrations.proxmox.tokenSecret': true,
+  'integrations.pihole.apiKey': true,
+  'integrations.truenas.apiKey': true,
+  'integrations.unraid.apiKey': true,
+  'integrations.immich.apiKey': true,
+  'integrations.uptimekuma.password': true,
+};
+
+function getNestedValue(obj, path) {
+  return path.split('.').reduce((o, k) => o?.[k], obj);
+}
+
+function setNestedValue(obj, path, val) {
+  const keys = path.split('.');
+  let cur = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!cur[keys[i]] || typeof cur[keys[i]] !== 'object') cur[keys[i]] = {};
+    cur = cur[keys[i]];
+  }
+  cur[keys[keys.length - 1]] = val;
+}
+
+function encryptConfigSecrets(cfg) {
+  if (!safeStorage.isEncryptionAvailable()) return cfg;
+  const copy = JSON.parse(JSON.stringify(cfg));
+  for (const field of Object.keys(SENSITIVE_FIELDS)) {
+    const val = getNestedValue(copy, field);
+    if (val && typeof val === 'string' && !val.startsWith('encrypted:')) {
+      try {
+        const encrypted = safeStorage.encryptString(val).toString('base64');
+        setNestedValue(copy, field, 'encrypted:' + encrypted);
+      } catch (e) { log.warn('Failed to encrypt field ' + field + ':', e.message); }
+    }
+  }
+  return copy;
+}
+
+function decryptConfigSecrets(cfg) {
+  if (!safeStorage.isEncryptionAvailable()) return cfg;
+  for (const field of Object.keys(SENSITIVE_FIELDS)) {
+    const val = getNestedValue(cfg, field);
+    if (val && typeof val === 'string' && val.startsWith('encrypted:')) {
+      try {
+        const buf = Buffer.from(val.slice('encrypted:'.length), 'base64');
+        const decrypted = safeStorage.decryptString(buf);
+        setNestedValue(cfg, field, decrypted);
+      } catch (e) { log.warn('Failed to decrypt field ' + field + ':', e.message); }
+    }
+  }
+  return cfg;
+}
+
 function saveOrbitConfig(cfg) {
-  fs.writeFileSync(getOrbitConfigPath(), JSON.stringify(cfg, null, 2));
+  const encrypted = encryptConfigSecrets(cfg);
+  fs.writeFileSync(getOrbitConfigPath(), JSON.stringify(encrypted, null, 2));
 }
 
 // ─── LEGACY CONFIG (config.json — read-only fallback) ─────────────────────────
@@ -1339,6 +1409,14 @@ ipcMain.handle('orbit:notify', (_e, { title, body }) => {
   new Notification({ title, body }).show();
 });
 
+// ─── IPC: RENDERER LOGGING BRIDGE ──────────────────────────────────────────
+// Pipes renderer console.error/warn/info to electron-log so panel issues
+// are diagnosable without DevTools open.
+ipcMain.handle('renderer-log', (_e, { level, args }) => {
+  const fn = log[level] || log.info;
+  fn.call(log, '[renderer]', ...args);
+});
+
 
 // ─── IPC: CHECK SERVICES (in-house pinger) ──────────────────────────────────
 ipcMain.handle('check-services', async (_e, services) => {
@@ -1407,6 +1485,37 @@ ipcMain.handle('fetch-uptime-kuma', async (_e, { url, username, password }) => {
   } catch (e) { return { error: e.message }; }
 });
 
+
+// ─── IPC: INPUT VALIDATION ──────────────────────────────────────────────────
+// Validates integration fields before saving — catches typos early.
+ipcMain.handle('validate-input', (_e, { type, field, value }) => {
+  if (!value || typeof value !== 'string') return { valid: false, error: 'Value is required' };
+  const v = value.trim();
+
+  if (field === 'url') {
+    try {
+      const u = new URL(v);
+      if (!['http:', 'https:'].includes(u.protocol)) return { valid: false, error: 'URL must start with http:// or https://' };
+      if (!u.hostname) return { valid: false, error: 'URL must include a hostname' };
+      return { valid: true };
+    } catch {
+      return { valid: false, error: 'Invalid URL format — include http:// or https://' };
+    }
+  }
+
+  if (field === 'apiKey' || field === 'token' || field === 'tokenSecret') {
+    if (v.length < 8) return { valid: false, error: 'Value seems too short — check for copy/paste errors' };
+    if (/\s/.test(v)) return { valid: false, error: 'Value contains spaces — check for copy/paste errors' };
+    return { valid: true };
+  }
+
+  if (field === 'city') {
+    if (v.length < 2) return { valid: false, error: 'City name too short' };
+    return { valid: true };
+  }
+
+  return { valid: true };
+});
 
 // ─── IPC: FETCH IMAGE AS DATA URL (for auth-gated thumbnails) ────────────────
 ipcMain.handle('fetch-image', async (_e, { url, headers }) => {

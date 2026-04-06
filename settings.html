@@ -196,6 +196,44 @@
     r.setProperty('--accent-mid',  `rgba(${ar},${ag},${ab},0.33)`);
   }
 
+  // ── Validated Input Component ─────────────────────────────────────────────
+  // Validates on blur and shows inline error messages for URL/API key fields.
+  function ValidatedInput({ className, type, value, onChange, placeholder, fieldType, integrationKey, style }) {
+    const [error, setError] = useState(null);
+    const [touched, setTouched] = useState(false);
+
+    async function validate(val) {
+      if (!val || !val.trim() || !window.orbit?.validateInput) { setError(null); return; }
+      const result = await window.orbit.validateInput(integrationKey || '', fieldType || 'text', val);
+      setError(result.valid ? null : result.error);
+    }
+
+    function handleBlur(e) {
+      setTouched(true);
+      validate(e.target.value);
+    }
+
+    const inputStyle = { ...(style || {}) };
+    if (touched && error) {
+      inputStyle.borderColor = '#ff5555';
+    }
+
+    return h('div', { style: { width: '100%' } },
+      h('input', {
+        className: className || 'settings-input',
+        type: type || 'text',
+        value: value || '',
+        onChange,
+        onBlur: handleBlur,
+        placeholder: placeholder || '',
+        style: inputStyle
+      }),
+      touched && error && h('div', {
+        style: { fontSize: '10px', color: '#ff5555', marginTop: '3px', letterSpacing: '0.3px', lineHeight: '1.4' }
+      }, error)
+    );
+  }
+
   // ── Domain icons ──────────────────────────────────────────────────────────
   const DOMAIN_ICONS = {light:'💡',switch:'🔌',sensor:'📊',binary_sensor:'🔲',climate:'🌡️',
     media_player:'📺',camera:'📷',cover:'🚪',fan:'💨',vacuum:'🤖',script:'📝',
@@ -811,6 +849,14 @@
     }
 
     function renderFields(integrationKey, fields) {
+      // Determine field type for validation
+      const getFieldType = (f) => {
+        if (f.field === 'url' || f.field === 'routerUrl') return 'url';
+        if (f.field === 'apiKey' || f.field === 'token' || f.field === 'tokenSecret' || f.field === 'clientSecret') return 'apiKey';
+        if (f.field === 'city') return 'city';
+        return 'text';
+      };
+
       return fields.map(f => h(React.Fragment, {key:f.field||f.type},
         f.type === 'ha-entities'
           ? h(HAEntitiesEditor, {integrationKey, cfg, updateIntegration})
@@ -821,16 +867,65 @@
             : h(React.Fragment, null,
               h('div', {className:'settings-label'}, f.label),
               f.type === 'password'
-                ? h('input', {className:'settings-input', type:'password', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value), placeholder:f.placeholder||''})
+                ? h(ValidatedInput, {type:'password', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value), placeholder:f.placeholder||'', fieldType:getFieldType(f), integrationKey})
                 : f.type === 'number'
                 ? h('input', {className:'settings-input', type:'number', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,parseInt(e.target.value)||0), placeholder:f.placeholder||''})
                 : f.type === 'select'
                 ? h('select', {className:'settings-input', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value)},
                     (f.options||[]).map(o => h('option', {key:o, value:o}, o.charAt(0).toUpperCase()+o.slice(1))))
-                : h('input', {className:'settings-input', type:'text', value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value), placeholder:f.placeholder||''})
+                : h(ValidatedInput, {value:cfg.integrations?.[integrationKey]?.[f.field]||'', onChange:e=>updateIntegration(integrationKey,f.field,e.target.value), placeholder:f.placeholder||'', fieldType:getFieldType(f), integrationKey})
             )
       ));
     }
+
+    // Inline test connection button for integration config panels
+    function TestConnectionBtn({ type, cfg }) {
+      const [testing, setTesting] = useState(false);
+      const [result, setResult] = useState(null);
+
+      async function test() {
+        setTesting(true); setResult(null);
+        try {
+          const intg = cfg.integrations?.[type] || {};
+          const r = await window.orbit.testIntegration({
+            type,
+            url: intg.url || intg.routerUrl || '',
+            apiKey: intg.apiKey || '',
+            username: intg.username || '',
+            password: intg.password || '',
+            token: intg.token || intg.accessToken || '',
+            tokenId: intg.tokenId || '',
+            tokenSecret: intg.tokenSecret || '',
+            node: intg.node || '',
+            port: intg.port || undefined,
+            useTLS: intg.useTLS || false
+          });
+          setResult(r);
+        } catch (e) {
+          setResult({ ok: false, message: e.message });
+        }
+        setTesting(false);
+      }
+
+      return h('div', { style: { marginTop: '10px' } },
+        h('button', {
+          className: 'ha-browse-btn',
+          onClick: test,
+          disabled: testing,
+          style: { fontSize: '11px', letterSpacing: '1px', padding: '6px 14px' }
+        }, testing ? '⏳ Testing...' : '🔌 Test Connection'),
+        result && h('div', {
+          style: { marginTop: '6px', fontSize: '11px', color: result.ok ? 'var(--green)' : '#ff5555', letterSpacing: '0.5px', lineHeight: '1.5' }
+        }, (result.ok ? '✓ ' : '✗ ') + (result.message || (result.ok ? 'Connected' : 'Failed')))
+      );
+    }
+
+    // Panels that support test-integration
+    const TESTABLE_PANELS = new Set([
+      'tautulli', 'plex', 'sonarr', 'radarr', 'overseerr', 'nzbget', 'sabnzbd',
+      'jellyfin', 'homeassistant', 'spotify', 'weather', 'proxmox', 'docker',
+      'pihole', 'truenas', 'unraid', 'signalrgb'
+    ]);
 
     function renderConfigBody(panelKey) {
       // Special panels
@@ -845,7 +940,8 @@
       return h(React.Fragment, null,
         integrations.map((intg, idx) => h('div', {key:intg.key, style:idx > 0 ? {marginTop:'12px',paddingTop:'12px',borderTop:'1px solid var(--border)'} : null},
           integrations.length > 1 && h('div', {style:{fontSize:'10px',color:'var(--accent)',letterSpacing:'1.5px',marginBottom:'8px',fontWeight:'700'}}, intg.key.toUpperCase()),
-          renderFields(intg.key, intg.fields)
+          renderFields(intg.key, intg.fields),
+          TESTABLE_PANELS.has(intg.key) && h(TestConnectionBtn, { type: intg.key, cfg })
         ))
       );
     }

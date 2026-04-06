@@ -107,4 +107,12 @@ contextBridge.exposeInMainWorld('orbit', {
     return () => ipcRenderer.removeListener('update-error', handler);
   },
   fetchImage: (url, headers) => ipcRenderer.invoke('fetch-image', { url, headers }),
+  validateInput: (type, field, value) => ipcRenderer.invoke('validate-input', { type, field, value }),
+
+  // Renderer logging bridge — pipes to electron-log for persistent diagnostics
+  log: {
+    error: (...args) => ipcRenderer.invoke('renderer-log', { level: 'error', args }),
+    warn: (...args) => ipcRenderer.invoke('renderer-log', { level: 'warn', args }),
+    info: (...args) => ipcRenderer.invoke('renderer-log', { level: 'info', args }),
+  },
 });

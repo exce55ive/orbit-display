@@ -388,11 +388,91 @@
     // Debounce helper for high-frequency events
     function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
+    // ═══ CENTRALIZED POLLING SCHEDULER ═══
+    // Manages all panel polling intervals with visibility-aware throttling.
+    // When the window is hidden/minimized, polling intervals are multiplied
+    // by a throttle factor to reduce CPU and network usage.
+    const PollScheduler = (() => {
+      const _intervals = new Map(); // id -> { fn, normalMs, timer, staggerTimer }
+      let _hidden = document.hidden || false;
+      const THROTTLE_FACTOR = 6; // 6x slower when hidden (e.g. 5s -> 30s)
+
+      document.addEventListener('visibilitychange', () => {
+        _hidden = document.hidden;
+        // Reschedule all active intervals with new timing
+        for (const [id, entry] of _intervals) {
+          if (entry.timer) clearInterval(entry.timer);
+          const ms = _hidden ? entry.normalMs * THROTTLE_FACTOR : entry.normalMs;
+          entry.timer = setInterval(entry.fn, ms);
+        }
+      });
+
+      return {
+        // Register a polling function. Returns a cleanup function.
+        // Options: { id, fn, intervalMs, immediate, stagger }
+        register({ id, fn, intervalMs, immediate = true, stagger = true }) {
+          // Clean up any existing registration with this id
+          this.unregister(id);
+          const ms = _hidden ? intervalMs * THROTTLE_FACTOR : intervalMs;
+          const entry = { fn, normalMs: intervalMs, timer: null, staggerTimer: null };
+          _intervals.set(id, entry);
+
+          const start = () => {
+            if (immediate) fn();
+            entry.timer = setInterval(fn, ms);
+          };
+
+          if (stagger) {
+            entry.staggerTimer = setTimeout(start, staggerMs());
+          } else {
+            start();
+          }
+
+          return () => this.unregister(id);
+        },
+
+        unregister(id) {
+          const entry = _intervals.get(id);
+          if (entry) {
+            if (entry.staggerTimer) clearTimeout(entry.staggerTimer);
+            if (entry.timer) clearInterval(entry.timer);
+            _intervals.delete(id);
+          }
+        },
+
+        // Returns true if page is currently hidden
+        isHidden() { return _hidden; },
+
+        // Get count of active polls (useful for debugging)
+        activeCount() { return _intervals.size; }
+      };
+    })();
+
+    // Hook for panels: usePoll(id, fn, intervalMs, deps)
+    // Registers a polling function with the scheduler and auto-cleans up.
+    function usePoll(id, fn, intervalMs, deps = []) {
+      const fnRef = useRef(fn);
+      fnRef.current = fn;
+      useEffect(() => {
+        const cleanup = PollScheduler.register({
+          id,
+          fn: () => fnRef.current(),
+          intervalMs
+        });
+        return cleanup;
+      }, [id, intervalMs, ...deps]);
+    }
+
     // ═══ ERROR BOUNDARY ═══
     class PanelErrorBoundary extends React.Component {
       constructor(props) { super(props); this.state = { hasError: false, error: null }; this._retryTimer = null; }
       static getDerivedStateFromError(err) { return { hasError: true, error: err }; }
-      componentDidCatch(err, info) { console.error('Panel error (' + (this.props.panelType || 'unknown') + '):', err, info); this._scheduleRetry(); }
+      componentDidCatch(err, info) {
+        const msg = 'Panel error (' + (this.props.panelType || 'unknown') + '): ' + (err?.message || err);
+        console.error(msg, info);
+        if (window.orbit?.log) window.orbit.log.error(msg);
+        this._scheduleRetry();
+      }
       _scheduleRetry() { clearTimeout(this._retryTimer); this._retryTimer = setTimeout(() => { this.setState({ hasError: false, error: null }); }, 30000); }
       componentWillUnmount() { clearTimeout(this._retryTimer); }
       render() {
@@ -422,6 +502,7 @@
             if (!cancelled) { setResult(data); setError(null); }
           } catch (e) {
             console.warn('Panel async error:', e);
+            if (window.orbit?.log) window.orbit.log.warn('Panel async error: ' + (e?.message || e));
             if (!cancelled) setError(e);
           }
         }
@@ -430,6 +511,27 @@
       }, deps);
       return [result, error];
     }
+
+    // ═══ DEBOUNCED CONFIG SAVE ═══
+    // Batches rapid config writes (e.g. dragging brightness slider) to reduce file I/O.
+    // Calls are coalesced — only the last config within the window is persisted.
+    const debouncedSaveConfig = (() => {
+      let _timer = null;
+      let _pending = null;
+      const SAVE_DELAY = 500; // ms
+
+      return function saveConfigDebounced(cfg) {
+        _pending = cfg;
+        if (_timer) clearTimeout(_timer);
+        _timer = setTimeout(() => {
+          if (_pending) {
+            window.orbit.saveConfig(_pending);
+            _pending = null;
+          }
+          _timer = null;
+        }, SAVE_DELAY);
+      };
+    })();
 
     // ═══ BOOT ANIMATION ═══
     (function bootAnimation() {
@@ -632,34 +734,30 @@
         }
         updateDate(); const t = setInterval(updateDate, 60000); return () => clearInterval(t);
       }, []);
-      useEffect(() => {
-        const city = config?.integrations?.weather?.city || 'Perth';
-        async function fetchWeather() {
+      const weatherCity = config?.integrations?.weather?.city || 'Perth';
+      usePoll('clock-weather', async () => {
+        try {
+          const res = await fetch('https://wttr.in/'+encodeURIComponent(weatherCity)+'?format=j1');
+          const raw = await res.json(); const data = raw.data || raw;
           try {
-            const res = await fetch('https://wttr.in/'+encodeURIComponent(city)+'?format=j1');
-            const raw = await res.json(); const data = raw.data || raw;
-            // Extend forecast to 5 days via Open-Meteo using lat/lon from wttr.in response
-            try {
-              const lat = data.nearest_area?.[0]?.latitude;
-              const lon = data.nearest_area?.[0]?.longitude;
-              if (lat && lon) {
-                const omRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=5`);
-                const om = await omRes.json();
-                if (om.daily?.time?.length >= 5) {
-                  const WMO_EMOJI = { 0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'❄️',73:'❄️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'🌨️',95:'⛈️',96:'⛈️',99:'⛈️' };
-                  data._omForecast = om.daily.time.map((date, i) => ({
-                    date, maxtempC: Math.round(om.daily.temperature_2m_max[i]),
-                    mintempC: Math.round(om.daily.temperature_2m_min[i]),
-                    _emoji: WMO_EMOJI[om.daily.weather_code[i]] || '🌤️'
-                  }));
-                }
+            const lat = data.nearest_area?.[0]?.latitude;
+            const lon = data.nearest_area?.[0]?.longitude;
+            if (lat && lon) {
+              const omRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=5`);
+              const om = await omRes.json();
+              if (om.daily?.time?.length >= 5) {
+                const WMO_EMOJI = { 0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',71:'❄️',73:'❄️',75:'❄️',77:'🌨️',80:'🌦️',81:'🌧️',82:'⛈️',85:'🌨️',86:'🌨️',95:'⛈️',96:'⛈️',99:'⛈️' };
+                data._omForecast = om.daily.time.map((date, i) => ({
+                  date, maxtempC: Math.round(om.daily.temperature_2m_max[i]),
+                  mintempC: Math.round(om.daily.temperature_2m_min[i]),
+                  _emoji: WMO_EMOJI[om.daily.weather_code[i]] || '🌤️'
+                }));
               }
-            } catch {}
-            setWeather(data);
+            }
           } catch {}
-        }
-        fetchWeather(); const t = setInterval(fetchWeather, 600000); return () => clearInterval(t);
-      }, [config?.integrations?.weather?.city]);
+          setWeather(data);
+        } catch {}
+      }, 600000, [weatherCity]);
       const cur = weather?.current_condition?.[0];
       const forecast = weather?.weather || [];
       return h('div', {className:'panel'},
@@ -737,7 +835,7 @@
             }
           } catch { setError('Could not connect to SignalRGB'); }
         }
-        const stagger3 = setTimeout(() => { pollDirect(); }, staggerMs()); const t = setInterval(pollDirect, 5000); return () => { clearTimeout(stagger3); clearInterval(t); };
+        return PollScheduler.register({ id: 'signalrgb-poll', fn: pollDirect, intervalMs: 5000 });
       }, []);
       const isOn = state?.state === 'on';
       const effectName = state?.attributes?.effect || 'No Effect';
@@ -754,7 +852,7 @@
         });
         if (cleaned.length !== favorites.length) {
           setFavorites(cleaned);
-          if (config) window.orbit.saveConfig({...config, signalrgbFavorites: cleaned});
+          if (config) debouncedSaveConfig({...config, signalrgbFavorites: cleaned});
         }
       }, [effectList.length]);
       useEffect(() => { if (onSignalChange) onSignalChange(isOn); }, [isOn]);
@@ -766,7 +864,7 @@
         const isFav = favorites.some(f => (typeof f === 'string' ? f : f.id) === effId);
         const next = isFav ? favorites.filter(f => (typeof f === 'string' ? f : f.id) !== effId) : [...favorites, eff];
         setFavorites(next);
-        if (config) window.orbit.saveConfig({...config, signalrgbFavorites: next});
+        if (config) debouncedSaveConfig({...config, signalrgbFavorites: next});
       };
       const getEffName = (e) => typeof e === 'string' ? e : (e.name || e.id || '');
       const getEffId = (e) => typeof e === 'string' ? e : (e.id || e.name || '');
@@ -847,15 +945,13 @@
       const rawLights = config?.integrations?.homeassistant?.lights || [];
       const lightEntities = rawLights.map(e => typeof e === 'string' ? {entityId:e, name:''} : e);
       const haConfigured = config?.integrations?.homeassistant?.url && config?.integrations?.homeassistant?.token;
-      useEffect(() => {
+      const lightEntityIds = lightEntities.map(e=>e.entityId).join(',');
+      usePoll('lights-poll', async () => {
         if (!haConfigured || lightEntities.length === 0) return;
-        async function poll() {
-          const states = {};
-          for (const e of lightEntities) { try { const r = await window.orbit.haGetState(e.entityId); if (!r.error) states[e.entityId] = r; } catch {} }
-          setLights(states);
-        }
-        poll(); const t = setInterval(poll, 15000); return () => clearInterval(t);
-      }, [haConfigured, lightEntities.map(e=>e.entityId).join(',')]);
+        const states = {};
+        for (const e of lightEntities) { try { const r = await window.orbit.haGetState(e.entityId); if (!r.error) states[e.entityId] = r; } catch {} }
+        setLights(states);
+      }, 15000, [haConfigured, lightEntityIds]);
       const toggleLight = async (eid, on) => {
         // Optimistic update — flip immediately so UI responds instantly
         setLights(prev => ({ ...prev, [eid]: { ...prev[eid], state: on ? 'off' : 'on' } }));
@@ -980,14 +1076,8 @@
       const [showDisk, setShowDisk] = useState(false);
       // Saved GPU model name — used to restore selection after restart
       const savedGpuModel = config?.systemPrefs?.gpuModel || null;
-      useEffect(() => {
-        async function pollFast() { try { const r = await window.orbit.getSysinfoFast(); if (!r.error) setFast(r); } catch {} }
-        const stagger = setTimeout(() => { pollFast(); }, staggerMs()); const t = setInterval(pollFast, 5000); return () => { clearTimeout(stagger); clearInterval(t); };
-      }, []);
-      useEffect(() => {
-        async function pollSlow() { try { const r = await window.orbit.getSysinfoSlow({cpuSensorIndex:cpuSensorIdx,gpuControllerIndex:gpuIdx,showDisk}); if (!r.error) setSlow(r); } catch {} }
-        const stagger2 = setTimeout(() => { pollSlow(); }, staggerMs()); const t = setInterval(pollSlow, 30000); return () => { clearTimeout(stagger2); clearInterval(t); };
-      }, [cpuSensorIdx, gpuIdx, showDisk]);
+      usePoll('system-fast', async () => { try { const r = await window.orbit.getSysinfoFast(); if (!r.error) setFast(r); } catch {} }, 5000, []);
+      usePoll('system-slow', async () => { try { const r = await window.orbit.getSysinfoSlow({cpuSensorIndex:cpuSensorIdx,gpuControllerIndex:gpuIdx,showDisk}); if (!r.error) setSlow(r); } catch {} }, 30000, [cpuSensorIdx, gpuIdx, showDisk]);
       const cpuUsage = fast?.cpu?.usage ?? 0;
       const cpuBrand = slow?.cpu?.brand || 'CPU';
       const cpuTemp = slow?.cpu?.temp;
@@ -1206,8 +1296,7 @@
           setResults(r);
           setLastCheck(new Date());
         }
-        const stagger4 = setTimeout(() => { poll(); }, staggerMs()); const t = setInterval(poll, 30000); return () => { clearTimeout(stagger4); clearInterval(t); };
-        return () => clearInterval(t);
+        return PollScheduler.register({ id: 'services-poll', fn: poll, intervalMs: 30000 });
       }, [config]);
 
       const upCount = results.filter(r => r.status === 'up').length;
@@ -5020,7 +5109,7 @@
         newOrder.splice(idx, 0, moved);
         const newCfg = { ...config, panelOrder: newOrder };
         setConfig(newCfg);
-        window.orbit.saveConfig(newCfg);
+        debouncedSaveConfig(newCfg);
         dragIdxRef.current = null;
         clearDragClasses();
       }
@@ -5031,7 +5120,7 @@
         const newCollapsed = { ...panelCollapsed, [type]: !panelCollapsed[type] };
         const newCfg = { ...config, panelCollapsed: newCollapsed };
         setConfig(newCfg);
-        window.orbit.saveConfig(newCfg);
+        debouncedSaveConfig(newCfg);
       }
 
       const renderedPanels = [];
