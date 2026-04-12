@@ -1735,6 +1735,32 @@
             );
           })
         ),
+        // ── HIDDEN PANELS RESTORE ──
+        (() => {
+          const vis = cfg.panels || {};
+          const allPagePanels = (cfg.pages || []).flatMap(pg => (pg.panels || []).map(p => p.type));
+          const hiddenTypes = [...new Set(allPagePanels)].filter(t => vis[t] === false);
+          if (hiddenTypes.length === 0) return null;
+          const ICONS = {clock:'🕐',tautulli:'▶',nowplaying:'▶',signalrgb:'⚡',lights:'💡',system:'💻',media:'📡',uptimekuma:'🔔',spotify:'🎵',links:'🔗',jellyfin:'🎞️',sonarr:'📺',radarr:'🎬',overseerr:'🎭',nzbget:'⬇',homeassistant:'💡',audio:'🔊'};
+          const NAMES = {clock:'Clock & Weather',tautulli:'Now Playing',nowplaying:'Now Playing',signalrgb:'SignalRGB',lights:'Home Assistant',system:'System Monitor',media:'Media Stack',uptimekuma:'Uptime Kuma',spotify:'Spotify',links:'Quick Links',jellyfin:'Jellyfin',sonarr:'Sonarr',radarr:'Radarr',overseerr:'Overseerr',nzbget:'NZBGet',homeassistant:'Home Assistant',audio:'Audio Devices'};
+          return h('div', {style:{marginTop:'16px'}},
+            h('div', {className:'settings-section', style:{color:'#ffb400', borderColor:'rgba(255,180,0,0.2)'}}, 'HIDDEN PANELS'),
+            hiddenTypes.map(type =>
+              h('div', {key:type, style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px',padding:'6px 10px',background:'rgba(255,180,0,0.04)',border:'1px solid rgba(255,180,0,0.15)',borderRadius:'6px'}},
+                h('span', null, (ICONS[type]||'▪')+' '+(NAMES[type]||type)),
+                h('button', {
+                  style:{marginLeft:'auto',padding:'3px 10px',fontSize:'9px',fontWeight:'700',letterSpacing:'1px',borderRadius:'4px',cursor:'pointer',background:'rgba(255,180,0,0.12)',border:'1px solid rgba(255,180,0,0.3)',color:'#ffb400',fontFamily:'inherit'},
+                  onClick: () => {
+                    const newCfg = JSON.parse(JSON.stringify(cfg));
+                    newCfg.panels[type] = true;
+                    setCfg(newCfg);
+                    window.orbit.saveConfig(newCfg);
+                  }
+                }, 'RESTORE')
+              )
+            )
+          );
+        })(),
         h('button', {
           className: 'reconfigure-pages',
           onClick: function() {
@@ -4760,10 +4786,10 @@
             h(LayoutPicker, {config, setConfig}),
             h('button', {className:'add-panel-btn', onClick:onOpenGallery, title:'Add or restore panels'}, '+'),
             hiddenCount > 0 && h('button', {
-              onClick: onOpenGallery,
+              onClick: openSettings,
               style: {fontSize:'8px',color:'#ffb400',background:'rgba(255,180,0,0.08)',border:'1px solid rgba(255,180,0,0.2)',borderRadius:'8px',padding:'1px 6px',cursor:'pointer',fontFamily:'inherit',fontWeight:'700',letterSpacing:'0.5px'},
-              title: hiddenCount + ' hidden panel(s) — click to open gallery and restore'
-            }, hiddenCount + ' ↻ restore')
+              title: hiddenCount + ' hidden panel(s) — click to open Settings and restore'
+            }, hiddenCount + ' ⚙ restore')
           ),
 
           // Centre — page dots + name (only if multiple pages)

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.9
+- **Fix:** Audio panel completely rewritten — PowerShell scripts now written to temp .ps1 files (zero escaping issues)
+- **Fix:** Hidden panels restore — new "HIDDEN PANELS" section in Settings with one-click RESTORE buttons
+- **Fix:** Bottom bar badge now opens Settings directly for restore
+
 ## v0.1.8
 - **Fix:** Audio panel now uses Base64-encoded PowerShell commands (eliminates ALL shell escaping issues on Windows)
 - **Fix:** Hidden panel restore UX — amber badge now says "X ↻ restore" in bottom bar, and gallery cards show "↻ RESTORE" instead of "HIDDEN" for clarity
