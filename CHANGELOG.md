@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.4
+- **Add:** Audio Devices panel — switch Windows audio output and input devices directly from the dashboard. Lists all playback and recording endpoints, highlights the current default, one-click switching via PowerShell PolicyConfig COM.
+- **Add:** Hidden panel recovery in gallery — hidden panels now show an amber "HIDDEN" badge and remain clickable to restore, instead of being indistinguishable from active panels.
+- **Change:** Gallery title changed from "ADD PANEL" to "PANELS" with subtitle "ADD A NEW PANEL OR RESTORE A HIDDEN ONE".
+
 ## v0.1.3
 - **Add:** Centralized polling scheduler — all panel intervals managed by `PollScheduler` with automatic visibility-aware throttling. Polling slows 6x when the dashboard window is hidden/minimized, reducing CPU and network usage.
 - **Add:** `usePoll` hook for panels to register with the scheduler (Clock weather, System fast/slow, SignalRGB, Lights, Services converted).
