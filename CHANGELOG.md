@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.5
+- **Fix:** Audio Devices panel — PowerShell scripts now written to temp `.ps1` files and executed with `-File` flag, eliminating ALL command-line escaping issues (`$_`, quotes, backslashes etc.)
+- **Fix:** Hidden panel restore — dedicated "HIDDEN PANELS" section in Settings with one-click RESTORE buttons for each hidden panel
+- **Fix:** Hidden panel indicator in bottom bar shows amber badge with count, opens Settings to restore
+- **Fix:** Auto-updater state race condition — `update-available` no longer resets `updateDownloaded` flag, `downloadUpdate()` properly awaited, 10s safety timeout if `update-downloaded` event never fires, null checks on `mainWindow`
+
 ## v0.1.4
 - **Add:** Audio Devices panel — switch Windows audio output and input devices directly from the dashboard. Lists all playback and recording endpoints, highlights the current default, one-click switching via PowerShell PolicyConfig COM.
 - **Add:** Hidden panel recovery in gallery — hidden panels now show an amber "HIDDEN" badge and remain clickable to restore, instead of being indistinguishable from active panels.

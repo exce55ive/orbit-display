@@ -1517,55 +1517,49 @@ ipcMain.handle('validate-input', (_e, { type, field, value }) => {
   return { valid: true };
 });
 
-// ─── IPC: AUDIO DEVICES (Windows only) ───────────────────────────────────────
-// PowerShell snippets defined as raw strings to avoid escaping hell
-const _audioListPs = [
-  'Get-CimInstance Win32_PnPEntity |',
-  '  Where-Object { $_.PNPClass -eq \'AudioEndpoint\' -and $_.Status -eq \'OK\' } |',
-  '  Select-Object Name, DeviceID |',
-  '  ConvertTo-Json -Compress'
-].join(' ');
+// ─── IPC: AUDIO DEVICES (Windows only) ---
+// Write PowerShell to a temp .ps1 file, execute with -File, delete.
+// Zero command-line escaping issues.
+const os = require('os');
+const _audioTmpDir = path.join(os.tmpdir(), 'orbit-audio');
+if (!fs.existsSync(_audioTmpDir)) { fs.mkdirSync(_audioTmpDir, { recursive: true }); }
 
-const _audioDefaultPs = [
-  '$p = (Get-ItemProperty \'HKCU:\Software\Microsoft\Multimedia\Sound Mapper\' -Name \'Playback\' -EA 0).Playback;',
-  '$r = (Get-ItemProperty \'HKCU:\Software\Microsoft\Multimedia\Sound Mapper\' -Name \'Recording\' -EA 0).Recording;',
-  '@{ o=$p; i=$r } | ConvertTo-Json -Compress'
-].join(' ');
-
-// Sets default audio device via PolicyConfig COM (inline C# in PowerShell)
-function _psSetDefault(deviceId) {
-  const ps = [
-    'Add-Type -TypeDefinition @\'',
-    'using System;',
-    'using System.Runtime.InteropServices;',
-    'public class AudioSwitch {',
-    '  public static void Set(string id, int role) {',
-    '    var t = Type.GetTypeFromCLSID(new Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"));',
-    '    var o = Activator.CreateInstance(t);',
-    '    t.InvokeMember("SetDefaultEndpoint", System.Reflection.BindingFlags.InvokeMethod, null, o, new object[] { id, role });',
-    '  }',
-    '}',
-    '\'@ -ErrorAction SilentlyContinue;',
-    '[AudioSwitch]::Set(\'' + deviceId + '\', 0)'
-  ].join(' ');
-  return 'powershell -NoProfile -Command "' + ps + '"';
+function _ps(body) {
+  const { execSync } = require('child_process');
+  const tmpFile = path.join(_audioTmpDir, 'cmd-' + Date.now() + '.ps1');
+  try {
+    fs.writeFileSync(tmpFile, body, 'utf8');
+    return execSync('powershell -NoProfile -ExecutionPolicy Bypass -File "' + tmpFile + '"',
+      { timeout: 15000, encoding: 'utf8', windowsHide: true });
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch {}
+  }
 }
 
 ipcMain.handle('list-audio-devices', async () => {
   if (process.platform !== 'win32') return { error: 'Windows only' };
   try {
-    const { execSync } = require('child_process');
-    const raw = execSync('powershell -NoProfile -Command "' + _audioListPs + '"', { timeout: 15000, encoding: 'utf8' }).trim();
+    const script = [
+      '$devices = Get-CimInstance Win32_PnPEntity |',
+      '  Where-Object { $_.PNPClass -eq "AudioEndpoint" -and $_.Status -eq "OK" } |',
+      '  Select-Object Name, DeviceID |',
+      '  ConvertTo-Json -Compress',
+    ].join('\n');
+    const raw = _ps(script).trim();
     if (!raw) return { output: [], input: [] };
     let devices = JSON.parse(raw);
     if (!Array.isArray(devices)) devices = [devices];
-    // Get default names from registry for isDefault detection
+    // Get defaults from registry
+    const defScript = [
+      '$p = (Get-ItemProperty "HKCU:\\Software\\Microsoft\\Multimedia\\Sound Mapper" -Name "Playback" -EA 0).Playback',
+      '$r = (Get-ItemProperty "HKCU:\\Software\\Microsoft\\Multimedia\\Sound Mapper" -Name "Recording" -EA 0).Recording',
+      '@{ o=$p; i=$r } | ConvertTo-Json -Compress',
+    ].join('\n');
     let defOut = '', defIn = '';
     try {
-      const defRaw = execSync('powershell -NoProfile -Command "' + _audioDefaultPs + '"', { timeout: 8000, encoding: 'utf8' }).trim();
+      const defRaw = _ps(defScript).trim();
       if (defRaw) { const d = JSON.parse(defRaw); defOut = d.o || ''; defIn = d.i || ''; }
     } catch {}
-    // Classify devices by name keywords
     const output = [], input = [];
     for (const d of devices) {
       const isInput = /mic|microphone|input|recording|cam/i.test(d.Name);
@@ -1585,11 +1579,15 @@ ipcMain.handle('list-audio-devices', async () => {
 ipcMain.handle('get-default-audio', async () => {
   if (process.platform !== 'win32') return { error: 'Windows only' };
   try {
-    const { execSync } = require('child_process');
-    const raw = execSync('powershell -NoProfile -Command "' + _audioDefaultPs + '"', { timeout: 8000, encoding: 'utf8' }).trim();
+    const script = [
+      '$p = (Get-ItemProperty "HKCU:\\Software\\Microsoft\\Multimedia\\Sound Mapper" -Name "Playback" -EA 0).Playback',
+      '$r = (Get-ItemProperty "HKCU:\\Software\\Microsoft\\Multimedia\\Sound Mapper" -Name "Recording" -EA 0).Recording',
+      '@{ output = $p; input = $r } | ConvertTo-Json -Compress',
+    ].join('\n');
+    const raw = _ps(script).trim();
     if (!raw) return { output: null, input: null };
     const d = JSON.parse(raw);
-    return { output: d.o || null, input: d.i || null };
+    return { output: d.output || null, input: d.input || null };
   } catch (e) { return { error: e.message || String(e) }; }
 });
 
@@ -1597,8 +1595,22 @@ ipcMain.handle('set-audio-device', async (_e, { deviceId }) => {
   if (process.platform !== 'win32') return { error: 'Windows only' };
   if (!deviceId) return { error: 'Device ID required' };
   try {
-    const { execSync } = require('child_process');
-    execSync(_psSetDefault(deviceId), { timeout: 15000, encoding: 'utf8' });
+    const safeId = String(deviceId).replace(/[^a-zA-Z0-9{}._\\-]/g, '');
+    const script = [
+      'Add-Type -TypeDefinition @"',
+      'using System;',
+      'using System.Runtime.InteropServices;',
+      'public class AudioSwitch {',
+      '  public static void SetDefault(string id) {',
+      '    var t = Type.GetTypeFromCLSID(new Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"));',
+      '    var o = Activator.CreateInstance(t);',
+      '    t.InvokeMember("SetDefaultEndpoint", System.Reflection.BindingFlags.InvokeMethod, null, o, new object[] { id, 0 });',
+      '  }',
+      '}',
+      '"@ -ErrorAction SilentlyContinue',
+      '[AudioSwitch]::SetDefault("' + safeId + '")',
+    ].join('\n');
+    _ps(script);
     return { ok: true };
   } catch (e) { return { error: e.message || String(e) }; }
 });

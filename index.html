@@ -1735,6 +1735,38 @@
             );
           })
         ),
+        // ── HIDDEN PANELS RESTORE ──
+        (function() {
+          var vis = cfg.panels || {};
+          var allTypes = [];
+          for (var pi = 0; pi < (cfg.pages||[]).length; pi++) {
+            var pg = cfg.pages[pi];
+            var ps = pg.panels || [];
+            for (var j = 0; j < ps.length; j++) allTypes.push(ps[j].type);
+          }
+          var uniqueTypes = allTypes.filter(function(t, i, a) { return a.indexOf(t) === i; });
+          var hidden = uniqueTypes.filter(function(t) { return vis[t] === false; });
+          if (hidden.length === 0) return null;
+          var ICONS = { clock:'\uD83D\uDD50', tautulli:'\u25B6', nowplaying:'\u25B6', signalrgb:'\u26A1', lights:'\uD83D\uDCA1', system:'\uD83D\uDCAA', media:'\uD83D\uDCE1', uptimekuma:'\uD83D\uDD14', spotify:'\uD83C\uDFB5', links:'\uD83D\uDD17', jellyfin:'\uD83C\uDFAE', sonarr:'\uD83D\uDCFA', radarr:'\uD83C\uDFAC', overseerr:'\uD83C\uDFAD', nzbget:'\u2B07', homeassistant:'\uD83D\uDCA1', audio:'\uD83D\uDD0A' };
+          var NAMES = { clock:'Clock & Weather', tautulli:'Now Playing', nowplaying:'Now Playing', signalrgb:'SignalRGB', lights:'Home Assistant', system:'System Monitor', media:'Media Stack', uptimekuma:'Uptime Kuma', spotify:'Spotify', links:'Quick Links', jellyfin:'Jellyfin', sonarr:'Sonarr', radarr:'Radarr', overseerr:'Overseerr', nzbget:'NZBGet', homeassistant:'Home Assistant', audio:'Audio Devices' };
+          return h('div', { style:{ marginTop:'16px' } },
+            h('div', { className:'settings-section', style:{ color:'#ffb400', borderColor:'rgba(255,180,0,0.2)' }}, 'HIDDEN PANELS'),
+            hidden.map(function(type) {
+              return h('div', { key:type, style:{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'4px', padding:'6px 10px', background:'rgba(255,180,0,0.04)', border:'1px solid rgba(255,180,0,0.15)', borderRadius:'6px' } },
+                h('span', null, (ICONS[type]||'\u25AA')+' '+(NAMES[type]||type)),
+                h('button', {
+                  style:{ marginLeft:'auto', padding:'3px 10px', fontSize:'9px', fontWeight:'700', letterSpacing:'1px', borderRadius:'4px', cursor:'pointer', background:'rgba(255,180,0,0.12)', border:'1px solid rgba(255,180,0,0.3)', color:'#ffb400', fontFamily:'inherit' },
+                  onClick: function() {
+                    var nc = JSON.parse(JSON.stringify(cfg));
+                    nc.panels[type] = true;
+                    setCfg(nc);
+                    window.orbit.saveConfig(nc);
+                  }
+                }, 'RESTORE')
+              );
+            })
+          );
+        })(),
         h('button', {
           className: 'reconfigure-pages',
           onClick: function() {
@@ -4723,6 +4755,11 @@
       }, []);
 
       const hasUpdate = update || downloaded;
+      // Count hidden panels across all pages
+      const hiddenCount = (config?.pages || []).reduce((sum, pg) => {
+        const vis = config?.panels || {};
+        return sum + (pg.panels || []).filter(p => vis[p.type] === false).length;
+      }, 0);
 
       return h(React.Fragment, null,
         // The bar
@@ -4753,7 +4790,12 @@
             h('button', {className:'bottom-gear', onClick:openSettings, title:'Settings'}, '⚙'),
             h('button', {className:'bottom-gear', onClick:onOpenSpotlight, title:'Search (Ctrl+K)', style:{marginLeft:'2px'}}, '🔍'),
             h(LayoutPicker, {config, setConfig}),
-            h('button', {className:'add-panel-btn', onClick:onOpenGallery, title:'Add Panel'}, '+')
+            h('button', {className:'add-panel-btn', onClick:onOpenGallery, title:'Add Panel'}, '+'),
+            hiddenCount > 0 && h('button', {
+              onClick: openSettings,
+              style:{fontSize:'9px',color:'#ffb400',background:'rgba(255,180,0,0.08)',border:'1px solid rgba(255,180,0,0.25)',borderRadius:'10px',padding:'2px 8px',cursor:'pointer',fontFamily:'inherit',fontWeight:'700',letterSpacing:'0.5px'},
+              title: hiddenCount + ' hidden panel(s) — click to open Settings and restore'
+            }, hiddenCount + ' hidden')
           ),
 
           // Centre — page dots + name (only if multiple pages)
