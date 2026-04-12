@@ -1543,40 +1543,50 @@ ipcMain.handle('validate-input', (_e, { type, field, value }) => {
 });
 
 // ─── IPC: AUDIO DEVICES (Windows only) ───────────────────────────────────────
-// Helper: run PowerShell via execFileSync to avoid shell escaping issues
-function _ps(script, opts = {}) {
-  const { execFileSync } = require('child_process');
-  return execFileSync('powershell', ['-NoProfile', '-Command', script], { timeout: opts.timeout || 15000, encoding: 'utf8', windowsHide: true });
+// Run PowerShell via Base64-encoded command to avoid ALL escaping issues
+function _ps(script) {
+  const { execSync } = require('child_process');
+  const b64 = Buffer.from(script, 'utf16le').toString('base64');
+  return execSync('powershell -NoProfile -EncodedCommand ' + b64, { timeout: 15000, encoding: 'utf8', windowsHide: true });
 }
 
-const _audioListPs = `Get-CimInstance Win32_PnPEntity | Where-Object { $_.PNPClass -eq "AudioEndpoint" -and $_.Status -eq "OK" } | Select-Object Name, DeviceID | ConvertTo-Json -Compress`;
+const _audioListScript = [
+  'Get-CimInstance Win32_PnPEntity |',
+  '  Where-Object { $_.PNPClass -eq "AudioEndpoint" -and $_.Status -eq "OK" } |',
+  '  Select-Object Name, DeviceID |',
+  '  ConvertTo-Json -Compress'
+].join('\n');
 
-const _audioDefaultPs = `$p = (Get-ItemProperty 'HKCU:\Software\Microsoft\Multimedia\Sound Mapper' -Name 'Playback' -EA 0).Playback; $r = (Get-ItemProperty 'HKCU:\Software\Microsoft\Multimedia\Sound Mapper' -Name 'Recording' -EA 0).Recording; @{ o=$p; i=$r } | ConvertTo-Json -Compress`;
+const _audioDefaultScript = [
+  '$p = (Get-ItemProperty "HKCU:\Software\Microsoft\Multimedia\Sound Mapper" -Name "Playback" -EA 0).Playback',
+  '$r = (Get-ItemProperty "HKCU:\Software\Microsoft\Multimedia\Sound Mapper" -Name "Recording" -EA 0).Recording',
+  '@{ o=$p; i=$r } | ConvertTo-Json -Compress'
+].join('\n');
 
-const _audioSetDefaultPs = `
-Add-Type -TypeDefinition @"
-using System; using System.Runtime.InteropServices;
-public class AudioSwitch {
-  public static void Set(string id, int role) {
-    var t = Type.GetTypeFromCLSID(new Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"));
-    var o = Activator.CreateInstance(t);
-    t.InvokeMember("SetDefaultEndpoint", System.Reflection.BindingFlags.InvokeMethod, null, o, new object[] { id, role });
-  }
-}
-"@ -ErrorAction SilentlyContinue;
-[AudioSwitch]::Set('__ID__', 0)
-`;
+const _audioSetDefaultScript = [
+  'Add-Type -TypeDefinition @"',
+  'using System; using System.Runtime.InteropServices;',
+  'public class AudioSwitch {',
+  '  public static void Set(string id, int role) {',
+  '    var t = Type.GetTypeFromCLSID(new Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"));',
+  '    var o = Activator.CreateInstance(t);',
+  '    t.InvokeMember("SetDefaultEndpoint", System.Reflection.BindingFlags.InvokeMethod, null, o, new object[] { id, role });',
+  '  }',
+  '}',
+  '"@ -ErrorAction SilentlyContinue',
+  '[AudioSwitch]::Set("__ID__", 0)'
+].join('\n');
 
 ipcMain.handle('list-audio-devices', async () => {
   if (process.platform !== 'win32') return { error: 'Windows only' };
   try {
-    const raw = _ps(_audioListPs).trim();
+    const raw = _ps(_audioListScript).trim();
     if (!raw) return { output: [], input: [] };
     let devices = JSON.parse(raw);
     if (!Array.isArray(devices)) devices = [devices];
     let defOut = '', defIn = '';
     try {
-      const defRaw = _ps(_audioDefaultPs, { timeout: 8000 }).trim();
+      const defRaw = _ps(_audioDefaultScript).trim();
       if (defRaw) { const d = JSON.parse(defRaw); defOut = d.o || ''; defIn = d.i || ''; }
     } catch {}
     const output = [], input = [];
@@ -1598,7 +1608,7 @@ ipcMain.handle('list-audio-devices', async () => {
 ipcMain.handle('get-default-audio', async () => {
   if (process.platform !== 'win32') return { error: 'Windows only' };
   try {
-    const raw = _ps(_audioDefaultPs, { timeout: 8000 }).trim();
+    const raw = _ps(_audioDefaultScript).trim();
     if (!raw) return { output: null, input: null };
     const d = JSON.parse(raw);
     return { output: d.o || null, input: d.i || null };
@@ -1609,7 +1619,7 @@ ipcMain.handle('set-audio-device', async (_e, { deviceId }) => {
   if (process.platform !== 'win32') return { error: 'Windows only' };
   if (!deviceId) return { error: 'Device ID required' };
   try {
-    _ps(_audioSetDefaultPs.replace('__ID__', deviceId));
+    _ps(_audioSetDefaultScript.replace('__ID__', deviceId));
     return { ok: true };
   } catch (e) { return { error: e.message || String(e) }; }
 });

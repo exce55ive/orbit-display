@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.8
+- **Fix:** Audio panel now uses Base64-encoded PowerShell commands (eliminates ALL shell escaping issues on Windows)
+- **Fix:** Hidden panel restore UX — amber badge now says "X ↻ restore" in bottom bar, and gallery cards show "↻ RESTORE" instead of "HIDDEN" for clarity
+- **Fix:** Hidden panel cards more visible (higher opacity, brighter border)
+
 ## v0.1.7
 - **Fix:** Auto-updater now works correctly (v0.1.5 and v0.1.6 had mismatched version in build artifacts)
 - **Fix:** Audio Devices panel PowerShell execution rewritten to eliminate shell escaping errors
