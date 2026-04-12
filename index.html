@@ -4630,18 +4630,11 @@
     ];
 
     function PanelGallery({ config, setConfig, onClose }) {
-      const panelVisibility = config?.panels || {};
       const currentPagePanels = (config?.pages || [])[0]?.panels || [];
-      // Panels that are on the page AND visible
-      const activePanelTypes = new Set(currentPagePanels.map(p => p.type).filter(t => panelVisibility[t] !== false));
-      // Panels that are on the page but hidden (visibility=false)
-      const hiddenPanelTypes = new Set(currentPagePanels.map(p => p.type).filter(t => panelVisibility[t] === false));
+      const activePanelTypes = new Set(currentPagePanels.map(p => p.type));
 
       function addPanel(type) {
         const newCfg = JSON.parse(JSON.stringify(config));
-        // Ensure panel visibility is on
-        if (!newCfg.panels) newCfg.panels = {};
-        newCfg.panels[type] = true;
         // Add to first page if not already there
         if (newCfg.pages && newCfg.pages.length > 0) {
           const page = newCfg.pages[0];

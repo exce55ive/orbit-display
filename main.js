@@ -86,6 +86,16 @@ function loadOrbitConfig() {
   if (!fs.existsSync(p)) return null;
   try {
     const cfg = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    // One-time cleanup: remove stale panel visibility=false entries (hide feature removed)
+    if (cfg.panels && typeof cfg.panels === 'object') {
+      let dirty = false;
+      for (const key of Object.keys(cfg.panels)) {
+        if (cfg.panels[key] === false) { delete cfg.panels[key]; dirty = true; }
+      }
+      if (dirty) {
+        try { fs.writeFileSync(p, JSON.stringify(cfg, null, 2), 'utf-8'); log.info('Cleaned up stale panel visibility entries'); } catch (e) { log.warn('Failed to clean panel visibility:', e.message); }
+      }
+    }
     const validated = validateAndFillDefaults(cfg);
     return validated ? decryptConfigSecrets(validated) : null;
   } catch (e) {
