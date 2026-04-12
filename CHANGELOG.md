@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.6
+- **Fix:** Audio Devices panel PowerShell commands now use execFileSync (no more shell escaping errors with $_ and backslashes)
+- **Fix:** Hidden panel amber badge now appears in the bottom bar showing count of hidden panels — click to open gallery and restore
+
 ## v0.1.5
 - **Fix:** Auto-updater now awaits `downloadUpdate()` properly and catches errors
 - **Fix:** Update state no longer resets when `update-available` fires on an already-downloaded version
