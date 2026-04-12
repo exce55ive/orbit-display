@@ -122,11 +122,7 @@
     .panel-header-title { font-size: 13px; font-weight:700; letter-spacing:1.5px; color:var(--text-bright); text-align:center; }
     .panel-header-cog { background:none; border:none; color:rgba(255,255,255,0.2); cursor:pointer; font-size: 16px; padding:0; line-height:1; transition:color .15s; flex-shrink:0; }
     .panel-header-cog:hover { color:rgba(255,255,255,0.65); }
-    .panel-collapse-btn { background:none; border:none; color:rgba(255,255,255,0.15); cursor:pointer; font-size:10px; padding:0 2px; line-height:1; transition:color .2s, transform .2s; flex-shrink:0; display:flex; align-items:center; }
-    .panel-collapse-btn:hover { color:rgba(255,255,255,0.45); }
-    .panel-collapse-btn.collapsed { transform:rotate(-90deg); }
     .panel-drag-wrapper .panel { transition:height .2s ease; overflow:hidden; }
-    .panel-drag-wrapper.collapsed { display:none; }
     .np-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
     .np-progress-fill.no-transition { transition: none !important; }
     .np-time { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
@@ -605,7 +601,6 @@
         name: 'Default',
         panelOrder: [...DEFAULT_PANEL_ORDER],
         panels: {},           // all visible (default true)
-        panelCollapsed: {}    // all expanded
       },
       _gaming: {
         name: 'Gaming',
@@ -614,7 +609,6 @@
           signalrgb: true, discord: true, spotify: true, system: true, services: true, lights: true, clock: true, weather: true,
           nowplaying: false, jellyfin: false, sonarr: false, radarr: false, overseerr: false, nzbget: false
         },
-        panelCollapsed: {}
       },
       _media: {
         name: 'Media',
@@ -623,7 +617,6 @@
           nowplaying: true, jellyfin: true, sonarr: true, radarr: true, overseerr: true, nzbget: true, clock: true, weather: true, services: true, lights: true, system: true,
           signalrgb: false, discord: false, spotify: false
         },
-        panelCollapsed: {}
       }
     };
 
@@ -641,7 +634,6 @@
         ...config,
         panelOrder: [...layout.panelOrder],
         panels: { ...layout.panels },
-        panelCollapsed: { ...layout.panelCollapsed },
         currentLayout: layoutKey
       };
       setConfig(newCfg);
@@ -658,19 +650,14 @@
       if (window.orbit && window.orbit.openSetup) window.orbit.openSetup();
     }
 
-    const CollapseContext = React.createContext({ collapsed: false, onToggleCollapse: () => {} });
     function PanelHeader({ title, icon, accentColor }) {
-      const { collapsed, onToggleCollapse } = React.useContext(CollapseContext);
       return h('div', { className:'panel-header' },
         h('div', { className:'panel-header-left' },
           h('span', { className:'panel-drag-handle', title:'Drag to reorder' }, '⠿'),
           h('div', { className:'panel-header-accent', style:{ background: accentColor || 'var(--accent)' } }),
           h('span', { className:'panel-header-icon' }, icon)
         ),
-        h('span', { className:'panel-header-title' }, title),
-        h('div', { className:'panel-header-right' },
-          h('button', { className:'panel-collapse-btn' + (collapsed ? ' collapsed' : ''), onClick:onToggleCollapse, title:collapsed ? 'Expand panel' : 'Collapse panel' }, '▼')
-        )
+        h('span', { className:'panel-header-title' }, title)
       );
     }
 
@@ -5229,19 +5216,9 @@
         clearDragClasses();
       }
 
-      // Collapse state
-      const panelCollapsed = config?.panelCollapsed || {};
-      function toggleCollapse(type) {
-        const newCollapsed = { ...panelCollapsed, [type]: !panelCollapsed[type] };
-        const newCfg = { ...config, panelCollapsed: newCollapsed };
-        setConfig(newCfg);
-        debouncedSaveConfig(newCfg);
-      }
-
       const renderedPanels = [];
       orderedPanels.forEach((panelCfg, idx) => {
         const col = panelCfg.col;
-        const isCollapsed = !!panelCollapsed[panelCfg.type];
         const dragProps = {
           draggable: true,
           onDragStart: e => onPanelDragStart(e, idx),
@@ -5250,35 +5227,26 @@
           onDragLeave: e => { e.currentTarget.classList.remove('drag-over-left', 'drag-over-right'); },
           onDrop: e => onPanelDrop(e, idx),
         };
-        const wrapperClass = 'panel-drag-wrapper' + (isCollapsed ? ' collapsed' : '');
-        const collapseVal = { collapsed: isCollapsed, onToggleCollapse: () => toggleCollapse(panelCfg.type) };
         if (panelCfg.type === 'signalrgb' && config?.demoMode) {
           const demoSignal = renderDemoPanel('signalrgb');
-          renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:wrapperClass, ...dragProps},
-            h(CollapseContext.Provider, {value: collapseVal},
-              h(PanelErrorBoundary, {panelType:'signalrgb'}, demoSignal)
-            )
+          renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:'panel-drag-wrapper', ...dragProps},
+            h(PanelErrorBoundary, {panelType:'signalrgb'}, demoSignal)
           ));
         } else if (panelCfg.type === 'signalrgb') {
-          renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:wrapperClass, ...dragProps},
-            h(CollapseContext.Provider, {value: collapseVal},
-              h(PanelErrorBoundary, {panelType:'signalrgb'}, h(MSignalRGBPanel, {config, onSignalChange: setSignalIsOn}))
-            )
+          renderedPanels.push(h('div', {key:'signalrgb-drag-'+col, className:'panel-drag-wrapper', ...dragProps},
+            h(PanelErrorBoundary, {panelType:'signalrgb'}, h(MSignalRGBPanel, {config, onSignalChange: setSignalIsOn}))
           ));
         } else {
           const panel = renderPanel(panelCfg, config, openSettings, setConfig);
           if (panel) {
-            renderedPanels.push(h('div', {key:panelCfg.type+'-drag-'+col, className:wrapperClass, ...dragProps},
-              h(CollapseContext.Provider, {value: collapseVal}, panel)
-            ));
+            renderedPanels.push(h('div', {key:panelCfg.type+'-drag-'+col, className:'panel-drag-wrapper', ...dragProps}, panel));
           }
         }
       });
       if (renderedPanels.length === 0) {
         renderedPanels.push(h('div', {key:'empty', className:'panel'}, h('div',{style:{fontSize:'28px',opacity:0.08}},'+' )));
       }
-      const visibleCount = orderedPanels.filter(p => !panelCollapsed[p.type]).length;
-      const panelCols = Math.min(Math.max(visibleCount, 1), 6);
+      const panelCols = Math.min(Math.max(orderedPanels.length, 1), 6);
 
       return h(SignalRGBContext.Provider, {value: {isOn: signalIsOn}},
         h('div', {id:'app', style:{'--panel-cols': panelCols}}, ...renderedPanels),
