@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.1.7
+- **Fix:** Auto-updater now works correctly (v0.1.5 and v0.1.6 had mismatched version in build artifacts)
+- **Fix:** Audio Devices panel PowerShell execution rewritten to eliminate shell escaping errors
+- **Fix:** Hidden panels now show amber badge in bottom bar with count and click-to-restore
+
 ## v0.1.6
 - **Fix:** Audio Devices panel PowerShell commands now use execFileSync (no more shell escaping errors with $_ and backslashes)
 - **Fix:** Hidden panel amber badge now appears in the bottom bar showing count of hidden panels — click to open gallery and restore
