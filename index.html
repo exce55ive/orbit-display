@@ -322,6 +322,9 @@
     .gallery-card:hover { border-color: var(--accent); background: rgba(255,255,255,0.04); }
     .gallery-card.active { opacity: 0.35; pointer-events: none; position: relative; }
     .gallery-card.active::after { content: '✓'; position: absolute; top: 8px; right: 10px; font-size: 14px; color: var(--accent); font-weight: 700; }
+    .gallery-card.hidden { opacity: 0.7; border-color: rgba(255,180,0,0.3); }
+    .gallery-card.hidden:hover { border-color: rgba(255,180,0,0.6); background: rgba(255,180,0,0.06); }
+    .gallery-card-badge { font-size: 8px; font-weight: 800; letter-spacing: 2px; padding: 2px 8px; border-radius: 3px; background: rgba(255,180,0,0.15); color: #ffb400; }
     .gallery-card-icon { font-size: 28px; }
     .gallery-card-name { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-bright, #fff); }
     .gallery-card-desc { font-size: 10px; color: var(--dim); letter-spacing: 0.5px; line-height: 1.4; }
@@ -3979,6 +3982,93 @@
       );
     }
 
+    // ═══ AUDIO DEVICES PANEL ═══
+    function AudioPanel({ config }) {
+      const [devices, setDevices] = useState({ output: [], input: [] });
+      const [switching, setSwitching] = useState(null);
+      const [error, setError] = useState(null);
+      const isWin = typeof navigator !== 'undefined' && /Win/i.test(navigator.platform || '');
+
+      // Poll every 10s
+      usePoll('audio-devices', async () => {
+        try {
+          const res = await window.orbit.listAudioDevices();
+          if (res?.error) { setError(res.error); return; }
+          setDevices(res || { output: [], input: [] });
+          setError(null);
+        } catch (e) { setError(e.message || 'Failed to load audio devices'); }
+      }, 10000, []);
+
+      async function switchDevice(deviceId) {
+        if (switching) return;
+        setSwitching(deviceId);
+        setError(null);
+        try {
+          const res = await window.orbit.setAudioDevice(deviceId);
+          if (res?.error) { setError(res.error); }
+          else {
+            // Refresh device list after a brief delay for the OS to register the change
+            setTimeout(async () => {
+              try {
+                const fresh = await window.orbit.listAudioDevices();
+                if (fresh && !fresh.error) setDevices(fresh);
+              } catch {}
+            }, 1500);
+          }
+        } catch (e) { setError(e.message || 'Failed to switch device'); }
+        setSwitching(null);
+      }
+
+      if (!isWin) {
+        return h('div', { className: 'panel' },
+          h(PanelHeader, { title: 'AUDIO DEVICES', icon: '🔊', accentColor: '#10B981' }),
+          h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--dim)', fontSize: '11px', letterSpacing: '1px' } },
+            '🔊 Windows only'
+          )
+        );
+      }
+
+      const sectionLabel = (text) => h('div', {
+        style: { fontSize: '9px', color: 'rgba(255,255,255,0.25)', letterSpacing: '2px', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)', width: '100%' }
+      }, text);
+
+      const deviceRow = (d, isInput) => h('div', {
+        key: d.id,
+        style: {
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '7px 10px', borderRadius: '6px', cursor: switching === d.id ? 'wait' : 'pointer',
+          background: d.isDefault ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.02)',
+          border: '1px solid ' + (d.isDefault ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.04)'),
+          transition: 'all .2s', width: '100%', marginBottom: '4px'
+        },
+        onClick: () => !d.isDefault && switchDevice(d.id)
+      },
+        d.isDefault && h('div', { style: { width: '6px', height: '6px', borderRadius: '50%', background: '#10B981', flexShrink: 0 } }),
+        !d.isDefault && h('div', { style: { width: '6px', height: '6px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', flexShrink: 0 } }),
+        h('div', { style: { flex: 1, minWidth: 0 } },
+          h('div', { style: { fontSize: '11px', fontWeight: d.isDefault ? '700' : '500', color: d.isDefault ? '#10B981' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, d.name),
+          d.isDefault && h('div', { style: { fontSize: '8px', color: '#10B981', letterSpacing: '1.5px', fontWeight: '700', marginTop: '1px' } }, 'DEFAULT')
+        ),
+        switching === d.id && h('div', { style: { fontSize: '10px', color: 'var(--dim)' } }, '⏳')
+      );
+
+      return h('div', { className: 'panel panel-top' },
+        h(PanelHeader, { title: 'AUDIO DEVICES', icon: '🔊', accentColor: '#10B981' }),
+        error && h('div', { style: { fontSize: '11px', color: 'var(--red)', marginBottom: '8px' } }, '⚠ ' + error),
+        // Output section
+        h('div', { style: { width: '100%', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
+          sectionLabel('OUTPUT'),
+          devices.output.length > 0
+            ? devices.output.map(d => deviceRow(d, false))
+            : h('div', { style: { fontSize: '11px', color: 'var(--dim)', marginBottom: '12px' } }, 'No output devices found'),
+          // Input section
+          sectionLabel('INPUT'),
+          devices.input.length > 0
+            ? devices.input.map(d => deviceRow(d, true))
+            : h('div', { style: { fontSize: '11px', color: 'var(--dim)' } }, 'No input devices found')
+        )
+      );
+    }
+
     // ═══ DEMO MODE — fake data panels ═══
     function renderDemoPanel(type) {
       const sty = (s) => s; // shorthand
@@ -4370,6 +4460,36 @@
             )
           )
         );
+        case 'audio': {
+          const demoDevices = {
+            output: [
+              { id: '{0.0.0.00000000}.{1234abcd-5678-ef01-2345-6789abcdef01}', name: 'Speakers (Realtek HD Audio)', isDefault: true },
+              { id: '{0.0.0.00000000}.{1234abcd-5678-ef01-2345-6789abcdef02}', name: 'HyperX Cloud II Wireless', isDefault: false },
+              { id: '{0.0.0.00000000}.{1234abcd-5678-ef01-2345-6789abcdef03}', name: 'NVIDIA High Definition Audio', isDefault: false }
+            ],
+            input: [
+              { id: '{0.0.0.00000000}.{1234abcd-5678-ef01-2345-6789abcdef04}', name: 'Microphone (HyperX Cloud II)', isDefault: true },
+              { id: '{0.0.0.00000000}.{1234abcd-5678-ef01-2345-6789abcdef05}', name: 'Microphone Array (Realtek)', isDefault: false }
+            ]
+          };
+          const dSection = (label) => h('div',{style:{fontSize:'9px',color:'rgba(255,255,255,0.25)',marginBottom:'8px',paddingBottom:'6px',letterSpacing:'2px',borderBottom:'1px solid rgba(255,255,255,0.06)',width:'100%'}}, label);
+          const dRow = (d) => h('div',{style:{display:'flex',alignItems:'center',gap:'10px',padding:'7px 10px',borderRadius:'6px',background:d.isDefault?'rgba(16,185,129,0.12)':'rgba(255,255,255,0.02)',border:'1px solid '+(d.isDefault?'rgba(16,185,129,0.3)':'rgba(255,255,255,0.04)'),width:'100%',marginBottom:'4px'}},
+            h('div',{style:{width:'6px',height:'6px',borderRadius:'50%',background:d.isDefault?'#10B981':'rgba(255,255,255,0.15)',flexShrink:0}}),
+            h('div',{style:{flex:1,minWidth:0}},
+              h('div',{style:{fontSize:'11px',fontWeight:d.isDefault?'700':'500',color:d.isDefault?'#10B981':'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}, d.name),
+              d.isDefault && h('div',{style:{fontSize:'8px',color:'#10B981',letterSpacing:'1.5px',fontWeight:'700',marginTop:'1px'}},'DEFAULT')
+            )
+          );
+          return h('div',{className:'panel panel-top'},
+            h(PanelHeader,{title:'AUDIO DEVICES',icon:'🔊',accentColor:'#10B981'}),
+            h('div',{style:{width:'100%',flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
+              dSection('OUTPUT'),
+              demoDevices.output.map(dRow),
+              dSection('INPUT'),
+              demoDevices.input.map(dRow)
+            )
+          );
+        }
         default: return null;
       }
     }
@@ -4406,6 +4526,7 @@
     const MCalendarPanel = React.memo(CalendarPanel);
     const MSabnzbdPanel = React.memo(SabnzbdPanel);
     const MCustomPanel = React.memo(CustomPanel);
+    const MAudioPanel = React.memo(AudioPanel);
 
     function renderPanel(panelCfg, config, openSettings, setConfig) {
       const type = panelCfg.type;
@@ -4442,6 +4563,7 @@
         case 'calendar': return wrap(key, h(MCalendarPanel, {key, config, openSettings}));
         case 'sabnzbd': return wrap(key, h(MSabnzbdPanel, {key, config, openSettings}));
         case 'custom': return wrap(key, h(MCustomPanel, {key, config}));
+        case 'audio': return wrap(key, h(MAudioPanel, {key, config}));
         default: return wrap(key, h('div', {key, className:'panel panel-unconfigured'}, h('div',{className:'panel-unconfigured-icon'},'📦'), h('div',{className:'panel-unconfigured-text'}, type)));
       }
     }
@@ -4507,12 +4629,16 @@
       { type: 'calendar', icon: '📅', name: 'Calendar', desc: 'iCal events & schedule' },
       { type: 'sabnzbd', icon: '📥', name: 'SABnzbd', desc: 'Download queue, speed & progress' },
       { type: 'custom', icon: '🌐', name: 'Iframe / Custom', desc: 'Embed any URL in a panel' },
+      { type: 'audio', icon: '🔊', name: 'Audio Devices', desc: 'Switch Windows audio output and input devices' },
     ];
 
     function PanelGallery({ config, setConfig, onClose }) {
-      const visiblePanels = config?.panels || {};
+      const panelVisibility = config?.panels || {};
       const currentPagePanels = (config?.pages || [])[0]?.panels || [];
-      const activePanelTypes = new Set(currentPagePanels.map(p => p.type).filter(t => visiblePanels[t] !== false));
+      // Panels that are on the page AND visible
+      const activePanelTypes = new Set(currentPagePanels.map(p => p.type).filter(t => panelVisibility[t] !== false));
+      // Panels that are on the page but hidden (visibility=false)
+      const hiddenPanelTypes = new Set(currentPagePanels.map(p => p.type).filter(t => panelVisibility[t] === false));
 
       function addPanel(type) {
         const newCfg = JSON.parse(JSON.stringify(config));
@@ -4541,18 +4667,21 @@
       return h('div', { className: 'gallery-overlay', onClick: e => { if (e.target === e.currentTarget) onClose(); } },
         h('button', { className: 'gallery-close', onClick: onClose }, '\u2715'),
         h('div', { className: 'gallery-inner' },
-          h('div', { className: 'gallery-title' }, 'ADD PANEL'),
-          h('div', { className: 'gallery-subtitle' }, 'SELECT A PANEL TO ADD TO YOUR DASHBOARD'),
+          h('div', { className: 'gallery-title' }, 'PANELS'),
+          h('div', { className: 'gallery-subtitle' }, 'ADD A NEW PANEL OR RESTORE A HIDDEN ONE'),
           h('div', { className: 'gallery-grid' },
             GALLERY_PANELS.map(p => {
               const isActive = activePanelTypes.has(p.type);
+              const isHidden = hiddenPanelTypes.has(p.type);
+              const cls = 'gallery-card' + (isActive ? ' active' : '') + (isHidden ? ' hidden' : '');
               return h('div', {
                 key: p.type,
-                className: 'gallery-card' + (isActive ? ' active' : ''),
+                className: cls,
                 onClick: () => !isActive && addPanel(p.type)
               },
                 h('div', { className: 'gallery-card-icon' }, p.icon),
                 h('div', { className: 'gallery-card-name' }, p.name),
+                isHidden && h('div', { className: 'gallery-card-badge' }, 'HIDDEN'),
                 h('div', { className: 'gallery-card-desc' }, p.desc)
               );
             })

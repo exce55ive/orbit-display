@@ -1517,6 +1517,92 @@ ipcMain.handle('validate-input', (_e, { type, field, value }) => {
   return { valid: true };
 });
 
+// ─── IPC: AUDIO DEVICES (Windows only) ───────────────────────────────────────
+// PowerShell snippets defined as raw strings to avoid escaping hell
+const _audioListPs = [
+  'Get-CimInstance Win32_PnPEntity |',
+  '  Where-Object { $_.PNPClass -eq \'AudioEndpoint\' -and $_.Status -eq \'OK\' } |',
+  '  Select-Object Name, DeviceID |',
+  '  ConvertTo-Json -Compress'
+].join(' ');
+
+const _audioDefaultPs = [
+  '$p = (Get-ItemProperty \'HKCU:\Software\Microsoft\Multimedia\Sound Mapper\' -Name \'Playback\' -EA 0).Playback;',
+  '$r = (Get-ItemProperty \'HKCU:\Software\Microsoft\Multimedia\Sound Mapper\' -Name \'Recording\' -EA 0).Recording;',
+  '@{ o=$p; i=$r } | ConvertTo-Json -Compress'
+].join(' ');
+
+// Sets default audio device via PolicyConfig COM (inline C# in PowerShell)
+function _psSetDefault(deviceId) {
+  const ps = [
+    'Add-Type -TypeDefinition @\'',
+    'using System;',
+    'using System.Runtime.InteropServices;',
+    'public class AudioSwitch {',
+    '  public static void Set(string id, int role) {',
+    '    var t = Type.GetTypeFromCLSID(new Guid("870af99c-171d-4f9e-af0d-e63df40c2bc9"));',
+    '    var o = Activator.CreateInstance(t);',
+    '    t.InvokeMember("SetDefaultEndpoint", System.Reflection.BindingFlags.InvokeMethod, null, o, new object[] { id, role });',
+    '  }',
+    '}',
+    '\'@ -ErrorAction SilentlyContinue;',
+    '[AudioSwitch]::Set(\'' + deviceId + '\', 0)'
+  ].join(' ');
+  return 'powershell -NoProfile -Command "' + ps + '"';
+}
+
+ipcMain.handle('list-audio-devices', async () => {
+  if (process.platform !== 'win32') return { error: 'Windows only' };
+  try {
+    const { execSync } = require('child_process');
+    const raw = execSync('powershell -NoProfile -Command "' + _audioListPs + '"', { timeout: 15000, encoding: 'utf8' }).trim();
+    if (!raw) return { output: [], input: [] };
+    let devices = JSON.parse(raw);
+    if (!Array.isArray(devices)) devices = [devices];
+    // Get default names from registry for isDefault detection
+    let defOut = '', defIn = '';
+    try {
+      const defRaw = execSync('powershell -NoProfile -Command "' + _audioDefaultPs + '"', { timeout: 8000, encoding: 'utf8' }).trim();
+      if (defRaw) { const d = JSON.parse(defRaw); defOut = d.o || ''; defIn = d.i || ''; }
+    } catch {}
+    // Classify devices by name keywords
+    const output = [], input = [];
+    for (const d of devices) {
+      const isInput = /mic|microphone|input|recording|cam/i.test(d.Name);
+      const entry = { id: d.DeviceID, name: d.Name, isDefault: false };
+      if (isInput) {
+        if (defIn && d.Name.includes(defIn)) entry.isDefault = true;
+        input.push(entry);
+      } else {
+        if (defOut && d.Name.includes(defOut)) entry.isDefault = true;
+        output.push(entry);
+      }
+    }
+    return { output, input };
+  } catch (e) { return { error: e.message || String(e) }; }
+});
+
+ipcMain.handle('get-default-audio', async () => {
+  if (process.platform !== 'win32') return { error: 'Windows only' };
+  try {
+    const { execSync } = require('child_process');
+    const raw = execSync('powershell -NoProfile -Command "' + _audioDefaultPs + '"', { timeout: 8000, encoding: 'utf8' }).trim();
+    if (!raw) return { output: null, input: null };
+    const d = JSON.parse(raw);
+    return { output: d.o || null, input: d.i || null };
+  } catch (e) { return { error: e.message || String(e) }; }
+});
+
+ipcMain.handle('set-audio-device', async (_e, { deviceId }) => {
+  if (process.platform !== 'win32') return { error: 'Windows only' };
+  if (!deviceId) return { error: 'Device ID required' };
+  try {
+    const { execSync } = require('child_process');
+    execSync(_psSetDefault(deviceId), { timeout: 15000, encoding: 'utf8' });
+    return { ok: true };
+  } catch (e) { return { error: e.message || String(e) }; }
+});
+
 // ─── IPC: FETCH IMAGE AS DATA URL (for auth-gated thumbnails) ────────────────
 ipcMain.handle('fetch-image', async (_e, { url, headers }) => {
   if (!isAllowedUrl(url)) return { error: 'URL not allowed' };

@@ -30,7 +30,8 @@
     { "type": "speedtest" },
     { "type": "calendar" },
     { "type": "custom" },
-    { "type": "sabnzbd" }
+    { "type": "sabnzbd" },
+    { "type": "audio" }
   ],
   "configKeys": {
     "panelOrder": "Array of panel IDs defining display order",
@@ -70,6 +71,7 @@
     "speedtest": { "autoRun": false, "intervalHours": 6, "lastResults": [] },
     "calendar": { "sources": [] },
     "custom": { "url": "", "title": "Custom", "zoom": 1.0 },
-    "sabnzbd": { "url": "", "apiKey": "" }
+    "sabnzbd": { "url": "", "apiKey": "" },
+    "audio": {}
   }
 }

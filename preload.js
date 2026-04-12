@@ -76,6 +76,11 @@ contextBridge.exposeInMainWorld('orbit', {
   // Speedtest
   runSpeedtest: () => ipcRenderer.invoke('run-speedtest'),
 
+  // Audio Devices (Windows only)
+  listAudioDevices: () => ipcRenderer.invoke('list-audio-devices'),
+  getDefaultAudio: () => ipcRenderer.invoke('get-default-audio'),
+  setAudioDevice: (deviceId) => ipcRenderer.invoke('set-audio-device', { deviceId }),
+
   // Settings persistence
   saveSettings: (s) => ipcRenderer.invoke('save-settings', s),
   loadSettings: () => ipcRenderer.invoke('load-settings'),
