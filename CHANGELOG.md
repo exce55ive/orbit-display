@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.5
+- **Fix:** Auto-updater now awaits `downloadUpdate()` properly and catches errors
+- **Fix:** Update state no longer resets when `update-available` fires on an already-downloaded version
+- **Fix:** Added safety timeout — if download reaches 100% but `update-downloaded` never fires, state is forced after 10 seconds
+- **Fix:** Added null checks on `mainWindow` before sending update IPC events
+
 ## v0.1.4
 - **Add:** Audio Devices panel — switch Windows audio output and input devices directly from the dashboard. Lists all playback and recording endpoints, highlights the current default, one-click switching via PowerShell PolicyConfig COM.
 - **Add:** Hidden panel recovery in gallery — hidden panels now show an amber "HIDDEN" badge and remain clickable to restore, instead of being indistinguishable from active panels.

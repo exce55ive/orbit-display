@@ -49,26 +49,47 @@ let pendingUpdate = savedMarker ? { version: savedMarker.version, releaseNotes: 
 let updateDownloaded = savedMarker ? true : false;
 
 autoUpdater.on('update-available', (info) => {
-  log.info('Update available:', info.version);
-  pendingUpdate = { version: info.version, releaseNotes: info.releaseNotes || '' };
-  updateDownloaded = false;
-  if (mainWindow) {
-    mainWindow.webContents.send('update-available', pendingUpdate);
+  log.info('Update available:', info.version, '(alreadyDownloaded:', updateDownloaded, ')');
+  if (!updateDownloaded) {
+    pendingUpdate = { version: info.version, releaseNotes: info.releaseNotes || '' };
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', pendingUpdate);
+    }
   }
+  // Don't reset updateDownloaded or pendingUpdate if we already have this version downloaded
 });
 
+// Safety timeout: if download reaches 100% but update-downloaded never fires,
+// force the state after 10s (electron-updater sometimes hangs on verification)
+let downloadCompleteTimeout = null;
 autoUpdater.on('download-progress', (progress) => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('update-progress', Math.round(progress.percent));
+  }
+  // If progress reaches 100%, start a fallback timer
+  if (progress.percent >= 99 && !downloadCompleteTimeout) {
+    downloadCompleteTimeout = setTimeout(() => {
+      if (!updateDownloaded && pendingUpdate) {
+        log.warn('Download progress reached 100% but update-downloaded never fired — forcing state');
+        updateDownloaded = true;
+        savePendingUpdateMarker(pendingUpdate.version);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('update-downloaded');
+        }
+      }
+    }, 10000);
   }
 });
 
 autoUpdater.on('update-downloaded', (info) => {
-  log.info('Update downloaded:', info.version);
+  log.info('Update downloaded successfully:', info.version);
   updateDownloaded = true;
   savePendingUpdateMarker(info.version);
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    log.info('Sending update-downloaded to renderer');
     mainWindow.webContents.send('update-downloaded');
+  } else {
+    log.warn('mainWindow not available for update-downloaded event');
   }
 });
 
@@ -1248,9 +1269,13 @@ ipcMain.handle('check-update', async () => {
 
 ipcMain.handle('download-update', async () => {
   try {
-    autoUpdater.downloadUpdate();
+    const result = await autoUpdater.downloadUpdate();
+    log.info('downloadUpdate resolved:', result);
     return { ok: true };
-  } catch (e) { return { error: e.message }; }
+  } catch (e) {
+    log.error('downloadUpdate failed:', e.message);
+    return { error: e.message };
+  }
 });
 
 ipcMain.handle('install-update', () => {
