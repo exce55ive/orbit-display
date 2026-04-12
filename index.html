@@ -4792,10 +4792,17 @@
             h(LayoutPicker, {config, setConfig}),
             h('button', {className:'add-panel-btn', onClick:onOpenGallery, title:'Add Panel'}, '+'),
             hiddenCount > 0 && h('button', {
-              onClick: openSettings,
+              onClick: () => {
+                const nc = JSON.parse(JSON.stringify(config));
+                const vis = nc.panels || {};
+                (nc.pages||[]).forEach(pg => (pg.panels||[]).forEach(p => { if (vis[p.type] === false) vis[p.type] = true; }));
+                nc.panels = vis;
+                setConfig(nc);
+                window.orbit.saveConfig(nc);
+              },
               style:{fontSize:'9px',color:'#ffb400',background:'rgba(255,180,0,0.08)',border:'1px solid rgba(255,180,0,0.25)',borderRadius:'10px',padding:'2px 8px',cursor:'pointer',fontFamily:'inherit',fontWeight:'700',letterSpacing:'0.5px'},
-              title: hiddenCount + ' hidden panel(s) — click to open Settings and restore'
-            }, hiddenCount + ' hidden')
+              title: 'Restore all hidden panels'
+            }, hiddenCount + ' restore')
           ),
 
           // Centre — page dots + name (only if multiple pages)
